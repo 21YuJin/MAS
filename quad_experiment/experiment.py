@@ -201,11 +201,12 @@ if len(n_df) > 1 and len(a_df) > 0:
     scaler   = StandardScaler().fit(n_df[FEATS])
     scores_n = np.linalg.norm(scaler.transform(n_df[FEATS]), axis=1)
     scores_a = np.linalg.norm(scaler.transform(a_df[FEATS]), axis=1)
-    theta    = scores_n.mean() + 2*scores_n.std()
-    tpr      = (scores_a > theta).mean()
-    fpr      = (scores_n > theta).mean()
+    upper = scores_n.mean() + 2*scores_n.std()
+    lower = scores_n.mean() - 2*scores_n.std()
+    tpr   = ((scores_a > upper) | (scores_a < lower)).mean()
+    fpr   = ((scores_n > upper) | (scores_n < lower)).mean()
     print(f"[ 탐지 성능 — Researcher ]")
-    print(f"  TPR: {tpr:.4f}  FPR: {fpr:.4f}  θ={theta:.4f}")
+    print(f"  TPR: {tpr:.4f}  FPR: {fpr:.4f}  upper={upper:.4f}  lower={lower:.4f}")
 
 # ══════════════════════════════════════════════
 # Figure 1: 에이전트별 피처 분포

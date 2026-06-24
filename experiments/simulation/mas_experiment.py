@@ -214,7 +214,7 @@ fig1.legend(handles=[mpatches.Patch(color=BLUE,label="Normal"),
                      mpatches.Patch(color=RED,label="Anomalous (prompt injection)")],
             loc="lower center",ncol=2,fontsize=10,bbox_to_anchor=(0.5,-0.02))
 plt.tight_layout(rect=[0,0.04,1,1])
-plt.savefig("./output/figure1_v3.png",dpi=150,bbox_inches="tight"); plt.close()
+plt.savefig("./output/simulation/figure1_v3.png",dpi=150,bbox_inches="tight"); plt.close()
 
 # Fig 2: ROC 비교
 fig2,ax2=plt.subplots(figsize=(8,6))
@@ -234,7 +234,7 @@ ax2.set_title("Figure 2. ROC Curve Comparison\n4 Baselines vs. Proposed Framewor
               fontsize=12,fontweight="bold")
 ax2.legend(fontsize=9,loc="lower right"); ax2.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig("./output/figure2_roc_v3.png",dpi=150,bbox_inches="tight"); plt.close()
+plt.savefig("./output/simulation/figure2_roc_v3.png",dpi=150,bbox_inches="tight"); plt.close()
 
 # Fig 3: 성능 Bar
 fig3,axes3=plt.subplots(1,3,figsize=(14,5))
@@ -256,7 +256,7 @@ for ax,vals,title,ylab in zip(axes3,
         ax.text(bar.get_x()+bar.get_width()/2,v+0.02,f"{v:.3f}",
                 ha="center",va="bottom",fontsize=8.5,fontweight="bold")
 plt.tight_layout()
-plt.savefig("./output/figure3_perf_v3.png",dpi=150,bbox_inches="tight"); plt.close()
+plt.savefig("./output/simulation/figure3_perf_v3.png",dpi=150,bbox_inches="tight"); plt.close()
 
 # Fig 4: 적응형 임계값 동작
 fig4,(ax4a,ax4b)=plt.subplots(1,2,figsize=(13,5))
@@ -281,7 +281,7 @@ ax4b.set_title("(b) α Decay: ↓α = ↑Sensitivity\nAuto-adjusts as anomalies 
                fontsize=10,fontweight="bold")
 ax4b.set_ylim(0.8,2.3); ax4b.legend(fontsize=8.5); ax4b.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig("./output/figure4_adaptive_v3.png",dpi=150,bbox_inches="tight"); plt.close()
+plt.savefig("./output/simulation/figure4_adaptive_v3.png",dpi=150,bbox_inches="tight"); plt.close()
 
 # Fig 5: 격리 효과
 fig5,(ax5a,ax5b)=plt.subplots(1,2,figsize=(13,5))
@@ -318,7 +318,7 @@ ax5b.set_title(f"(b) Agent-3 Recovery Timeline\n(Isolation delay: {ISO_DELAY} tu
                fontsize=10,fontweight="bold")
 ax5b.legend(fontsize=8.5); ax5b.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig("./output/figure5_isolation_v3.png",dpi=150,bbox_inches="tight"); plt.close()
+plt.savefig("./output/simulation/figure5_isolation_v3.png",dpi=150,bbox_inches="tight"); plt.close()
 
 # Fig 6: 위협 전파 분석
 fig6,(ax6a,ax6b)=plt.subplots(1,2,figsize=(13,5))
@@ -347,7 +347,7 @@ ax6b.set_xlabel("Turn"); ax6b.set_ylabel("Anomaly Score")
 ax6b.set_title("(b) Anomaly Score: Agent-3",fontsize=10,fontweight="bold")
 ax6b.legend(fontsize=9); ax6b.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig("./output/figure6_propagation_v3.png",dpi=150,bbox_inches="tight"); plt.close()
+plt.savefig("./output/simulation/figure6_propagation_v3.png",dpi=150,bbox_inches="tight"); plt.close()
 
 # ── 최종 요약 출력 ────────────────────────────
 print("\n"+"="*65)

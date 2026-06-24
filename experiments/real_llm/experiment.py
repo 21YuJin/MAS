@@ -240,7 +240,7 @@ for row, agent in enumerate(agents):
         ax.legend(fontsize=7); ax.grid(alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("result_v2_distribution.png", dpi=150, bbox_inches="tight")
+plt.savefig("./output/real_llm/result_v2_distribution.png", dpi=150, bbox_inches="tight")
 plt.close()
 
 # ══════════════════════════════════════════════
@@ -295,9 +295,9 @@ if len(n2) > 1:
         axes2[1].legend(); axes2[1].grid(alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("result_v2_anomaly_score.png", dpi=150, bbox_inches="tight")
+plt.savefig("./output/real_llm/result_v2_anomaly_score.png", dpi=150, bbox_inches="tight")
 plt.close()
 
-print("\n[저장] result_v2_distribution.png")
-print("[저장] result_v2_anomaly_score.png")
+print("\n[저장] output/real_llm/result_v2_distribution.png")
+print("[저장] output/real_llm/result_v2_anomaly_score.png")
 print("\n실험 완료!")

@@ -118,12 +118,12 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
 | Method | TPR | FPR | F1 | AUC | 추론 속도 |
 |--------|:---:|:---:|:---:|:---:|:---:|
 | Threshold (B1) | 0.017 | 0.019 | 0.032 | 0.514 | ~0 ms |
-| Isolation Forest (B2) | 0.998 | 0.099 | 0.996 | 0.999 | 0.116 ms |
+| Isolation Forest (B2) | 0.998 | 0.099 | 0.996 | 0.999 | 0.120 ms |
 | Z-score (B3) | 1.000 | 0.024 | 0.999 | 1.000 | 0.001 ms |
 | Sliding GNN (B4) | 1.000 | 0.001 | 1.000 | 1.000 | 0.001 ms |
 | **LightGAE (제안)** | **0.993** | **0.039** | **0.996** | **0.999** | **0.001 ms** |
 
-> Isolation Forest 대비 **약 100배 빠르면서** 유사한 탐지 성능.  
+> Isolation Forest 대비 **약 150배 빠르면서** 유사한 탐지 성능.  
 > 파라미터 461개로 실시간 배포 가능한 초경량 모델.
 
 ### 공격 유형별 AUC
@@ -177,6 +177,7 @@ Type-IV 공격 (전체 오염):
 | **Safety Filter 실험 없음** | 논문 핵심 주장("Filter 발동 시 탐지 신호 강화")의 실험 미구현 |
 | **단일 모델** | llama3.2 하나만 검증. 다른 LLM에서 일반화되는지 불명 |
 | **Type-IV 노드 식별 불안정** | 동시 다중 오염 시 Orchestrator 점수가 튀는 현상 관찰됨 |
+| **Graph 구조 기여 미미** | Ablation 결과 ΔAUC=−0.0004 (MLP-AE와 거의 동일). 시뮬레이션 데이터 특성상 그래프 관계 신호가 약할 수 있음 |
 
 > ~~세션 수 60개 / 통계 유의성 없음~~ → N=200 + Mann-Whitney U (모두 p<0.001, d=2.11) 로 해결
 
@@ -187,8 +188,8 @@ Type-IV 공격 (전체 오염):
 **완료**
 - ✅ N=200 세션으로 통계 검증 확보
 - ✅ Mann-Whitney U test + Cohen's d 추가
-- ✅ 다중 시드 검증 코드 (5 seeds, mean ± std) — 실행 결과 대기
-- ✅ Ablation study 코드 (LightGAE vs MLP-AE) — 실행 결과 대기
+- ✅ 다중 시드 검증 (5 seeds): AUC 0.9986 ± 0.0002, F1 0.9950 ± 0.0007
+- ✅ Ablation study: LightGAE vs MLP-AE → ΔAUC = −0.0004 (graph 기여 미미, 솔직하게 기재)
 
 **1순위 — 실제 LLM 검증 (1~2주)**  
 LightGAE를 Ollama 파이프라인에 붙여 시뮬레이션 결과가 실제 LLM에서도 재현되는지 확인

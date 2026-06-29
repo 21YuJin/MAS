@@ -32,6 +32,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import roc_auc_score, f1_score, roc_curve, confusion_matrix
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from scipy import stats
 
 warnings.filterwarnings('ignore')
 torch.manual_seed(42)
@@ -271,7 +272,7 @@ print("="*65)
 
 # 5-1 Data
 print("\n[1/5] 데이터 생성...")
-N_SESS = 60
+N_SESS = 200
 X_all, y_all, t_all = build_dataset(n_sess=N_SESS, n_turns=30, win=5)
 mask_n = (y_all == 0)
 X_norm = X_all[mask_n]
@@ -579,6 +580,43 @@ plt.tight_layout()
 plt.savefig(f"{OUT}/lgnn_fig6_node_timing.png", dpi=150, bbox_inches="tight")
 plt.close()
 print("  Fig 6 saved.")
+
+# ══════════════════════════════════════════════════════════════
+# §6.5  통계 검정 (Mann-Whitney U Test)
+# ══════════════════════════════════════════════════════════════
+
+print("\n[통계 검정] Mann-Whitney U Test")
+print(f"{'Feature':<14} {'정상 μ':>10} {'이상 μ':>10} "
+      f"{'p-value':>12} {'유의성':>8}")
+print("─"*58)
+
+# Researcher 노드 기준 (index=1)
+X_res_norm = X_all[y_all==0, 1, :]   # 정상
+X_res_anom = X_all[y_all==1, 1, :]   # 이상
+
+for i, feat in enumerate(FEAT_NAMES):
+    n_vals = X_res_norm[:, i]
+    a_vals = X_res_anom[:, i]
+    _, p   = stats.mannwhitneyu(n_vals, a_vals, alternative='two-sided')
+    sig    = "***" if p<0.001 else "**" if p<0.01 \
+             else "*" if p<0.05 else "n.s."
+    print(f"{feat:<14} {n_vals.mean():>10.3f} {a_vals.mean():>10.3f} "
+          f"{p:>12.4e} {sig:>8}")
+
+print("\n* p<0.05  ** p<0.01  *** p<0.001")
+
+# H0 검증: LightGAE 점수가 정상/이상 간 유의미하게 다른가
+n_scores = sc_gae[y_test==0]
+a_scores = sc_gae[y_test==1]
+_, p_gae = stats.mannwhitneyu(n_scores, a_scores, alternative='two-sided')
+print(f"\nLightGAE 이상 점수 검정: p={p_gae:.4e} "
+      f"({'유의미' if p_gae<0.05 else '유의미하지 않음'})")
+
+# Effect size (Cohen's d)
+pooled_std = np.sqrt((n_scores.std()**2 + a_scores.std()**2) / 2)
+cohens_d   = (a_scores.mean() - n_scores.mean()) / (pooled_std + 1e-8)
+print(f"Effect size (Cohen's d): {cohens_d:.4f} "
+      f"({'large' if abs(cohens_d)>0.8 else 'medium' if abs(cohens_d)>0.5 else 'small'})")
 
 # ══════════════════════════════════════════════════════════════
 # §7.  SUMMARY

@@ -167,14 +167,15 @@ class LightGAE(nn.Module):
     Lightweight Graph Autoencoder for one-class anomaly detection.
     Trained on normal sessions only; anomalies yield high recon error.
     """
-    def __init__(self, in_dim=N_FEATS, hid=16, emb=8):
+    def __init__(self, in_dim=N_FEATS, hid=16, emb=8, verbose=True):
         super().__init__()
         self.gc1  = GCNLayer(in_dim, hid)
         self.gc2  = GCNLayer(hid,    emb)
         self.dec1 = nn.Linear(emb, hid)
         self.dec2 = nn.Linear(hid, in_dim)
-        n_params  = sum(p.numel() for p in self.parameters())
-        print(f"  LightGAE  hid={hid}  emb={emb}  params={n_params:,}")
+        if verbose:
+            n_params = sum(p.numel() for p in self.parameters())
+            print(f"  LightGAE  hid={hid}  emb={emb}  params={n_params:,}")
 
     def encode(self, X, A):
         H1 = F.relu(self.gc1(X, A))
@@ -199,7 +200,7 @@ class LightGAE(nn.Module):
         return graph_err.numpy(), node_err.numpy(), z.numpy()
 
 
-def train_lgae(model, X_normal, A, epochs=150, lr=1e-3, bs=64):
+def train_lgae(model, X_normal, A, epochs=150, lr=1e-3, bs=64, verbose=True):
     opt   = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, epochs)
     X_t   = torch.FloatTensor(X_normal)
@@ -216,9 +217,54 @@ def train_lgae(model, X_normal, A, epochs=150, lr=1e-3, bs=64):
             ep_loss += loss.item()
         sched.step()
         losses.append(ep_loss)
-        if (ep + 1) % 50 == 0:
+        if verbose and (ep + 1) % 50 == 0:
             print(f"    epoch {ep+1:3d}/{epochs}  loss={ep_loss:.5f}")
     return losses
+
+
+# ══════════════════════════════════════════════════════════════
+# §3.5  MLP AUTOENCODER  (Ablation Baseline — no graph)
+# ══════════════════════════════════════════════════════════════
+
+class MLPAE(nn.Module):
+    """Flat MLP Autoencoder — treats nodes independently, no message passing."""
+    def __init__(self, in_dim=N_AGENTS * N_FEATS, hid=16, emb=8, verbose=True):
+        super().__init__()
+        self.enc = nn.Sequential(
+            nn.Linear(in_dim, hid), nn.ReLU(), nn.Dropout(0.1),
+            nn.Linear(hid, emb))
+        self.dec = nn.Sequential(
+            nn.Linear(emb, hid), nn.ReLU(),
+            nn.Linear(hid, in_dim))
+        if verbose:
+            n_params = sum(p.numel() for p in self.parameters())
+            print(f"  MLPAE     hid={hid}  emb={emb}  params={n_params:,}")
+
+    def forward(self, X):
+        B = X.shape[0]
+        z = self.enc(X.reshape(B, -1))
+        return self.dec(z).reshape(B, N_AGENTS, N_FEATS)
+
+    @torch.no_grad()
+    def score(self, X_t):
+        self.eval()
+        X_hat    = self.forward(X_t)
+        node_err = ((X_t - X_hat) ** 2).mean(dim=2)
+        return node_err.mean(dim=1).numpy()
+
+
+def train_mlpae(model, X_normal, epochs=150, lr=1e-3, bs=64):
+    opt   = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, epochs)
+    X_t   = torch.FloatTensor(X_normal)
+    for ep in range(epochs):
+        model.train()
+        idx = np.random.permutation(len(X_t))
+        for i in range(0, len(idx), bs):
+            b    = X_t[idx[i:i+bs]]
+            loss = F.mse_loss(model(b), b)
+            opt.zero_grad(); loss.backward(); opt.step()
+        sched.step()
 
 
 # ══════════════════════════════════════════════════════════════
@@ -582,6 +628,142 @@ plt.close()
 print("  Fig 6 saved.")
 
 # ══════════════════════════════════════════════════════════════
+# §5.7  다중 시드 검증  (5 seeds → mean ± std)
+# ══════════════════════════════════════════════════════════════
+SEEDS = [42, 0, 1, 7, 123]
+print(f"\n[다중 시드 검증] seeds={SEEDS}")
+seed_records = []
+for s in SEEDS:
+    torch.manual_seed(s); np.random.seed(s)
+    Xa, ya, _ = build_dataset(n_sess=N_SESS, n_turns=30, win=5)
+    mn   = (ya == 0)
+    sc_  = StandardScaler().fit(Xa[mn].reshape(mn.sum(), -1))
+    Xa_s = sc_.transform(Xa.reshape(len(Xa), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    Xn_s = sc_.transform(Xa[mn].reshape(mn.sum(), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    ntr  = int(0.8 * len(Xn_s))
+    Xtr, Xv = Xn_s[:ntr], Xn_s[ntr:]
+    Xte  = np.concatenate([Xv, Xa_s[~mn]])
+    yte  = np.concatenate([ya[mn][ntr:], ya[~mn]])
+    m    = LightGAE(in_dim=N_FEATS, hid=16, emb=8, verbose=False)
+    train_lgae(m, Xtr, ADJ, epochs=100, lr=1e-3, bs=64, verbose=False)
+    vs, _, _ = m.score(torch.FloatTensor(Xv), ADJ)
+    th       = vs.mean() + 2 * vs.std()
+    sc_s, _, _ = m.score(torch.FloatTensor(Xte), ADJ)
+    r = metrics(yte, sc_s, (sc_s > th).astype(int))
+    seed_records.append(r)
+    print(f"  seed={s:3d}  AUC={r['AUC']:.4f}  F1={r['F1']:.4f}  "
+          f"TPR={r['TPR']:.4f}  FPR={r['FPR']:.4f}")
+
+seed_means = {met: np.mean([r[met] for r in seed_records]) for met in ['AUC','F1','TPR','FPR']}
+seed_stds  = {met: np.std( [r[met] for r in seed_records]) for met in ['AUC','F1','TPR','FPR']}
+print(f"\n  LightGAE (N={len(SEEDS)} seeds):")
+for met in ['AUC', 'F1', 'TPR', 'FPR']:
+    print(f"    {met}: {seed_means[met]:.4f} ± {seed_stds[met]:.4f}")
+
+# ══════════════════════════════════════════════════════════════
+# §5.8  Ablation — LightGAE (GCN) vs MLP-AE (no graph)
+# ══════════════════════════════════════════════════════════════
+torch.manual_seed(42); np.random.seed(42)
+print(f"\n[Ablation] LightGAE (GCN) vs MLP-AE (no graph structure)")
+mlp_model = MLPAE(in_dim=N_AGENTS * N_FEATS, hid=16, emb=8, verbose=True)
+train_mlpae(mlp_model, X_train, epochs=150, lr=1e-3, bs=64)
+
+sc_mlp    = mlp_model.score(X_test_t)
+vs_mlp    = mlp_model.score(torch.FloatTensor(X_val))
+theta_mlp = vs_mlp.mean() + 2 * vs_mlp.std()
+pd_mlp    = (sc_mlp > theta_mlp).astype(int)
+res_mlp   = metrics(y_test, sc_mlp, pd_mlp)
+r_gae     = res["LightGAE [proposed]"]
+
+print(f"\n  {'Method':<22} {'AUC':>7} {'F1':>7} {'TPR':>7} {'FPR':>7}")
+print("  " + "─"*46)
+print(f"  {'LightGAE (GCN)':<22} {r_gae['AUC']:>7.4f} {r_gae['F1']:>7.4f} "
+      f"{r_gae['TPR']:>7.4f} {r_gae['FPR']:>7.4f}")
+print(f"  {'MLP-AE (no graph)':<22} {res_mlp['AUC']:>7.4f} {res_mlp['F1']:>7.4f} "
+      f"{res_mlp['TPR']:>7.4f} {res_mlp['FPR']:>7.4f}")
+print("  " + "─"*46)
+delta_auc = r_gae['AUC'] - res_mlp['AUC']
+print(f"  ΔAUC (GCN − MLP): {delta_auc:+.4f}  "
+      f"{'← graph structure contributes' if delta_auc > 0 else '← no graph benefit (check data)'}")
+
+print(f"\n  공격 유형별 AUC 비교:")
+print(f"  {'Attack':<22} {'LightGAE':>10} {'MLP-AE':>10} {'Δ':>8}")
+print("  " + "─"*52)
+abl_per_atk = {}
+for ak in atk_keys:
+    mask    = (t_test == ak) | (t_test == "Normal")
+    y_s     = y_test[mask]
+    auc_gae = roc_auc_score(y_s, sc_gae[mask])
+    auc_mlp = roc_auc_score(y_s, sc_mlp[mask])
+    abl_per_atk[ak] = {"LightGAE": auc_gae, "MLPAE": auc_mlp}
+    print(f"  {ak:<22} {auc_gae:>10.4f} {auc_mlp:>10.4f} {auc_gae - auc_mlp:>+8.4f}")
+
+# ── Fig 7: Ablation Study ──────────────────────────────────
+fig7, (ax7a, ax7b) = plt.subplots(1, 2, figsize=(13, 5))
+fig7.suptitle("Figure 7. Ablation Study: Graph Structure vs. Flat MLP Autoencoder",
+              fontsize=12, fontweight="bold")
+
+met_labels = ['AUC', 'F1', 'TPR', 'FPR']
+x7  = np.arange(len(met_labels))
+w   = 0.35
+gae_vals = [r_gae[m]   for m in met_labels]
+mlp_vals = [res_mlp[m] for m in met_labels]
+b_gae = ax7a.bar(x7 - w/2, gae_vals, w, label='LightGAE (GCN)', color=RED,  alpha=0.85)
+b_mlp = ax7a.bar(x7 + w/2, mlp_vals, w, label='MLP-AE (no graph)', color=GRAY, alpha=0.85)
+ax7a.set_xticks(x7); ax7a.set_xticklabels(met_labels, fontsize=11)
+ax7a.set_ylim(0, 1.25); ax7a.grid(axis='y', alpha=0.3)
+ax7a.legend(fontsize=9)
+ax7a.set_title("(a) Overall Detection Metrics", fontweight="bold")
+for bar, v in zip(list(b_gae) + list(b_mlp), gae_vals + mlp_vals):
+    ax7a.text(bar.get_x() + bar.get_width()/2, v + 0.02,
+              f"{v:.3f}", ha='center', fontsize=8, fontweight='bold')
+
+atk_short = [k.replace('Type-', 'T') for k in abl_per_atk]
+gae_atk   = [abl_per_atk[k]['LightGAE'] for k in abl_per_atk]
+mlp_atk   = [abl_per_atk[k]['MLPAE']    for k in abl_per_atk]
+x7b       = np.arange(len(atk_short))
+ax7b.bar(x7b - w/2, gae_atk, w, label='LightGAE (GCN)', color=RED,  alpha=0.85)
+ax7b.bar(x7b + w/2, mlp_atk, w, label='MLP-AE (no graph)', color=GRAY, alpha=0.85)
+ax7b.set_xticks(x7b); ax7b.set_xticklabels(atk_short, fontsize=9)
+ymin7b = max(0.9, min(gae_atk + mlp_atk) - 0.02)
+ax7b.set_ylim(ymin7b, 1.01); ax7b.grid(axis='y', alpha=0.3)
+ax7b.legend(fontsize=9)
+ax7b.set_title("(b) Per-Attack Type AUC", fontweight="bold")
+for x_pos, g, p in zip(x7b, gae_atk, mlp_atk):
+    ax7b.text(x_pos - w/2, g + 0.001, f"{g:.4f}", ha='center', fontsize=7,
+              color=RED, fontweight='bold')
+    ax7b.text(x_pos + w/2, p + 0.001, f"{p:.4f}", ha='center', fontsize=7, color='#555')
+
+plt.tight_layout()
+plt.savefig(f"{OUT}/lgnn_fig7_ablation.png", dpi=150, bbox_inches="tight")
+plt.close()
+print("  Fig 7 saved.")
+
+# ── Fig 8: Multi-seed Robustness ───────────────────────────
+fig8, ax8 = plt.subplots(figsize=(8, 5))
+ms_metrics = ['AUC', 'F1', 'TPR', 'FPR']
+ms_means   = [seed_means[m] for m in ms_metrics]
+ms_stds    = [seed_stds[m]  for m in ms_metrics]
+x8         = np.arange(len(ms_metrics))
+bars8      = ax8.bar(x8, ms_means, color=[RED, BLUE, GREEN, ORANGE],
+                     alpha=0.85, edgecolor='white', width=0.5)
+ax8.errorbar(x8, ms_means, yerr=ms_stds, fmt='none',
+             color='black', capsize=7, capthick=2, elinewidth=2)
+ax8.set_xticks(x8); ax8.set_xticklabels(ms_metrics, fontsize=12)
+ax8.set_ylim(0, 1.2); ax8.grid(axis='y', alpha=0.3)
+ax8.set_title(f"Figure 8. LightGAE Robustness Across {len(SEEDS)} Random Seeds\n"
+              f"(N={N_SESS} sessions/seed, 100 epochs each)",
+              fontsize=12, fontweight="bold")
+for bar, m_v, s_v in zip(bars8, ms_means, ms_stds):
+    ax8.text(bar.get_x() + bar.get_width()/2, m_v + s_v + 0.015,
+             f"{m_v:.4f}\n±{s_v:.4f}", ha='center', fontsize=9, fontweight='bold')
+
+plt.tight_layout()
+plt.savefig(f"{OUT}/lgnn_fig8_multiseed.png", dpi=150, bbox_inches="tight")
+plt.close()
+print("  Fig 8 saved.")
+
+# ══════════════════════════════════════════════════════════════
 # §6.5  통계 검정 (Mann-Whitney U Test)
 # ══════════════════════════════════════════════════════════════
 
@@ -640,9 +822,19 @@ print(f"\n  공격 유형별 AUC:")
 for ak, v in per_atk.items():
     print(f"    {ak:<22}  AUC={v['AUC']:.4f}  TPR={v['TPR']:.4f}")
 
+print(f"\n  [Ablation] LightGAE (GCN) vs MLP-AE (no graph):")
+print(f"    LightGAE (GCN) : AUC={r_gae['AUC']:.4f}  F1={r_gae['F1']:.4f}")
+print(f"    MLP-AE (flat)  : AUC={res_mlp['AUC']:.4f}  F1={res_mlp['F1']:.4f}")
+print(f"    ΔAUC = {delta_auc:+.4f}  (그래프 구조 기여)")
+
+print(f"\n  [다중 시드] N={len(SEEDS)} seeds (mean ± std):")
+for met in ['AUC', 'F1', 'TPR', 'FPR']:
+    print(f"    {met}: {seed_means[met]:.4f} ± {seed_stds[met]:.4f}")
+
 print("\n  Figure 저장 위치:")
-for i in range(1, 7):
-    fnames = ["mas_graph","feature_dist","embedding_pca","roc","performance","node_timing"]
-    print(f"    output/lgnn_fig{i}_{fnames[i-1]}.png")
+fnames = ["mas_graph","feature_dist","embedding_pca","roc","performance",
+          "node_timing","ablation","multiseed"]
+for i, fn in enumerate(fnames, 1):
+    print(f"    output/lgnn_fig{i}_{fn}.png")
 
 print("\n실험 완료.")

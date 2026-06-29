@@ -95,12 +95,14 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
   └─ DecoderLayer 2:  16 →  5   (원본 피처 재구성)
 
 총 파라미터: 461개  (스마트폰 앱보다 수천 배 작음)
-추론 속도:   0.0005 ms/sample
+추론 속도:   0.001 ms/sample
 ```
 
 ---
 
 ## 실험 및 결과
+
+> **실험 규모:** N=200 세션/유형, 30턴/세션, 슬라이딩 윈도우(w=5)
 
 ### 공격 유형 4가지
 
@@ -111,17 +113,17 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
 | Type-III Slow | 아주 천천히 점진적 오염 | 40% | 15% |
 | Type-IV Flood | Researcher + Writer 동시 오염 | 65% | 65% |
 
-### 탐지 성능 (전체 공격 유형 합산)
+### 탐지 성능 (전체 공격 유형 합산, N=200)
 
 | Method | TPR | FPR | F1 | AUC | 추론 속도 |
 |--------|:---:|:---:|:---:|:---:|:---:|
-| Threshold (B1) | 0.016 | 0.029 | 0.031 | 0.525 | ~0 ms |
-| Isolation Forest (B2) | 0.998 | 0.099 | 0.997 | 0.999 | 0.071 ms |
-| Z-score (B3) | 1.000 | 0.029 | 0.999 | 1.000 | 0.001 ms |
-| Sliding GNN (B4) | 1.000 | 0.000 | 1.000 | 1.000 | 0.001 ms |
-| **LightGAE (제안)** | **0.997** | **0.042** | **0.998** | **0.9996** | **0.0005 ms** |
+| Threshold (B1) | 0.017 | 0.019 | 0.032 | 0.514 | ~0 ms |
+| Isolation Forest (B2) | 0.998 | 0.099 | 0.996 | 0.999 | 0.116 ms |
+| Z-score (B3) | 1.000 | 0.024 | 0.999 | 1.000 | 0.001 ms |
+| Sliding GNN (B4) | 1.000 | 0.001 | 1.000 | 1.000 | 0.001 ms |
+| **LightGAE (제안)** | **0.993** | **0.039** | **0.996** | **0.999** | **0.001 ms** |
 
-> Isolation Forest 대비 **142배 빠르면서** 유사한 탐지 성능.  
+> Isolation Forest 대비 **약 100배 빠르면서** 유사한 탐지 성능.  
 > 파라미터 461개로 실시간 배포 가능한 초경량 모델.
 
 ### 공격 유형별 AUC
@@ -130,10 +132,24 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
 |-----------|:---:|:---:|
 | Type-I Direct | 1.0000 | 1.0000 |
 | Type-II Harvest | 1.0000 | 1.0000 |
-| Type-III Slow | 0.9985 | 0.9891 |
+| Type-III Slow | 0.9949 | 0.9735 |
 | Type-IV Flood | 1.0000 | 1.0000 |
 
-> 가장 어려운 Type-III(점진적 오염)도 AUC 0.9985로 탐지 성공.
+> 가장 어려운 Type-III(점진적 오염)도 AUC 0.9949로 탐지 성공.
+
+### 통계 검정 (Mann-Whitney U Test, N=200)
+
+| Feature | 정상 μ | 이상 μ | p-value | 유의성 |
+|---------|:---:|:---:|:---:|:---:|
+| latency | 0.851 | 1.171 | < 0.001 | *** |
+| token_count | 159.7 | 216.7 | < 0.001 | *** |
+| api_freq | 2.49 | 4.62 | < 0.001 | *** |
+| ctx_delta | 0.050 | 0.143 | < 0.001 | *** |
+| call_seq | 0.000 | 0.498 | < 0.001 | *** |
+
+LightGAE 이상 점수 검정: p < 0.001 | **Cohen's d = 2.11 (large effect)**
+
+5개 메타데이터 피처 전부 통계적으로 유의미하며, 효과 크기가 매우 크다.
 
 ### 노드 수준 에이전트 식별
 
@@ -141,14 +157,14 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
 
 ```
 Type-I 공격 (Researcher만 침해):
-  Orchestrator  3.42  ← 정상
-  Researcher   51.39  ← 침해됨! ★
-  Writer        3.37  ← 정상
+  Orchestrator  6.69  ← 정상
+  Researcher   39.96  ← 침해됨! ★
+  Writer        6.58  ← 정상
 
 Type-IV 공격 (전체 오염):
-  Orchestrator  4.87  ← 정상
-  Researcher   14.74  ← 오염됨
-  Writer        15.94 ← 전파됨 ★
+  Orchestrator 10.32  ← 정상 (동시 다중 오염 시 노이즈 발생)
+  Researcher    7.80  ← 오염됨
+  Writer        8.13  ← 전파됨 ★
 ```
 
 ---
@@ -158,13 +174,21 @@ Type-IV 공격 (전체 오염):
 | 한계 | 설명 |
 |------|------|
 | **시뮬레이션 데이터** | 실험이 전부 수치 시뮬레이션. 진짜 LLM에서도 동작하는지 미검증 |
-| **세션 수** | 60세션. 통계적 유의성(p-value) 미확보 |
 | **Safety Filter 실험 없음** | 논문 핵심 주장("Filter 발동 시 탐지 신호 강화")의 실험 미구현 |
 | **단일 모델** | llama3.2 하나만 검증. 다른 LLM에서 일반화되는지 불명 |
+| **Type-IV 노드 식별 불안정** | 동시 다중 오염 시 Orchestrator 점수가 튀는 현상 관찰됨 |
+
+> ~~세션 수 60개 / 통계 유의성 없음~~ → N=200 + Mann-Whitney U (모두 p<0.001, d=2.11) 로 해결
 
 ---
 
 ## 다음 단계
+
+**완료**
+- ✅ N=200 세션으로 통계 검증 확보
+- ✅ Mann-Whitney U test + Cohen's d 추가
+- ✅ 다중 시드 검증 코드 (5 seeds, mean ± std) — 실행 결과 대기
+- ✅ Ablation study 코드 (LightGAE vs MLP-AE) — 실행 결과 대기
 
 **1순위 — 실제 LLM 검증 (1~2주)**  
 LightGAE를 Ollama 파이프라인에 붙여 시뮬레이션 결과가 실제 LLM에서도 재현되는지 확인
@@ -172,8 +196,8 @@ LightGAE를 Ollama 파이프라인에 붙여 시뮬레이션 결과가 실제 LL
 **2순위 — Safety Filter 실험 (2~4주)**  
 LLM이 거절/경고 응답을 낼 때 메타데이터 변화를 측정 → 논문의 핵심 차별점 완성
 
-**3순위 — 통계 검증 (1주)**  
-세션 200+로 확장, Mann-Whitney U test로 p-value 확보
+**3순위 — 다중 시드 / Ablation 결과 문서화**  
+실행 완료 후 수치를 README 및 논문 초안에 반영
 
 ---
 
@@ -191,30 +215,39 @@ MAS/
 └── output/
     ├── simulation/               # Figure 6종
     ├── real_llm/                 # 실험 결과 8종
-    └── lgnn/                     # Figure 6종
+    └── lgnn/                     # Figure 8종
+        ├── lgnn_fig1_mas_graph.png
+        ├── lgnn_fig2_feature_dist.png
+        ├── lgnn_fig3_embedding_pca.png
+        ├── lgnn_fig4_roc.png
+        ├── lgnn_fig5_performance.png
+        ├── lgnn_fig6_node_timing.png
+        ├── lgnn_fig7_ablation.png       # NEW: GCN vs MLP-AE
+        └── lgnn_fig8_multiseed.png      # NEW: 다중 시드 검증
 ```
 
 ## 실행 방법
 
 ```bash
 # 환경 설정
-pip3 install numpy pandas scikit-learn matplotlib torch networkx
+pip install numpy pandas scikit-learn matplotlib torch networkx scipy
 
-# LightGAE 핵심 실험 (프로젝트 루트에서 실행)
-python3 experiments/lgnn/mas_lgnn.py
+# LightGAE 핵심 실험 (프로젝트 루트에서 실행, 약 10~15분)
+python experiments/lgnn/mas_lgnn.py
 
 # 시뮬레이션 실험
-python3 experiments/simulation/mas_experiment.py
+python experiments/simulation/mas_experiment.py
 
 # 실제 LLM 실험 (Ollama 필요)
 ollama serve  # 별도 터미널
-python3 experiments/real_llm/experiment.py
+python experiments/real_llm/experiment.py
 ```
 
 | 패키지 | 버전 |
 |--------|------|
-| Python | 3.9.6 |
-| PyTorch | 2.8.0 |
-| NumPy | 2.0.2 |
+| Python | 3.11.x |
+| PyTorch | 2.3.1+cpu |
+| NumPy | 1.26.4 |
 | scikit-learn | 1.6.1 |
 | matplotlib | 3.9.4 |
+| scipy | 최신 |

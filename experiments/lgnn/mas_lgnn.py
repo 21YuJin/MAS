@@ -103,16 +103,25 @@ def _lerp(n_val, a_val, p):
         return n_val[0] + p*(a_val[0]-n_val[0]), n_val[1] + p*(a_val[1]-n_val[1])
     return n_val + p*(a_val - n_val)
 
-def sample_agent(p: float) -> list:
+def sample_agent(p: float, context_scale: float = 1.0) -> list:
+    """
+    context_scale: upstream agent's token ratio (res_tokens / normal_mu).
+    Writer passes this to model the causal chain: Researcher output length
+    → Writer processing latency and context delta (real pipeline effect).
+    """
     mu_l, sg_l = _lerp(NP["latency"],     AP["latency"],     p)
     mu_t, sg_t = _lerp(NP["token_count"], AP["token_count"], p)
     mu_c, sg_c = _lerp(NP["ctx_delta"],   AP["ctx_delta"],   p)
     lam_a      = _lerp(NP["api_freq"],    AP["api_freq"],    p)
+    # Latency and ctx_delta scale with upstream context size
+    # (more Researcher output → longer Writer processing time)
+    lat_scale = 0.6 + 0.4 * context_scale
+    ctx_scale = 0.5 + 0.5 * context_scale
     return [
-        max(0.05, np.random.normal(mu_l, sg_l)),
+        max(0.05, np.random.normal(mu_l * lat_scale, sg_l)),
         max(10,   int(np.random.normal(mu_t, sg_t))),
         max(0,    int(np.random.poisson(lam_a))),
-        max(0.0,  np.random.normal(mu_c, sg_c)),
+        max(0.0,  np.random.normal(mu_c * ctx_scale, sg_c)),
         int(np.random.random() < p * 0.7),
     ]
 
@@ -121,9 +130,11 @@ def make_session(atk_key="Normal", n_turns=30, win=5):
     One session → sliding-window graphs.
     Each window aggregates `win` consecutive turns into X ∈ R^{N×F}.
 
-    Writer contamination scales with Researcher's actual token excess to
-    model the real pipeline dependency: Researcher output → Writer input.
-    This creates genuine inter-agent correlation that GCN edges can exploit.
+    Causal pipeline chain:  Orchestrator → Researcher → Writer
+      - Writer contamination probability scales with Researcher's token excess
+      - Writer latency/ctx_delta scales with Researcher's actual token count
+    This creates genuine inter-node feature correlation that GCN edges
+    can exploit but flat MLP-AE cannot (nodes treated independently).
     """
     cfg   = ATTACK_CFG[atk_key]
     label = 0 if atk_key == "Normal" else 1
@@ -132,14 +143,14 @@ def make_session(atk_key="Normal", n_turns=30, win=5):
     for _ in range(n_turns):
         orch = sample_agent(0.0)
         res  = sample_agent(cfg["p_r"])
-        # Writer's contamination is proportional to how much Researcher
-        # deviated from normal token count (causal pipeline effect)
+        # Pass Researcher's actual token ratio as context_scale for Writer
+        res_tok_ratio = res[1] / NP["token_count"][0]   # ~1.0 normal, ~1.5 attack
         if cfg["p_w"] > 0:
             excess = max(0.0, res[1] - NP["token_count"][0]) / (tok_range + 1e-8)
             p_w_eff = cfg["p_w"] * min(1.0, 0.2 + 0.8 * excess)
         else:
             p_w_eff = 0.0
-        wrt = sample_agent(p_w_eff)
+        wrt = sample_agent(p_w_eff, context_scale=res_tok_ratio)
         turns.append([orch, res, wrt])
     out = []
     for i in range(win, n_turns + 1):

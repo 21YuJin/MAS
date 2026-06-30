@@ -95,7 +95,7 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
   └─ DecoderLayer 2:  16 →  5   (원본 피처 재구성)
 
 총 파라미터: 461개  (스마트폰 앱보다 수천 배 작음)
-추론 속도:   0.001 ms/sample
+추론 속도:   0.0008 ms/sample
 ```
 
 ---
@@ -119,9 +119,9 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
 |--------|:---:|:---:|:---:|:---:|:---:|
 | Threshold (B1) | 0.017 | 0.019 | 0.032 | 0.514 | ~0 ms |
 | Isolation Forest (B2) | 0.998 | 0.099 | 0.996 | 0.999 | 0.120 ms |
-| Z-score (B3) | 1.000 | 0.024 | 0.999 | 1.000 | 0.001 ms |
-| Sliding GNN (B4) | 1.000 | 0.001 | 1.000 | 1.000 | 0.001 ms |
-| **LightGAE (제안)** | **0.993** | **0.039** | **0.996** | **0.999** | **0.001 ms** |
+| Z-score (B3) | 0.999 | 0.022 | 0.999 | 0.9999 | 0.001 ms |
+| SlidingZscore (B4) | 1.000 | 0.000 | 1.000 | 1.0000 | 0.001 ms |
+| **LightGAE (제안)** | **0.994** | **0.043** | **0.996** | **0.9988** | **0.0008 ms** |
 
 > Isolation Forest 대비 **약 150배 빠르면서** 유사한 탐지 성능.  
 > 파라미터 461개로 실시간 배포 가능한 초경량 모델.
@@ -147,7 +147,7 @@ Input  X ∈ R^{B × 3 × 5}   (batch × agents × features)
 | ctx_delta | 0.050 | 0.143 | < 0.001 | *** |
 | call_seq | 0.000 | 0.498 | < 0.001 | *** |
 
-LightGAE 이상 점수 검정: p < 0.001 | **Cohen's d = 2.11 (large effect)**
+LightGAE 이상 점수 검정: p < 0.001 | **Cohen's d = 2.15 (large effect)**
 
 5개 메타데이터 피처 전부 통계적으로 유의미하며, 효과 크기가 매우 크다.
 
@@ -173,12 +173,12 @@ Type-IV 공격 (전체 오염):
 
 | 한계 | 설명 |
 |------|------|
-| ~~**시뮬레이션 데이터**~~ | ✅ 실제 LLM (Ollama llama3.2) 검증 완료 — AUC 0.73 (N=30) |
-| **Sim-Real Gap** | 시뮬레이션 AUC 0.9987 vs 실제 LLM AUC ~0.73 — Gap 존재. N 증가 및 피처 개선으로 완화 중 |
-| **Safety Filter 신호 약함** | llama3.2가 인젝션을 거부 → 메타데이터 변화 약함. refusal_flag 피처로 부분 보완 |
+| ~~**시뮬레이션 데이터**~~ | ✅ 실제 LLM (Ollama llama3.2) 검증 완료 — AUC ~0.92 (N=30, 3 seeds) |
+| **Sim-Real Gap** | 시뮬레이션 AUC 0.9987 vs 실제 LLM AUC ~0.92 — Gap ~0.08. llama3.2 safety filter가 injection을 거부(refusal_flag로 포착)하여 behavioral signal이 약해지는 것이 주 원인 |
+| **Safety Filter 신호 약함** | llama3.2가 인젝션을 거부 → 메타데이터 변화 약함. refusal_flag 피처로 거부 응답 자체를 attack signal로 활용 |
 | **단일 모델** | llama3.2 하나만 검증. 다른 LLM에서 일반화되는지 불명 |
 | **Type-IV 노드 식별 불안정** | 동시 다중 오염 시 Orchestrator 점수가 튀는 현상 관찰됨 |
-| **Graph 구조 기여 미미** | Ablation 결과 ΔAUC=−0.0004 (시뮬레이션), 실제 LLM에서도 검증 중 |
+| **Graph 구조 기여 제한적** | Ablation ΔAUC=+0.0007 (시뮬레이션 전체), Type-III Slow에서 +0.0028로 가장 두드러짐. 명시적 공격(I·II·IV)은 양 방법 모두 AUC=1.0으로 천장 효과 |
 
 > ~~세션 수 60개 / 통계 유의성 없음~~ → N=200 + Mann-Whitney U (모두 p<0.001, d=2.11) 로 해결
 
@@ -188,13 +188,18 @@ Type-IV 공격 (전체 오염):
 
 **완료**
 - ✅ N=200 세션으로 통계 검증 확보
-- ✅ Mann-Whitney U test + Cohen's d 추가
-- ✅ 다중 시드 검증 (5 seeds): AUC 0.9986 ± 0.0002, F1 0.9950 ± 0.0007
-- ✅ Ablation study: LightGAE vs MLP-AE → ΔAUC = −0.0004 (graph 기여 미미, 솔직하게 기재)
-- ✅ 실제 LLM 검증 (Ollama llama3.2, N=30): AUC ~0.73, Sim-Real Gap 확인
+- ✅ Mann-Whitney U test + Cohen's d 추가 (d=2.15, large effect)
+- ✅ 다중 시드 검증 (5 seeds): AUC 0.9985 ± 0.0002, F1 0.9950 ± 0.0006
+- ✅ Ablation study: LightGAE vs MLP-AE → ΔAUC = +0.0007 (Type-III Slow: +0.0028)
+- ✅ 실제 LLM 검증 (Ollama llama3.2, N=30, 3 seeds): AUC ~0.92, Sim-Real Gap ~0.08
 - ✅ `refusal_flag` 피처 추가 (6번째): LLM 거부 응답 자체를 attack signal로 활용
 - ✅ Subtle 인젝션 템플릿 추가 (총 6종): 자연어 위장으로 safety filter 우회 시도
-- ✅ 실제 LLM에서도 멀티시드 (3 seeds) + MLPAE ablation 적용
+- ✅ 실제 LLM에서도 멀티시드 (3 seeds) + MLPAE ablation + 95th percentile threshold
+- ✅ 에이전트 간 causal chain 추가: Researcher 토큰 수 → Writer latency/ctx_delta 비례
+  (실제 MAS 파이프라인 모델링, GCN edge 활용 근거 강화)
+- ✅ `api_freq` 실제 LLM 측정 방식 문서화 (sentence count as processing-density proxy)
+- ✅ 추론 속도 측정 신뢰성 강화 (warmup 3회 + 10회 평균)
+- ✅ Figure 품질 개선: dpi 150→300, Fig 6b 로그 스케일, "SlidingZscore" 명칭 수정
 
 **1순위 — 실제 LLM AUC 개선 (진행 중)**  
 - `refusal_flag` 피처로 safety filter 동작 신호 포착
@@ -257,16 +262,17 @@ python experiments/simulation/mas_experiment.py
 python experiments/real_llm/lgnn_experiment.py
 ```
 
-### 실제 LLM 실험 결과 (N=30, Ollama llama3.2)
+### 실제 LLM 실험 결과 (N=30, Ollama llama3.2, 3 seeds)
 
-| Method | AUC (mean) | AUC (std) |
-|--------|:---:|:---:|
-| Z-score | ~0.73 | - |
-| MLPAE (no graph) | ~0.73 | - |
-| **LightGAE (제안)** | **~0.73** | **±std** |
+| Method | AUC (mean) | AUC (std) | F1 (mean) |
+|--------|:---:|:---:|:---:|
+| Z-score (baseline) | ~0.939 | - | ~0.800 |
+| MLPAE (no graph) | ~0.92 | - | - |
+| **LightGAE (제안)** | **~0.917** | **±std** | **~0.808** |
 
-> 시뮬레이션 AUC 0.9987 대비 Gap 존재 (~0.27). `refusal_flag` 피처 추가로 개선 중.  
-> LLM safety filter가 인젝션을 거부할 때도 메타데이터 이상 신호 탐지 가능 (TPR ~0.60).
+> 시뮬레이션 AUC 0.9987 대비 Gap ~0.08 (Sim-Real Gap).  
+> llama3.2 safety filter가 injection을 거부(~97%)하여 behavioral signal이 약해지는 것이 주 원인.  
+> `refusal_flag` 피처가 거부 응답 자체를 attack signal로 포착하여 부분 보완.
 
 | 패키지 | 버전 |
 |--------|------|

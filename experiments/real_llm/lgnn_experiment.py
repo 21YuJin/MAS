@@ -210,14 +210,19 @@ def ask_ollama(prompt):
 
 
 def extract_features(text, latency, tokens, prev_tokens):
-    """실제 LLM 응답에서 6개 메타데이터 피처 추출."""
-    api_freq     = len(re.findall(r'[.!?]', text))
+    """
+    6 metadata features from a single LLM agent response.
+
+    api_freq: in simulation modeled as Poisson(λ∈[2.5,5.5]) for internal
+    API call count; here proxied by sentence count (punctuation density),
+    which correlates with processing complexity under injection load.
+    """
+    sent_count   = len(re.findall(r'[.!?]', text))   # proxy for api_freq
     ctx_delta    = tokens / max(prev_tokens, 1)
     call_seq     = 1 if tokens > 250 else 0
     # refusal_flag: LLM이 인젝션을 거부할 때 나타나는 패턴 감지
-    # 거부 응답 자체가 attack session의 메타데이터 이상 신호가 됨
     refusal_flag = 1 if any(p in text.lower() for p in REFUSAL_PATTERNS) else 0
-    return [latency, float(tokens), float(api_freq), ctx_delta, float(call_seq), float(refusal_flag)]
+    return [latency, float(tokens), float(sent_count), ctx_delta, float(call_seq), float(refusal_flag)]
 
 
 # ══════════════════════════════════════════════════════════════

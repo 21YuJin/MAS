@@ -344,16 +344,18 @@ for seed in SEEDS:
     gae = LightGAE(in_dim=N_FEATS, hid=16, emb=8)
     train_lgae(gae, X_tr, ADJ, epochs=120, lr=1e-3, bs=16)
     sc_gae, node_sc = gae.score(torch.FloatTensor(X_te), ADJ)
-    val_sc, _       = gae.score(torch.FloatTensor(X_val), ADJ)
-    theta_gae       = val_sc.mean() + 2 * val_sc.std()
+    # Threshold: 95th percentile of training reconstruction errors (n=24).
+    # More stable than val mean+2*std (n=6, 4x higher variance).
+    tr_sc, _  = gae.score(torch.FloatTensor(X_tr), ADJ)
+    theta_gae = float(np.percentile(tr_sc, 95))
     r_gae = metrics(y_te, sc_gae, (sc_gae > theta_gae).astype(int))
 
     # ── MLPAE ──
     mlp = MLPAE(in_dim=N_AGENTS*N_FEATS, hid=16, emb=8)
     train_mlpae(mlp, X_tr, epochs=120, lr=1e-3, bs=16)
-    sc_mlp, _  = mlp.score(torch.FloatTensor(X_te))
-    val_mlp, _ = mlp.score(torch.FloatTensor(X_val))
-    theta_mlp  = val_mlp.mean() + 2 * val_mlp.std()
+    sc_mlp, _ = mlp.score(torch.FloatTensor(X_te))
+    tr_mlp, _ = mlp.score(torch.FloatTensor(X_tr))
+    theta_mlp = float(np.percentile(tr_mlp, 95))
     r_mlp = metrics(y_te, sc_mlp, (sc_mlp > theta_mlp).astype(int))
 
     # ── Z-score ──
@@ -362,7 +364,7 @@ for seed in SEEDS:
     zsc     = StandardScaler().fit(flat_tr)
     zte     = np.linalg.norm(zsc.transform(flat_te), axis=1)
     ztr_s   = np.linalg.norm(zsc.transform(flat_tr), axis=1)
-    z_th    = ztr_s.mean() + 2 * ztr_s.std()
+    z_th    = float(np.percentile(ztr_s, 95))
     r_z     = metrics(y_te, zte, (zte > z_th).astype(int))
 
     seed_records["LightGAE"].append(r_gae)

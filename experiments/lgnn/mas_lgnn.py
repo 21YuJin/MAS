@@ -853,6 +853,6 @@ print("\n  Figure 저장 위치:")
 fnames = ["mas_graph","feature_dist","embedding_pca","roc","performance",
           "node_timing","ablation","multiseed"]
 for i, fn in enumerate(fnames, 1):
-    print(f"    output/lgnn_fig{i}_{fn}.png")
+    print(f"    {OUT}/lgnn_fig{i}_{fn}.png")
 
 print("\n실험 완료.")

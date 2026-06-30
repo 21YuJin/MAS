@@ -18,7 +18,9 @@ Attack Taxonomy (4 Types):
   Type-IV  Context Flood       — simultaneous multi-agent contamination
 """
 
-import time, warnings
+import time
+import warnings
+import os
 import numpy as np
 import pandas as pd
 import torch
@@ -45,7 +47,8 @@ ORANGE = "#F0A500"
 PURPLE = "#9B59B6"
 GRAY   = "#AAAAAA"
 
-OUT = "./output"
+OUT = "./output/lgnn"
+os.makedirs(OUT, exist_ok=True)
 
 # ══════════════════════════════════════════════════════════════
 # §1.  MAS GRAPH DEFINITION
@@ -298,12 +301,12 @@ def b4_sliding(tr, te, w=5):
     s   = np.linalg.norm(agg, axis=1)
     return s, (s > th).astype(int)
 
-def metrics(y, sc, pd):
-    tn, fp, fn, tp = confusion_matrix(y, pd, labels=[0,1]).ravel()
+def metrics(y, sc, pred):
+    tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0,1]).ravel()
     return dict(
         TPR=round(tp/(tp+fn+1e-8), 4),
         FPR=round(fp/(fp+tn+1e-8), 4),
-        F1 =round(f1_score(y, pd, zero_division=0), 4),
+        F1 =round(f1_score(y, pred, zero_division=0), 4),
         AUC=round(roc_auc_score(y, sc), 4),
     )
 
@@ -365,7 +368,7 @@ res = {
     "Threshold (B1)":      metrics(y_test, sc_b1, pd_b1),
     "IsoForest (B2)":      metrics(y_test, sc_b2, pd_b2),
     "Z-score (B3)":        metrics(y_test, sc_b3, pd_b3),
-    "Sliding GNN (B4)":    metrics(y_test, sc_b4, pd_b4),
+    "SlidingZscore (B4)":    metrics(y_test, sc_b4, pd_b4),
     "LightGAE [proposed]": metrics(y_test, sc_gae, pd_gae),
 }
 
@@ -533,7 +536,7 @@ roc_cfg = [
     (sc_b1, GRAY,   "Threshold (B1)",     1.6, "-"),
     (sc_b2, GREEN,  "IsoForest (B2)",     1.6, "-"),
     (sc_b3, BLUE,   "Z-score (B3)",       1.6, "-"),
-    (sc_b4, ORANGE, "Sliding GNN (B4)",   2.0, "-"),
+    (sc_b4, ORANGE, "SlidingZscore (B4)",   2.0, "-"),
     (sc_gae,RED,    "LightGAE [proposed]",2.5, "--"),
 ]
 for sc, col, nm, lw, ls in roc_cfg:
@@ -559,7 +562,7 @@ fig5.suptitle("Figure 5. Detection Performance: 4 Baselines vs. LightGAE",
               fontsize=13, fontweight="bold")
 
 methods  = ["Threshold\n(B1)", "IsoForest\n(B2)", "Z-score\n(B3)",
-            "Sliding GNN\n(B4)", "LightGAE\n[proposed]"]
+            "SlidingZscore\n(B4)", "LightGAE\n[proposed]"]
 bar_cols = [GRAY, GREEN, BLUE, ORANGE, RED]
 
 for ax, metric in zip(axes5, ["TPR","FPR","F1","AUC"]):
@@ -628,7 +631,7 @@ plt.close()
 print("  Fig 6 saved.")
 
 # ══════════════════════════════════════════════════════════════
-# §5.7  다중 시드 검증  (5 seeds → mean ± std)
+# §7.  다중 시드 검증  (5 seeds → mean ± std)
 # ══════════════════════════════════════════════════════════════
 SEEDS = [42, 0, 1, 7, 123]
 print(f"\n[다중 시드 검증] seeds={SEEDS}")
@@ -661,7 +664,7 @@ for met in ['AUC', 'F1', 'TPR', 'FPR']:
     print(f"    {met}: {seed_means[met]:.4f} ± {seed_stds[met]:.4f}")
 
 # ══════════════════════════════════════════════════════════════
-# §5.8  Ablation — LightGAE (GCN) vs MLP-AE (no graph)
+# §8.  Ablation — LightGAE (GCN) vs MLP-AE (no graph)
 # ══════════════════════════════════════════════════════════════
 torch.manual_seed(42); np.random.seed(42)
 print(f"\n[Ablation] LightGAE (GCN) vs MLP-AE (no graph structure)")
@@ -764,7 +767,7 @@ plt.close()
 print("  Fig 8 saved.")
 
 # ══════════════════════════════════════════════════════════════
-# §6.5  통계 검정 (Mann-Whitney U Test)
+# §9.  통계 검정 (Mann-Whitney U Test)
 # ══════════════════════════════════════════════════════════════
 
 print("\n[통계 검정] Mann-Whitney U Test")
@@ -801,7 +804,7 @@ print(f"Effect size (Cohen's d): {cohens_d:.4f} "
       f"({'large' if abs(cohens_d)>0.8 else 'medium' if abs(cohens_d)>0.5 else 'small'})")
 
 # ══════════════════════════════════════════════════════════════
-# §7.  SUMMARY
+# §10. SUMMARY
 # ══════════════════════════════════════════════════════════════
 
 print("\n" + "="*65)

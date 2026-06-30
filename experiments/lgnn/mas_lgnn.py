@@ -484,7 +484,7 @@ ax1b.text(0.5, -0.08,
           ha="center", transform=ax1b.transAxes, fontsize=9, color=RED)
 
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig1_mas_graph.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig1_mas_graph.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 1 saved.")
 
@@ -494,12 +494,11 @@ fig2.suptitle("Figure 2. Metadata Feature Distributions Across Attack Types\n"
               f"(Researcher agent, N={N_SESS} sessions per type)",
               fontsize=12, fontweight="bold")
 
-# Rebuild raw (unnormalized) for display
-X_raw, y_raw, t_raw = build_dataset(n_sess=40, n_turns=30, win=5)
+# Use the already-built raw (unnormalized) dataset from §5 — no need to rebuild
 for col, feat in enumerate(FEAT_NAMES):
     ax = axes2[col]
     for ak, col_c in COLORS_ATK.items():
-        vals = X_raw[t_raw==ak, 1, col]   # Researcher node, feature col
+        vals = X_all[t_all==ak, 1, col]   # Researcher node, raw feature
         ax.hist(vals, bins=15, alpha=0.55, color=col_c, label=ak, density=True)
     ax.set_title(feat, fontsize=10, fontweight="bold")
     ax.set_xlabel("value"); ax.grid(alpha=0.3)
@@ -509,7 +508,7 @@ handles = [mpatches.Patch(color=c, label=k) for k, c in COLORS_ATK.items()]
 fig2.legend(handles=handles, loc="lower center", ncol=5,
             fontsize=9, bbox_to_anchor=(0.5, -0.02))
 plt.tight_layout(rect=[0, 0.06, 1, 1])
-plt.savefig(f"{OUT}/lgnn_fig2_feature_dist.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig2_feature_dist.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 2 saved.")
 
@@ -528,7 +527,7 @@ ax3.set_title("Figure 3. PCA Projection of LightGAE Graph Embeddings\n"
 ax3.legend(fontsize=9, markerscale=2)
 ax3.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig3_embedding_pca.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig3_embedding_pca.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 3 saved.")
 
@@ -554,7 +553,7 @@ ax4.set_title("Figure 4. ROC Curve — 4 Baselines vs. LightGAE",
 ax4.legend(fontsize=9, loc="lower right")
 ax4.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig4_roc.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig4_roc.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 4 saved.")
 
@@ -580,7 +579,7 @@ for ax, metric in zip(axes5, ["TPR","FPR","F1","AUC"]):
                 f"{v:.3f}", ha="center", fontsize=8, fontweight="bold")
 
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig5_performance.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig5_performance.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 5 saved.")
 
@@ -618,17 +617,18 @@ tk_cols  = [GRAY, GREEN, BLUE, RED]
 bars6 = ax6b.bar(tk_names, tk_vals, color=tk_cols,
                  edgecolor="white", linewidth=1.2, width=0.55)
 bars6[-1].set_edgecolor(RED); bars6[-1].set_linewidth(2.5)
-ax6b.set_ylabel("Inference time (ms / sample)", fontsize=10)
+ax6b.set_yscale("log")
+ax6b.set_ylabel("Inference time (ms / sample) — log scale", fontsize=10)
 ax6b.set_title("(b) Quick Identification — Inference Speed\n(lower = faster)",
                fontsize=10, fontweight="bold")
 ax6b.set_xticklabels(tk_names, fontsize=8.5, rotation=10)
-ax6b.grid(axis="y", alpha=0.3)
+ax6b.grid(axis="y", alpha=0.3, which="both")
 for bar, v in zip(bars6, tk_vals):
-    ax6b.text(bar.get_x()+bar.get_width()/2, v+max(tk_vals)*0.01,
+    ax6b.text(bar.get_x()+bar.get_width()/2, v*1.5,
               f"{v:.4f}", ha="center", fontsize=9, fontweight="bold")
 
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig6_node_timing.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig6_node_timing.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 6 saved.")
 
@@ -740,7 +740,7 @@ for x_pos, g, p in zip(x7b, gae_atk, mlp_atk):
     ax7b.text(x_pos + w/2, p + 0.001, f"{p:.4f}", ha='center', fontsize=7, color='#555')
 
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig7_ablation.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig7_ablation.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 7 saved.")
 
@@ -764,7 +764,7 @@ for bar, m_v, s_v in zip(bars8, ms_means, ms_stds):
              f"{m_v:.4f}\n±{s_v:.4f}", ha='center', fontsize=9, fontweight='bold')
 
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig8_multiseed.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig8_multiseed.png", dpi=300, bbox_inches="tight")
 plt.close()
 print("  Fig 8 saved.")
 

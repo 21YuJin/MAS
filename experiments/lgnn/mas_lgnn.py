@@ -120,14 +120,27 @@ def make_session(atk_key="Normal", n_turns=30, win=5):
     """
     One session → sliding-window graphs.
     Each window aggregates `win` consecutive turns into X ∈ R^{N×F}.
-    Returns list of (X: np.float32, label: int, atk_key: str).
+
+    Writer contamination scales with Researcher's actual token excess to
+    model the real pipeline dependency: Researcher output → Writer input.
+    This creates genuine inter-agent correlation that GCN edges can exploit.
     """
     cfg   = ATTACK_CFG[atk_key]
     label = 0 if atk_key == "Normal" else 1
-    turns = [[sample_agent(0.0),          # Orchestrator: clean
-              sample_agent(cfg["p_r"]),   # Researcher
-              sample_agent(cfg["p_w"])]   # Writer
-             for _ in range(n_turns)]
+    tok_range = AP["token_count"][0] - NP["token_count"][0]   # 80 tokens
+    turns = []
+    for _ in range(n_turns):
+        orch = sample_agent(0.0)
+        res  = sample_agent(cfg["p_r"])
+        # Writer's contamination is proportional to how much Researcher
+        # deviated from normal token count (causal pipeline effect)
+        if cfg["p_w"] > 0:
+            excess = max(0.0, res[1] - NP["token_count"][0]) / (tok_range + 1e-8)
+            p_w_eff = cfg["p_w"] * min(1.0, 0.2 + 0.8 * excess)
+        else:
+            p_w_eff = 0.0
+        wrt = sample_agent(p_w_eff)
+        turns.append([orch, res, wrt])
     out = []
     for i in range(win, n_turns + 1):
         X = np.mean(turns[i-win:i], axis=0).astype(np.float32)

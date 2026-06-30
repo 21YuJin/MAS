@@ -407,11 +407,13 @@ N_B = 1000
 Xb  = torch.FloatTensor(np.tile(X_test_3d[:1], (N_B,1,1)))
 Xbf = Xb.numpy().reshape(N_B, -1)
 
-def bench_ms(fn):
-    fn()  # warmup
+def bench_ms(fn, n_runs=10):
+    for _ in range(3):
+        fn()    # warmup
     t0 = time.perf_counter()
-    fn()
-    return (time.perf_counter() - t0) / N_B * 1000
+    for _ in range(n_runs):
+        fn()
+    return (time.perf_counter() - t0) / n_runs / N_B * 1000
 
 t_gae = bench_ms(lambda: model.score(Xb, ADJ))
 t_b1  = bench_ms(lambda: (Xbf[:,0] > 0).sum())

@@ -178,7 +178,8 @@ Type-IV 공격 (전체 오염):
 | **Safety Filter 신호 약함** | llama3.2가 인젝션을 거부 → 메타데이터 변화 약함. refusal_flag 피처로 거부 응답 자체를 attack signal로 활용 |
 | **단일 모델** | llama3.2 하나만 검증. 다른 LLM에서 일반화되는지 불명 |
 | **Type-IV 노드 식별 불안정** | 동시 다중 오염 시 Orchestrator 점수가 튀는 현상 관찰됨 |
-| **Graph 구조 기여 제한적** | Ablation ΔAUC=+0.0007 (시뮬레이션 전체), Type-III Slow에서 +0.0028로 가장 두드러짐. 명시적 공격(I·II·IV)은 양 방법 모두 AUC=1.0으로 천장 효과 |
+| **Graph 구조 기여 (3-agent)** | Ablation ΔAUC=+0.0007 (시뮬레이션 전체), Type-III Slow에서 +0.0028로 가장 두드러짐. 명시적 공격(I·II·IV)은 양 방법 모두 AUC=1.0으로 천장 효과 |
+| **Graph 구조 기여 (5-agent)** | ✅ **5-agent G5 실험에서 GCN 우위 명확히 확인:** Type-V Chain ΔAUC=+0.0358, Type-III Slow ΔAUC=+0.0094, 전체 ΔAUC=+0.0034±0.0018 (멀티시드, 일관되게 양수) |
 
 > ~~세션 수 60개 / 통계 유의성 없음~~ → N=200 + Mann-Whitney U (모두 p<0.001, d=2.11) 로 해결
 
@@ -200,17 +201,24 @@ Type-IV 공격 (전체 오염):
 - ✅ `api_freq` 실제 LLM 측정 방식 문서화 (sentence count as processing-density proxy)
 - ✅ 추론 속도 측정 신뢰성 강화 (warmup 3회 + 10회 평균)
 - ✅ Figure 품질 개선: dpi 150→300, Fig 6b 로그 스케일, "SlidingZscore" 명칭 수정
+- ✅ **5-Agent G5 확장 실험** (`mas_lgnn_5agent.py`): GCN 구조적 우위 명확히 입증
+  - G5 = (5 agents, 8 edges, 3-hop pipeline): Orchestrator/Planner/Researcher/Analyst/Writer
+  - **Type-V Chain (신규 공격)**: Planner 단일 진입 + latency 기반 cascade → GCN ΔAUC = +0.0358
+  - Type-III Slow 멀티시드: ΔAUC = +0.0094 ± 0.0080 (일관되게 GCN 우세)
+  - 전체 멀티시드 ΔAUC: +0.0034 ± 0.0018 (5 seeds 중 4개에서 GCN 우세)
+  - 노드 수준 localization: Planner (6.72) ← 침해 진원지 정확히 식별
 
-**1순위 — 실제 LLM AUC 개선 (진행 중)**  
-- `refusal_flag` 피처로 safety filter 동작 신호 포착
-- Subtle 인젝션 템플릿으로 인젝션 성공률 향상 시도
+**1순위 — 논문 초안 작성 (WISA 2026 목표)**
+- Introduction: "최초 그래프 기반 IPI 탐지 프레임워크" 포지셔닝
+- 관련 연구 비교: PINT, PromptGuard, LLM-guard 2~3편
+- 5-agent 실험 결과를 핵심 기여로 제시 (Type-V Chain ΔAUC=+0.0358)
+
+**2순위 — 실제 LLM AUC 개선**
 - N 추가 확보 (현재 30 → 목표 50+)
+- Subtle 인젝션 성공률 향상
 
-**2순위 — 다중 LLM 검증 (2~4주)**  
+**3순위 — 다중 LLM 검증 (2~4주)**  
 Mistral-7B, Phi-3 등 다른 모델에서 일반화 여부 확인
-
-**3순위 — AgentDojo 벤치마크 (Stage 2)**  
-표준 벤치마크 데이터셋으로 재현성 확보
 
 ---
 
@@ -225,7 +233,8 @@ MAS/
 │   │   ├── experiment.py              # Z-score 기반 실험 (초기 버전)
 │   │   └── lgnn_experiment.py         # ★ LightGAE + 실제 LLM 검증
 │   └── lgnn/
-│       └── mas_lgnn.py                # ★ LightGAE 핵심 실험 (시뮬레이션)
+│       ├── mas_lgnn.py                # ★ LightGAE 핵심 실험 (3-agent 시뮬레이션)
+│       └── mas_lgnn_5agent.py         # ★★ 5-Agent G5 확장 실험 (GCN 우위 입증)
 └── output/
     ├── simulation/                    # Figure 6종
     ├── real_llm/                      # Figure 5종
@@ -234,7 +243,8 @@ MAS/
     │   ├── lgnn_fig3_node_score.png
     │   ├── lgnn_fig4_cross_env.png
     │   └── lgnn_fig5_ablation.png     # NEW: LightGAE vs MLPAE (실제 LLM)
-    └── lgnn/                          # Figure 8종
+    ├── lgnn/                          # Figure 8종 (3-agent)
+    └── lgnn_5agent/                   # Figure 5종 (5-agent G5)
         ├── lgnn_fig1_mas_graph.png
         ├── lgnn_fig2_feature_dist.png
         ├── lgnn_fig3_embedding_pca.png

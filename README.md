@@ -161,7 +161,7 @@ Orchestrator → Researcher → Analyst → Writer
 injection은 Orchestrator 프롬프트에 삽입 → 길고 상세한 task assignment 생성 →
 Researcher/Analyst/Writer 전체에 token cascade 전파.
 
-#### Cascade 검증 결과 (v3 — 진행 완료)
+#### Cascade 검증 결과 (v3)
 
 | Agent | Normal (avg tokens) | Attack (avg tokens) | Ratio |
 |-------|:---:|:---:|:---:|
@@ -195,7 +195,7 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 > 실제 LLM 환경의 응답 다양성과 shallow cascade가 탐지 난이도를 높임.
 > 이 Gap 자체가 논문의 주요 발견(finding)으로 제시됨.
 
-#### v4 개선 사항 (현재 진행 중)
+#### v4 개선 사항 (진행 중)
 
 | 항목 | v3 | v4 |
 |------|----|----|
@@ -232,7 +232,7 @@ MAS/
 └── output/
     ├── real_llm/                      # Figure 5종 (실제 LLM)
     ├── lgnn/                          # Figure 8종 (3-agent 시뮬레이션)
-    └── lgnn_5agent/                   # Figure 8종 (5-agent G5)
+    └── lgnn_5agent/                   # Figure 5종 (5-agent G5)
 ```
 
 ---
@@ -241,7 +241,7 @@ MAS/
 
 ```bash
 # 환경 설정
-pip install numpy scikit-learn matplotlib torch requests
+pip install numpy scikit-learn matplotlib torch requests networkx scipy
 
 # LightGAE 시뮬레이션 실험 (약 10~15분)
 python experiments/lgnn/mas_lgnn.py

@@ -15,7 +15,7 @@ System Model G5:
   E8 = pipeline:    (v0→v1, v1→v2, v2→v3, v3→v4)
        supervisory: (v0→v2, v0→v3, v0→v4)
        cross-link:  (v1→v3)
-  M  = {δ:latency, τ:token_count, f:api_freq, Δc:ctx_delta, s:call_seq}
+  M  = {δ:latency, τ:token_count, f:api_freq, Δc:ctx_delta, s:call_seq, r:refusal_flag}
 """
 
 import time
@@ -54,7 +54,7 @@ os.makedirs(OUT, exist_ok=True)
 
 N_AGENTS    = 5
 AGENT_NAMES = ["Orchestrator", "Planner", "Researcher", "Analyst", "Writer"]
-FEAT_NAMES  = ["latency", "token_count", "api_freq", "ctx_delta", "call_seq"]
+FEAT_NAMES  = ["latency", "token_count", "api_freq", "ctx_delta", "call_seq", "refusal_flag"]
 N_FEATS     = len(FEAT_NAMES)
 
 #  Pipeline:    0→1→2→3→4
@@ -124,6 +124,7 @@ def sample_agent(p: float, context_scale: float = 1.0) -> list:
         max(0,    int(np.random.poisson(lam_a))),
         max(0.0,  np.random.normal(mu_c * ctx_scale, sg_c)),
         int(np.random.random() < p * 0.7),
+        int(np.random.random() < p * 0.02),   # refusal_flag: rare even under attack (calibrated to real-LLM ~0.5-2%)
     ]
 
 def make_session(atk_key="Normal", n_turns=30, win=5):

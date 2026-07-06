@@ -9,7 +9,7 @@ System Model  G = (A, E, M):
   A = {v0:Orchestrator, v1:Researcher, v2:Writer}
   E = {(v0,v1), (v1,v2), (v0,v2)}
   M = {δ: latency,  τ: token_count,  f: api_freq,
-        Δc: ctx_delta,  s: call_seq}
+        Δc: ctx_delta,  s: call_seq,  r: refusal_flag}
 
 Attack Taxonomy (4 Types):
   Type-I   Direct Override     — immediate role hijack at Researcher
@@ -57,7 +57,7 @@ os.makedirs(OUT, exist_ok=True)
 
 N_AGENTS    = 3
 AGENT_NAMES = ["Orchestrator", "Researcher", "Writer"]
-FEAT_NAMES  = ["latency", "token_count", "api_freq", "ctx_delta", "call_seq"]
+FEAT_NAMES  = ["latency", "token_count", "api_freq", "ctx_delta", "call_seq", "refusal_flag"]
 N_FEATS     = len(FEAT_NAMES)
 
 EDGES = [(0, 1), (1, 2), (0, 2)]      # directed pipeline + supervisory edge
@@ -123,6 +123,7 @@ def sample_agent(p: float, context_scale: float = 1.0) -> list:
         max(0,    int(np.random.poisson(lam_a))),
         max(0.0,  np.random.normal(mu_c * ctx_scale, sg_c)),
         int(np.random.random() < p * 0.7),
+        int(np.random.random() < p * 0.02),   # refusal_flag: rare even under attack (calibrated to real-LLM ~0.5-2%)
     ]
 
 def make_session(atk_key="Normal", n_turns=30, win=5):

@@ -1,12 +1,11 @@
-# Metadata-Based Security Detection for Multi-Agent AI Systems
+# LightGAE: A Lightweight Graph Autoencoder for Content-Agnostic Detection of Indirect Prompt Injection in Multi-Agent Systems
 ## Idea Seminar — Research Direction Overview
 
 ---
 
 ## [Slide 1] Cover
 
-**Topic:** Indirect Prompt Injection Detection in Multi-Agent AI Systems (MAS)  
-A Lightweight, Graph-Based Anomaly Detection Idea
+**Title:** LightGAE: A Lightweight Graph Autoencoder for Content-Agnostic Detection of Indirect Prompt Injection in Multi-Agent Systems
 
 **One-line summary:** Research on how to quickly notice when one agent in a system of multiple collaborating AIs has been attacked.
 

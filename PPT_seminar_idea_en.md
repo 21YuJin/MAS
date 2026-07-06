@@ -276,10 +276,18 @@ Writer        ██░░░░░░░░  0.66  ← within normal range
 
 ## [Slide 14] Future Plans
 
+**Longer-term directions**
 1. Verify whether it works equally well across a wider variety of language models (GPT, Claude, etc.)
 2. Compare against other approaches on public standard benchmarks (e.g., AgentDojo)
 3. Examine whether it can be applied in a real-time, continuously streaming data setting
 4. Extend the pipeline beyond detection to automated response (e.g., isolating the compromised agent)
+
+**Concrete next steps — things to implement or test right away**
+1. Investigate why, under the unified 6-feature model, the Chain-type cascade signal no longer decays cleanly downstream (Researcher/Analyst/Writer) the way it did before — is this a modeling artifact or a real property of latency-based propagation?
+2. Add a proper statistical baseline (Z-score / IsoForest) to the 5-agent simulation for a fair three-way comparison — currently it only compares GCN vs. MLP-AE, unlike the 3-agent script.
+3. Collect more seeds specifically for the Chain type to pin down its true ΔAUC — its current variance (±0.0060) is much larger than Slow's (±0.0010), so 5 seeds may not be enough to trust the ranking.
+4. Calibrate the synthetic refusal_flag probability (currently a guessed p×0.02) against a larger sample of real-LLM refusal rates, rather than the 50-session cache used so far.
+5. Drop the actual result figures (ROC curves, node heatmaps, feature distributions) into the real slide deck — so far only recommended, not yet inserted.
 
 **Points I would like to discuss at today's seminar**
 - Whether this direction is actually a meaningful problem to pursue

@@ -227,9 +227,9 @@ Total parameters (the number of internal numbers the model learns): 494
 |------|------|
 | Direct | An overt attack that immediately tries to change the agent's role |
 | Harvest | An attack that gathers information and then propagates it to downstream agents |
-| Slow | An attack that contaminates the pipeline gradually, little by little |
+| **Slow** | **An attack that contaminates the pipeline gradually, little by little — the type where the graph-based approach's advantage is largest and most stable** |
 | Flood | An attack that contaminates several agents simultaneously |
-| **Chain** | **An attack that breaches only a single point and then propagates downstream — the type where the graph-based approach's advantage is most clearly visible** |
+| **Chain** | An attack that breaches only a single point and then propagates downstream — **the type best suited for pinpointing which single agent was compromised** |
 
 ---
 
@@ -242,17 +242,18 @@ Total parameters (the number of internal numbers the model learns): 494
 | Simulation (5 agents, 5 attack types) | 0.99 or higher |
 | Real local LLM (4 agents, llama3.2) | up to 1.00 |
 
-- In particular, for the **Chain type** (an attack that breaches a single point and then propagates), the approach that jointly considers the relational structure (graph) between agents was confirmed to detect it noticeably better than an approach that does not.
+- Across 5 random seeds, the approach that jointly considers the relational structure (graph) between agents outperformed the one that does not (GCN vs. MLP, ΔAUC) most clearly and most consistently on the **Slow type** (+0.0101 ± 0.0010), with the **Chain type** a close second (+0.0072 ± 0.0060, larger seed-to-seed variance). Earlier in this project we had reported Chain as the standout case; re-running the experiment with a unified 6-feature model changed that ranking, and Slow is now the more robust result.
 - Even in an environment reproduced with a real language model, detection was stable once the attack's propagation extent was sufficiently large.
 
-**In addition, it was confirmed that there is some possibility of pinpointing which agent the problem started at.** (A graph autoencoder reconstructs the entire pipeline at once, but since the reconstruction error is computed per agent individually, it is possible to check separately at which agent the error appears large.)
+**In addition, for the Chain type, it was confirmed that there is some possibility of pinpointing which agent the problem started at.** (A graph autoencoder reconstructs the entire pipeline at once, but since the reconstruction error is computed per agent individually, it is possible to check separately at which agent the error appears large.)
 ```
-Orchestrator  ████░░░░░░  Low    ← judged normal
-Planner       ██████████  High   ← ★ presumed point of compromise
-Researcher    ██████░░░░  Medium ← trace of propagated contamination
-Writer        ████░░░░░░  Low    ← judged normal
+Orchestrator  ███░░░░░░░  1.38  ← within normal range
+Planner       ██████████  5.41  ← ★ presumed point of compromise
+Researcher    ██░░░░░░░░  0.75  ← within normal range
+Analyst       ██░░░░░░░░  0.90  ← within normal range
+Writer        ██░░░░░░░░  0.66  ← within normal range
 ```
-(The values above are a quantity called "reconstruction error," representing the degree to which the model failed to reconstruct the input. A larger value means that agent behaved differently from usual.)
+(The values above are "reconstruction error," representing the degree to which the model failed to reconstruct the input. Planner clearly stands out as the compromised agent; unlike in the earlier 5-feature version, the downstream agents no longer show a clean gradually-decaying cascade signal — this is a nuance that needs further investigation.)
 
 > This is still an early validation stage, and further generalization testing with a wider variety of language models and attack methods is needed.
 

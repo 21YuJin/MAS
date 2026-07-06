@@ -93,7 +93,7 @@ Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
   ├─ DecoderLayer 1:   8 → 16
   └─ DecoderLayer 2:  16 →  6   (원본 피처 재구성)
 
-총 파라미터: 461개  (스마트폰 앱보다 수천 배 작음)
+총 파라미터: 494개  (스마트폰 앱보다 수천 배 작음)
 추론 속도:   0.0008 ms/sample
 ```
 
@@ -111,39 +111,48 @@ Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
 |------|------|------|
 | Type-I Direct | 즉시 완전 역할 탈취 | 명시적, 탐지 쉬움 |
 | Type-II Harvest | 정보 수집 + 하위 에이전트 전파 | 중간 난이도 |
-| Type-III Slow | 점진적 오염 | 탐지 가장 어려움 |
+| Type-III Slow | 점진적 오염 | 탐지 가장 어려움, **GCN 우위 가장 명확** |
 | Type-IV Flood | 다중 에이전트 동시 오염 | 광범위 피해 |
-| **Type-V Chain** | Planner 단일 진입 + cascade | **GCN 우위 가장 명확** |
+| **Type-V Chain** | Planner 단일 진입 + cascade | **노드 수준 침해 지점 식별에 가장 유리** |
 
-#### 탐지 성능 (전체 공격 유형 합산)
+#### 탐지 성능 (전체 공격 유형 합산, seed=42)
 
 | Method | AUC | F1 | 비고 |
 |--------|:---:|:---:|------|
-| Z-score (baseline) | 0.9953 | 0.999 | - |
-| MLPAE (no graph) | 0.9953 | 0.999 | - |
-| **LightGAE (제안)** | **0.9987** | **0.999** | ΔAUC +0.0034 vs MLP |
+| MLPAE (no graph) | 0.9892 | 0.9811 | - |
+| **LightGAE (제안)** | **0.9935** | **0.9855** | ΔAUC +0.0043 vs MLP |
 
-#### GCN 구조적 우위 — Type-V Chain 공격
+> 이 5-agent 실험에는 별도의 Z-score 베이스라인이 포함되어 있지 않다 (Z-score/IsoForest/SlidingZscore 비교는 3-agent 기본 실험(`mas_lgnn.py`)에서만 수행됨).
+
+#### GCN 구조적 우위 — 공격 유형별 비교 (멀티시드, N=5 seeds)
 
 | Metric | 값 |
 |--------|:---:|
-| GCN vs MLP ΔAUC (Type-V Chain) | **+0.0358** |
-| GCN vs MLP ΔAUC (Type-III Slow) | +0.0094 |
-| 전체 멀티시드 ΔAUC | +0.0034 ± 0.0018 |
+| GCN vs MLP ΔAUC (Type-III Slow) | **+0.0101 ± 0.0010** |
+| GCN vs MLP ΔAUC (Type-V Chain) | +0.0072 ± 0.0060 |
+| 전체 멀티시드 ΔAUC | +0.0035 ± 0.0013 |
 
-> Type-V Chain: Planner 단일 진입점 → latency cascade → 5-hop 그래프 전파.
-> GCN의 2-hop message passing이 correlated cascade 패턴을 포착하여 MLPAE를 명확히 상회.
+> **[2026-07 업데이트]** 메타데이터를 6개 피처(refusal_flag 추가)로 통일하며 시뮬레이션을 재실행한 결과,
+> 기존에 "GCN 우위가 가장 명확하다"고 보고했던 **Type-V Chain**이 아니라 **Type-III Slow**가
+> 가장 크고(+0.0101) 가장 안정적인(±0.0010, seed 편차 최소) 구조적 우위를 보였다.
+> Type-V Chain은 ΔAUC 자체는 2위(+0.0072, 편차 ±0.0060로 더 큼)이지만,
+> 아래 노드 수준 식별에서 보듯 **침해 시작 지점(Planner)을 정확히 짚어내는 유일한 유형**이라는
+> 실용적 가치는 그대로 유지된다.
 
 #### 노드 수준 에이전트 식별
 
 ```
-Type-V Chain 공격 (Planner 침해):
-  Orchestrator  3.21  ← 정상
-  Planner       6.72  ← 침해됨! ★ (진원지 정확히 식별)
-  Researcher    4.18  ← cascade 전파
-  Analyst       3.85  ← cascade 전파
-  Writer        2.94  ← 정상 (3-hop 이후 희석)
+Type-V Chain 공격 (Planner 침해, 6-피처 버전 재구성 오차):
+  Orchestrator  1.38  ← 정상 범위
+  Planner       5.41  ← 침해됨! ★ (진원지 정확히 식별)
+  Researcher    0.75  ← 정상 범위
+  Analyst       0.90  ← 정상 범위
+  Writer        0.66  ← 정상 범위
 ```
+
+> Planner가 유일하게 튀는 값(5.41)을 보여 침해 지점은 여전히 명확히 식별된다.
+> 다만 6-피처 버전에서는 하류 에이전트(Researcher/Analyst/Writer)로 이어지는 점진적 cascade
+> 감소 패턴이 이전 버전만큼 뚜렷하지는 않다 — 이 부분은 latency 기반 신호의 특성상 향후 추가 검증이 필요하다.
 
 ---
 
@@ -196,13 +205,14 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 
 | 환경 | LightGAE AUC |
 |------|:---:|
-| 시뮬레이션 (5-agent) | 0.9987 |
+| 시뮬레이션 (5-agent, 6-피처 통일 후) | 0.9937 ± 0.0010 |
 | 실제 LLM v3 (shallow cascade) | 0.6656 ± 0.0946 |
 | **실제 LLM v4 (deep cascade)** | **1.0000 ± 0.0000** |
-| **Gap (v4)** | **−0.0013** (역전 성공) |
+| **Gap (v4)** | **−0.0063** (역전 유지) |
 
 > **핵심 발견:** Cascade depth가 Sim-Real Gap의 주요 원인.  
-> v4에서 컨텍스트 창 5배 확대 + 에이전트별 명시적 지시 → Gap 완전 해소.
+> v4에서 컨텍스트 창 5배 확대 + 에이전트별 명시적 지시 → Gap 해소.
+> (시뮬레이션을 6-피처로 재실행하며 AUC가 0.9987 → 0.9937로 소폭 낮아져 Gap 수치도 −0.0013 → −0.0063으로 조정됨. 부호는 동일하게 유지.)
 
 #### v3 → v4 개선 내용
 

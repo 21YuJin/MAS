@@ -132,7 +132,7 @@ This starts from the observation that an attacked agent behaves differently from
 
 Such "auxiliary information automatically recorded around the content, rather than the content itself" is called metadata. (Example: not the body text of an email, but information such as when it arrived and how many characters it contains.)
 
-**The 6 metadata features actually defined (no access to response content):**
+**The 6 metadata features defined (no access to response content):**
 
 | Feature | Description |
 |------|------|
@@ -143,7 +143,7 @@ Such "auxiliary information automatically recorded around the content, rather th
 | call_seq (call anomaly flag) | Whether an unusual call pattern was detected |
 | refusal_flag | Whether the agent responded that it "cannot perform this request" |
 
-**Why these 6 were chosen:** They are values the system already records automatically while an agent produces a response, with no need to build any new logging infrastructure. The practical benefit of being deployable immediately, without modifying existing MAS infrastructure, is significant.
+**Why these 6 were chosen:** They are values the system already records automatically while an agent produces a response, with no need to build any new logging infrastructure. The practical benefit of being deployable immediately, without modifying existing MAS infrastructure, is significant. (refusal_flag is in practice a very rare signal, but both the simulation and real-LLM experiments now use the same unified set of 6 features.)
 
 **Advantages of this approach:** Because response content is never read, processing is fast, there is no risk of exposing private information, and the same method applies regardless of language or which AI model is used.
 
@@ -175,6 +175,8 @@ Here, a graph refers to a structure in which points (nodes) are connected by lin
 
 **An autoencoder is a model trained by compressing an input and then attempting to reconstruct it back to its original form.** If the model has learned the usual pattern well, a normal input will be reconstructed accurately, whereas an unfamiliar (anomalous) input will not — this is the principle being used.
 
+**Why compression (a bottleneck) is necessary at all:** If the input were passed through without any compression, the model could simply learn the identity function — copying the input straight through — and would reconstruct anything, normal or attack, perfectly. That would make it impossible to tell the two apart. By deliberately forcing the information through a narrower bottleneck, the model is compelled to retain only the core patterns that recur in normal data and to discard everything else. As a result, normal patterns still pass through the bottleneck and reconstruct well, while inputs that differ from normal (attacks) lose information as they pass through it and fail to reconstruct accurately.
+
 **Training and detection procedure — trainable without labeled answers**
 ```
 Step 1 (training): Show the model the metadata pattern of a normally operating pipeline
@@ -197,7 +199,7 @@ Input (6 metadata features per agent)
   ├─ Decoder 1:    8 → 16   (begins reconstruction)
   └─ Decoder 2:   16 →  6   (reconstructs the original feature shape)
 
-Total parameters (the number of internal numbers the model learns): 461
+Total parameters (the number of internal numbers the model learns): 494
 → An extremely lightweight model, far smaller than even a single smartphone app
 ```
 

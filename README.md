@@ -121,7 +121,7 @@ Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
 |------|------|------|
 | Type-I Direct | 즉시 완전 역할 탈취 | 명시적, 탐지 쉬움 |
 | Type-II Harvest | 정보 수집 + 하위 에이전트 전파 | 중간 난이도 |
-| Type-III Slow | 점진적 오염 | 탐지 가장 어려움, **GCN 우위 가장 명확** |
+| Type-III Slow | 점진적 오염 | 탐지 가장 어려움. ~~GCN 우위 가장 명확~~ → call_seq 수정 후 재검증 결과 우위 재현 안 됨(아래 참고) |
 | Type-IV Flood | 다중 에이전트 동시 오염 | 광범위 피해 |
 | **Type-V Chain** | Planner 단일 진입 + cascade | **노드 수준 침해 지점 식별에 가장 유리** |
 
@@ -224,14 +224,14 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 
 | 환경 | LightGAE AUC |
 |------|:---:|
-| 시뮬레이션 (5-agent, 6-피처 통일 후) | 0.9937 ± 0.0010 |
+| 시뮬레이션 (5-agent, call_seq 수정 후) | 0.9926 ± 0.0004 |
 | 실제 LLM v3 (shallow cascade) | 0.6656 ± 0.0946 |
 | **실제 LLM v4 (deep cascade)** | **1.0000 ± 0.0000** |
-| **Gap (v4)** | **−0.0063** (역전 유지) |
+| **Gap (v4)** | **−0.0074** (역전 유지) |
 
 > **핵심 발견:** Cascade depth가 Sim-Real Gap의 주요 원인.  
 > v4에서 컨텍스트 창 5배 확대 + 에이전트별 명시적 지시 → Gap 해소.
-> (시뮬레이션을 6-피처로 재실행하며 AUC가 0.9987 → 0.9937로 소폭 낮아져 Gap 수치도 −0.0013 → −0.0063으로 조정됨. 부호는 동일하게 유지.)
+> (call_seq 라벨 누수 수정으로 시뮬레이션 AUC가 0.9937 → 0.9926으로 재조정되며 Gap도 −0.0063 → −0.0074로 갱신됨. 부호·결론은 동일하게 유지.)
 
 #### v3 → v4 개선 내용
 
@@ -266,10 +266,11 @@ MAS/
 │   ├── simulation/
 │   │   └── mas_experiment.py          # 4 Baseline + Adaptive Threshold 비교
 │   ├── real_llm/
-│   │   └── lgnn_experiment.py         # ★ LightGAE + 실제 LLM (v4 진행 중)
+│   │   ├── lgnn_experiment.py         # ★ LightGAE + 실제 LLM (v4 완료)
+│   │   └── patch_call_seq.py          # 캐시된 세션의 call_seq만 오프라인 재계산(Ollama 불필요, 1회성 마이그레이션용 — 캐시는 이미 반영 완료)
 │   └── lgnn/
 │       ├── mas_lgnn.py                # LightGAE 핵심 실험 (3-agent 시뮬레이션)
-│       └── mas_lgnn_5agent.py         # ★★ 5-Agent G5 확장 실험 (GCN 우위 입증)
+│       └── mas_lgnn_5agent.py         # ★★ 5-Agent G5 확장 실험 (노드 수준 침해 위치 식별 검증. GCN vs MLP 전체 AUC 우위는 재현 안 됨)
 └── output/
     ├── real_llm/                      # Figure 5종 (실제 LLM)
     ├── lgnn/                          # Figure 8종 (3-agent 시뮬레이션)

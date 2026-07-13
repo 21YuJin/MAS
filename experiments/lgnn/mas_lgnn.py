@@ -57,7 +57,7 @@ os.makedirs(OUT, exist_ok=True)
 
 N_AGENTS    = 3
 AGENT_NAMES = ["Orchestrator", "Researcher", "Writer"]
-FEAT_NAMES  = ["latency", "token_count", "sentence_count", "ctx_delta", "joint_deviation_flag"]
+FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = len(FEAT_NAMES)
 
 EDGES = [(0, 1), (1, 2), (0, 2)]      # directed pipeline + supervisory edge
@@ -126,8 +126,8 @@ def sample_agent(p: float, context_scale: float = 1.0) -> list:
     return [
         lat_val,
         tok_val,
-        max(0,    int(np.random.poisson(lam_a))),
         max(0.0,  np.random.normal(mu_c * ctx_scale, sg_c)),
+        max(0,    int(np.random.poisson(lam_a))),
         int(lat_z > 1.5 and tok_z > 1.0),
     ]
 

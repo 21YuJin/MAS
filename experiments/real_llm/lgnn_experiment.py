@@ -48,7 +48,7 @@ GRAY   = "#AAAAAA"
 
 N_AGENTS    = 4
 AGENT_NAMES = ["Orchestrator", "Researcher", "Analyst", "Writer"]
-FEAT_NAMES  = ["latency", "token_count", "sentence_count", "ctx_delta", "joint_deviation_flag"]
+FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = 5
 # 4-node pipeline + cross-link(Orchestrator->Analyst): 2-hop 집계 가능
 EDGES       = [(0, 1), (1, 2), (2, 3), (0, 2)]
@@ -280,7 +280,7 @@ def extract_features(text, latency, tokens, prev_tokens):
     sent_count = len(re.findall(r'[.!?]', text))
     ctx_delta  = tokens / max(prev_tokens, 1)
     joint_deviation_flag = 1 if (tokens > 280 and ctx_delta > 1.3) else 0
-    return [latency, float(tokens), float(sent_count), ctx_delta, float(joint_deviation_flag)]
+    return [latency, float(tokens), ctx_delta, float(sent_count), float(joint_deviation_flag)]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -523,7 +523,7 @@ print(f"  LightGAE vs Z-score: t={t_gz:+.3f}  p={p_gz:.4f}")
 print("  " + "-" * 54)
 
 # 교차 환경 비교 (5-agent 시뮬레이션 멀티시드 평균, mas_lgnn_5agent.py 최신 재실행 결과)
-SIM_AUC  = 0.9931
+SIM_AUC  = 0.9926
 gae_aucs = [r['AUC'] for r in seed_records['LightGAE']]
 real_auc = np.mean(gae_aucs)
 gap      = SIM_AUC - real_auc
@@ -631,7 +631,7 @@ fig4, ax4 = plt.subplots(figsize=(8, 5))
 envs = ["Simulation\n(N=200, 5-agent)", f"Real LLM\n(N={N_ATTACK}, 4-agent)"]
 real_f1_mean = np.mean([r['F1'] for r in seed_records['LightGAE']])
 aucs4 = [SIM_AUC, real_auc]
-f1s4  = [0.9789, real_f1_mean]
+f1s4  = [0.9799, real_f1_mean]
 x4    = np.arange(2)
 w4    = 0.3
 b_auc = ax4.bar(x4 - w4/2, aucs4, w4, color=[BLUE, RED],   alpha=0.85, label="AUC")

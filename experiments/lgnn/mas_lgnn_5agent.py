@@ -15,7 +15,7 @@ System Model G5:
   E8 = pipeline:    (v0→v1, v1→v2, v2→v3, v3→v4)
        supervisory: (v0→v2, v0→v3, v0→v4)
        cross-link:  (v1→v3)
-  M  = {δ:latency, τ:token_count, f:sentence_count, Δc:ctx_delta, s:joint_deviation_flag}
+  M  = {δ:latency, τ:token_count, Δc:ctx_delta, f:sentence_count, s:joint_deviation_flag}
 """
 
 import time
@@ -54,7 +54,7 @@ os.makedirs(OUT, exist_ok=True)
 
 N_AGENTS    = 5
 AGENT_NAMES = ["Orchestrator", "Planner", "Researcher", "Analyst", "Writer"]
-FEAT_NAMES  = ["latency", "token_count", "sentence_count", "ctx_delta", "joint_deviation_flag"]
+FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = len(FEAT_NAMES)
 
 #  Pipeline:    0→1→2→3→4
@@ -127,8 +127,8 @@ def sample_agent(p: float, context_scale: float = 1.0) -> list:
     return [
         lat_val,
         tok_val,
-        max(0,    int(np.random.poisson(lam_a))),
         max(0.0,  np.random.normal(mu_c * ctx_scale, sg_c)),
+        max(0,    int(np.random.poisson(lam_a))),
         int(lat_z > 1.5 and tok_z > 1.0),
     ]
 

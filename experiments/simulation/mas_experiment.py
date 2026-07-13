@@ -22,7 +22,7 @@ np.random.seed(42); random.seed(42)
 
 BLUE="#4C9BE8"; RED="#E8604C"; GREEN="#5BAD6F"
 GRAY="#AAAAAA"; ORANGE="#F0A500"
-FEATS = ["latency","token_count","sentence_count","joint_deviation_flag","ctx_delta"]
+FEATS = ["latency","token_count","ctx_delta","sentence_count","joint_deviation_flag"]
 ISO_DELAY = 5   # 격리 응답 시간 (턴)
 
 # ── 분포 파라미터 (분리도 2.5~3σ — 현실적 난이도) ──

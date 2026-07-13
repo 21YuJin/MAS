@@ -50,6 +50,18 @@ N_AGENTS    = 4
 AGENT_NAMES = ["Orchestrator", "Researcher", "Analyst", "Writer"]
 FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = 5
+
+# Headline model uses the empirically-selected Core-2 subset (see
+# experiments/real_llm/feature_ablation.py): dropping latency here cost
+# exactly 0 F1 (identical to Core-3 across all 5 seeds) because latency is
+# near-perfectly redundant with token_count in this decode-bound Ollama
+# deployment (r=0.95-0.99, verified with role/condition held fixed --
+# see feature_correlation_breakdown.py). sentence_count / joint_deviation_flag
+# also added no measurable value in the simulation ablation. All 5 raw
+# features are still collected/cached/plotted for feature-distribution stats.
+CORE_COLS   = [1, 2]   # token_count, ctx_delta
+CORE_NAMES  = [FEAT_NAMES[i] for i in CORE_COLS]
+N_CORE      = len(CORE_COLS)
 # 4-node pipeline + cross-link(Orchestrator->Analyst): 2-hop 집계 가능
 EDGES       = [(0, 1), (1, 2), (2, 3), (0, 2)]
 
@@ -199,8 +211,9 @@ class LightGAE(nn.Module):
 
 class MLPAE(nn.Module):
     """Ablation baseline: no graph structure."""
-    def __init__(self, in_dim=N_AGENTS*N_FEATS, hid=16, emb=8):
+    def __init__(self, in_dim=N_AGENTS*N_FEATS, n_feats=N_FEATS, hid=16, emb=8):
         super().__init__()
+        self.n_feats = n_feats
         self.enc = nn.Sequential(
             nn.Linear(in_dim, hid), nn.ReLU(), nn.Dropout(0.1), nn.Linear(hid, emb))
         self.dec = nn.Sequential(
@@ -209,7 +222,7 @@ class MLPAE(nn.Module):
     def forward(self, X):
         B = X.shape[0]
         z = self.enc(X.reshape(B, -1))
-        return self.dec(z).reshape(B, N_AGENTS, N_FEATS)
+        return self.dec(z).reshape(B, N_AGENTS, self.n_feats)
 
     @torch.no_grad()
     def score(self, X_t):
@@ -456,15 +469,20 @@ for seed in SEEDS:
     X_tr_raw  = Xn_sh_raw[:n_tr]
     X_val_raw = Xn_sh_raw[n_tr:]
 
-    scaler = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
-    X_tr   = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
-    X_val  = scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
-    Xa_s   = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
-    X_te   = np.concatenate([X_val, Xa_s])
-    y_te   = np.array([0]*len(X_val) + [1]*N_ATTACK)
+    scaler   = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
+    X_tr_all = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    X_val_all= scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    Xa_s_all = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
+
+    # Headline model input: Core-2 only (see CORE_COLS above)
+    X_tr  = X_tr_all[:, :, CORE_COLS]
+    X_val = X_val_all[:, :, CORE_COLS]
+    Xa_s  = Xa_s_all[:, :, CORE_COLS]
+    X_te  = np.concatenate([X_val, Xa_s])
+    y_te  = np.array([0]*len(X_val) + [1]*N_ATTACK)
 
     # ── LightGAE ──────────────────────────────────────────────
-    gae = LightGAE(in_dim=N_FEATS, hid=16, emb=8)
+    gae = LightGAE(in_dim=N_CORE, hid=16, emb=8)
     train_lgae(gae, X_tr, ADJ, epochs=160, lr=1e-3, bs=16)
     sc_gae, node_sc = gae.score(torch.FloatTensor(X_te), ADJ)
     tr_sc, _        = gae.score(torch.FloatTensor(X_tr), ADJ)
@@ -472,7 +490,7 @@ for seed in SEEDS:
     r_gae = metrics(y_te, sc_gae, (sc_gae > theta_gae).astype(int))
 
     # ── MLPAE (ablation) ──────────────────────────────────────
-    mlp_m = MLPAE(in_dim=N_AGENTS*N_FEATS, hid=16, emb=8)
+    mlp_m = MLPAE(in_dim=N_AGENTS*N_CORE, n_feats=N_CORE, hid=16, emb=8)
     train_mlpae(mlp_m, X_tr, epochs=160, lr=1e-3, bs=16)
     sc_mlp, _  = mlp_m.score(torch.FloatTensor(X_te))
     tr_mlp, _  = mlp_m.score(torch.FloatTensor(X_tr))
@@ -523,7 +541,7 @@ print(f"  LightGAE vs Z-score: t={t_gz:+.3f}  p={p_gz:.4f}")
 print("  " + "-" * 54)
 
 # 교차 환경 비교 (5-agent 시뮬레이션 멀티시드 평균, mas_lgnn_5agent.py 최신 재실행 결과)
-SIM_AUC  = 0.9926
+SIM_AUC  = 0.9910
 gae_aucs = [r['AUC'] for r in seed_records['LightGAE']]
 real_auc = np.mean(gae_aucs)
 gap      = SIM_AUC - real_auc
@@ -631,7 +649,7 @@ fig4, ax4 = plt.subplots(figsize=(8, 5))
 envs = ["Simulation\n(N=200, 5-agent)", f"Real LLM\n(N={N_ATTACK}, 4-agent)"]
 real_f1_mean = np.mean([r['F1'] for r in seed_records['LightGAE']])
 aucs4 = [SIM_AUC, real_auc]
-f1s4  = [0.9799, real_f1_mean]
+f1s4  = [0.9794, real_f1_mean]
 x4    = np.arange(2)
 w4    = 0.3
 b_auc = ax4.bar(x4 - w4/2, aucs4, w4, color=[BLUE, RED],   alpha=0.85, label="AUC")

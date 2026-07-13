@@ -57,6 +57,16 @@ AGENT_NAMES = ["Orchestrator", "Planner", "Researcher", "Analyst", "Writer"]
 FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = len(FEAT_NAMES)
 
+# Headline LightGAE model uses the empirically-selected Core-2 subset (see
+# experiments/lgnn/feature_ablation_5agent.py): latency was dropped after
+# ablation showed it added no value on real-LLM data (near-perfectly
+# redundant with token_count there) and only a small gain in this synthetic
+# simulation. All 5 raw features are still collected/plotted for feature
+# distribution stats; only CORE_COLS are fed to the model.
+CORE_COLS   = [1, 2]   # token_count, ctx_delta
+CORE_NAMES  = [FEAT_NAMES[i] for i in CORE_COLS]
+N_CORE      = len(CORE_COLS)
+
 #  Pipeline:    0→1→2→3→4
 #  Supervisory: 0→2, 0→3, 0→4
 #  Cross-link:  1→3  (Planner coordinates Analyst directly)
@@ -255,8 +265,9 @@ class MLPAE(nn.Module):
     Cannot exploit graph structure; treats agent relationships as implicit correlations
     in a flat 25-dim input. Ablation baseline for GCN structural benefit.
     """
-    def __init__(self, in_dim=N_AGENTS * N_FEATS, hid=16, emb=8, verbose=True):
+    def __init__(self, in_dim=N_AGENTS * N_FEATS, n_feats=N_FEATS, hid=16, emb=8, verbose=True):
         super().__init__()
+        self.n_feats = n_feats
         self.enc = nn.Sequential(
             nn.Linear(in_dim, hid), nn.ReLU(), nn.Dropout(0.1),
             nn.Linear(hid, emb))
@@ -269,7 +280,7 @@ class MLPAE(nn.Module):
 
     def forward(self, X):
         B = X.shape[0]
-        return self.dec(self.enc(X.reshape(B, -1))).reshape(B, N_AGENTS, N_FEATS)
+        return self.dec(self.enc(X.reshape(B, -1))).reshape(B, N_AGENTS, self.n_feats)
 
     @torch.no_grad()
     def score(self, X_t):
@@ -342,18 +353,24 @@ scaler   = StandardScaler().fit(X_norm.reshape(len(X_norm), -1))
 X_all_s  = scaler.transform(X_all.reshape(len(X_all), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
 X_norm_s = scaler.transform(X_norm.reshape(len(X_norm), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
 
-n_tr    = int(0.8 * len(X_norm_s))
-X_train = X_norm_s[:n_tr]
-X_val   = X_norm_s[n_tr:]
+# Model input uses only the Core-2 columns (token_count, ctx_delta); the
+# scaler above is still fit on all 5 raw columns so scaling is unaffected
+# by which columns are later selected for the model.
+X_all_core  = X_all_s[:, :, CORE_COLS]
+X_norm_core = X_norm_s[:, :, CORE_COLS]
 
-X_test  = np.concatenate([X_val, X_all_s[~mask_n]])
+n_tr    = int(0.8 * len(X_norm_core))
+X_train = X_norm_core[:n_tr]
+X_val   = X_norm_core[n_tr:]
+
+X_test  = np.concatenate([X_val, X_all_core[~mask_n]])
 y_test  = np.concatenate([y_all[mask_n][n_tr:], y_all[~mask_n]])
 t_test  = np.concatenate([t_all[mask_n][n_tr:], t_all[~mask_n]])
-print(f"  train(normal)={len(X_train)}  test={len(X_test)}")
+print(f"  train(normal)={len(X_train)}  test={len(X_test)}  (Core-2: {CORE_NAMES})")
 
 # 4-2 Train LightGAE
-print("\n[2/4] LightGAE 학습 (5-agent GCN)...")
-gae = LightGAE(in_dim=N_FEATS, hid=16, emb=8)
+print("\n[2/4] LightGAE 학습 (5-agent GCN, Core-2 input)...")
+gae = LightGAE(in_dim=N_CORE, hid=16, emb=8)
 train_gae(gae, X_train, epochs=150)
 
 X_test_t = torch.FloatTensor(X_test)
@@ -364,7 +381,7 @@ pd_gae      = (sc_gae > theta_gae).astype(int)
 
 # 4-3 Train MLP-AE (ablation)
 print("\n[3/4] MLP-AE 학습 (ablation -- no graph structure)...")
-mlp = MLPAE(in_dim=N_AGENTS * N_FEATS, hid=16, emb=8)
+mlp = MLPAE(in_dim=N_AGENTS * N_CORE, n_feats=N_CORE, hid=16, emb=8)
 train_mlp(mlp, X_train, epochs=150)
 sc_mlp    = mlp.score(X_test_t)
 tr_mlp    = mlp.score(torch.FloatTensor(X_train))
@@ -585,20 +602,22 @@ for s in SEEDS:
     sc_ = StandardScaler().fit(Xa[mn].reshape(mn.sum(), -1))
     Xa_s = sc_.transform(Xa.reshape(len(Xa), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
     Xn_s = sc_.transform(Xa[mn].reshape(mn.sum(), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    Xa_s = Xa_s[:, :, CORE_COLS]
+    Xn_s = Xn_s[:, :, CORE_COLS]
     ntr  = int(0.8 * len(Xn_s))
     Xtr, Xv = Xn_s[:ntr], Xn_s[ntr:]
     Xte = np.concatenate([Xv, Xa_s[~mn]])
     yte = np.concatenate([ya[mn][ntr:], ya[~mn]])
     tte = np.concatenate([ta[mn][ntr:], ta[~mn]])
 
-    g = LightGAE(in_dim=N_FEATS, hid=16, emb=8, verbose=False)
+    g = LightGAE(in_dim=N_CORE, hid=16, emb=8, verbose=False)
     train_gae(g, Xtr, epochs=100, verbose=False)
     sc_g, _, _ = g.score(torch.FloatTensor(Xte), ADJ)
     tr_g, _, _ = g.score(torch.FloatTensor(Xtr), ADJ)
     th_g = float(np.percentile(tr_g, 95))
     records_gae.append(metrics(yte, sc_g, (sc_g > th_g).astype(int)))
 
-    mlp_m = MLPAE(in_dim=N_AGENTS*N_FEATS, hid=16, emb=8, verbose=False)
+    mlp_m = MLPAE(in_dim=N_AGENTS*N_CORE, n_feats=N_CORE, hid=16, emb=8, verbose=False)
     train_mlp(mlp_m, Xtr, epochs=100)
     sc_m  = mlp_m.score(torch.FloatTensor(Xte))
     tr_m  = mlp_m.score(torch.FloatTensor(Xtr))

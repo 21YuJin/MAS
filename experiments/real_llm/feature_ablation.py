@@ -125,6 +125,7 @@ def metrics(y, sc, pred):
 FEATURE_SETS = {
     "Full-5 (all)":                    [0,1,2,3,4],
     "Core-3 (latency,token,ctx_delta)": [0,1,2],
+    "Core-2 (token,ctx_delta)":        [1,2],
     "Full-5 minus latency":            [1,2,3,4],
     "Full-5 minus token_count":        [0,2,3,4],
     "Full-5 minus ctx_delta":          [0,1,3,4],

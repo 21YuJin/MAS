@@ -22,7 +22,13 @@ np.random.seed(42); random.seed(42)
 
 BLUE="#4C9BE8"; RED="#E8604C"; GREEN="#5BAD6F"
 GRAY="#AAAAAA"; ORANGE="#F0A500"
-FEATS = ["latency","token_count","ctx_delta","sentence_count","joint_deviation_flag"]
+FEATS = ["token_count","ctx_delta"]
+# Headline detector input uses the empirically-selected Core-2 subset (see
+# experiments/lgnn/feature_ablation_5agent.py and
+# experiments/real_llm/feature_ablation.py) -- latency, sentence_count, and
+# joint_deviation_flag added no measurable detection value once tested via
+# ablation. sample_meta() below still returns all 5 raw fields for reference.
+ALL_FEATS = ["latency","token_count","ctx_delta","sentence_count","joint_deviation_flag"]
 ISO_DELAY = 5   # 격리 응답 시간 (턴)
 
 # ── 분포 파라미터 (분리도 2.5~3σ — 현실적 난이도) ──
@@ -329,7 +335,9 @@ fig6,(ax6a,ax6b)=plt.subplots(1,2,figsize=(13,5))
 fig6.suptitle("Figure 6. Threat Propagation Analysis — Agent-3 Metadata Shift\n"
               "(Agent-2 compromised, propagation factor=0.55)",
               fontsize=12,fontweight="bold")
-feat_names=["Latency δ","Token τ","API Freq f","Call Seq s","Ctx Δc"]
+feat_label = {"latency":"Latency δ","token_count":"Token τ","ctx_delta":"Ctx Δc",
+              "sentence_count":"Sentence f","joint_deviation_flag":"Joint Dev s"}
+feat_names=[feat_label[f] for f in FEATS]
 changes=[prop_res[f]["change_pct"] for f in FEATS]
 bc6=[RED if c>0 else BLUE for c in changes]
 bars6=ax6a.barh(feat_names,changes,color=bc6,edgecolor="white",height=0.55)

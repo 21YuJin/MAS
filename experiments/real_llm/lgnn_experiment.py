@@ -48,19 +48,12 @@ GRAY   = "#AAAAAA"
 
 N_AGENTS    = 4
 AGENT_NAMES = ["Orchestrator", "Researcher", "Analyst", "Writer"]
-FEAT_NAMES  = ["latency", "token_count", "api_freq", "ctx_delta", "call_seq", "refusal_flag"]
-N_FEATS     = 6
+FEAT_NAMES  = ["latency", "token_count", "sentence_count", "ctx_delta", "joint_deviation_flag"]
+N_FEATS     = 5
 # 4-node pipeline + cross-link(Orchestrator->Analyst): 2-hop 집계 가능
 EDGES       = [(0, 1), (1, 2), (2, 3), (0, 2)]
 
 SEEDS = [42, 0, 1, 7, 123]
-
-REFUSAL_PATTERNS = [
-    "i cannot", "i'm unable", "i won't", "i can't",
-    "this appears to be", "against my guidelines",
-    "i'm not able to", "i must decline", "inappropriate request",
-    "i should not", "i will not",
-]
 
 # ── Orchestrator-level cascade injection ────────────────────────────────────
 # 설계: Orchestrator에 injection -> 출력이 길어짐 -> Researcher/Analyst/Writer
@@ -278,19 +271,16 @@ def ask_ollama(prompt):
 
 def extract_features(text, latency, tokens, prev_tokens):
     """
-    6 metadata features per agent.
-    api_freq: proxied by sentence-ending punctuation count.
+    5 metadata features per agent.
+    sentence_count: proxied by sentence-ending punctuation count (surface-text access).
     ctx_delta: token ratio relative to previous agent (upstream context size).
-    call_seq: binary flag when token count exceeds typical upper bound.
-    refusal_flag: LLM explicitly refuses or flags injected instruction.
+    joint_deviation_flag: joint token+ctx_delta deviation flag (not a bare token_count
+    threshold, to avoid redundancy with the token_count feature itself).
     """
-    sent_count   = len(re.findall(r'[.!?]', text))
-    ctx_delta    = tokens / max(prev_tokens, 1)
-    # joint token+ctx_delta deviation flag (not a bare token_count threshold,
-    # to avoid redundancy with the token_count feature itself)
-    call_seq     = 1 if (tokens > 280 and ctx_delta > 1.3) else 0
-    refusal_flag = 1 if any(p in text.lower() for p in REFUSAL_PATTERNS) else 0
-    return [latency, float(tokens), float(sent_count), ctx_delta, float(call_seq), float(refusal_flag)]
+    sent_count = len(re.findall(r'[.!?]', text))
+    ctx_delta  = tokens / max(prev_tokens, 1)
+    joint_deviation_flag = 1 if (tokens > 280 and ctx_delta > 1.3) else 0
+    return [latency, float(tokens), float(sent_count), ctx_delta, float(joint_deviation_flag)]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -412,8 +402,8 @@ else:
     save_cache(CACHE_ATTACK, X_attack)
     print(f"  공격 세션 완료 ({N_ATTACK}회)  총 {time.time()-t0:.0f}s          ")
 
-X_normal = np.array(X_normal)   # (N_NORMAL, 4, 6)
-X_attack = np.array(X_attack)   # (N_ATTACK, 4, 6)
+X_normal = np.array(X_normal)   # (N_NORMAL, 4, 5)
+X_attack = np.array(X_attack)   # (N_ATTACK, 4, 5)
 
 # 인젝션 효과: Orchestrator 토큰 20% 이상 증가한 세션 수
 orch_normal_mean = X_normal[:, 0, 1].mean()
@@ -421,8 +411,8 @@ injection_hits   = int((X_attack[:, 0, 1] > orch_normal_mean * 1.20).sum())
 print(f"  Orchestrator 토큰 기반 인젝션 감지율: {injection_hits}/{N_ATTACK} "
       f"({injection_hits/N_ATTACK*100:.0f}%)")
 
-X_normal = np.array(X_normal)   # (N_NORMAL, 4, 6)
-X_attack = np.array(X_attack)   # (N_ATTACK, 4, 6)
+X_normal = np.array(X_normal)   # (N_NORMAL, 4, 5)
+X_attack = np.array(X_attack)   # (N_ATTACK, 4, 5)
 
 # Cascade 검증: 정상 vs 공격에서 에이전트별 토큰 평균
 print("\n  [Cascade 검증] 에이전트별 평균 토큰 수:")
@@ -436,12 +426,6 @@ for i, nm in enumerate(AGENT_NAMES):
 # §5.  멀티시드 평가 (LightGAE + MLPAE + Z-score)
 # ══════════════════════════════════════════════════════════════════════════════
 print(f"\n[3/3] 멀티시드 학습 + 평가 (seeds={SEEDS})...")
-
-flat_n = X_normal.reshape(N_NORMAL, -1)
-flat_a = X_attack.reshape(N_ATTACK, -1)
-scaler = StandardScaler().fit(flat_n)
-Xn_s   = scaler.transform(flat_n).reshape(N_NORMAL, N_AGENTS, N_FEATS).astype(np.float32)
-Xa_s   = scaler.transform(flat_a).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
 
 n_tr = int(N_NORMAL * 0.80)   # 40
 
@@ -465,12 +449,19 @@ for seed in SEEDS:
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    idx_n = np.random.permutation(N_NORMAL)
-    Xn_sh = Xn_s[idx_n]
-    X_tr  = Xn_sh[:n_tr]
-    X_val = Xn_sh[n_tr:]
-    X_te  = np.concatenate([X_val, Xa_s])
-    y_te  = np.array([0]*len(X_val) + [1]*N_ATTACK)
+    # Split raw (unscaled) sessions first, then fit the scaler on the train
+    # split only -- avoids leaking validation-session statistics into scaling.
+    idx_n     = np.random.permutation(N_NORMAL)
+    Xn_sh_raw = X_normal[idx_n]
+    X_tr_raw  = Xn_sh_raw[:n_tr]
+    X_val_raw = Xn_sh_raw[n_tr:]
+
+    scaler = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
+    X_tr   = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    X_val  = scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    Xa_s   = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
+    X_te   = np.concatenate([X_val, Xa_s])
+    y_te   = np.array([0]*len(X_val) + [1]*N_ATTACK)
 
     # ── LightGAE ──────────────────────────────────────────────
     gae = LightGAE(in_dim=N_FEATS, hid=16, emb=8)
@@ -531,8 +522,8 @@ print(f"  LightGAE vs MLPAE  : t={t_gm:+.3f}  p={p_gm:.4f}")
 print(f"  LightGAE vs Z-score: t={t_gz:+.3f}  p={p_gz:.4f}")
 print("  " + "-" * 54)
 
-# 교차 환경 비교
-SIM_AUC  = 0.9987
+# 교차 환경 비교 (5-agent 시뮬레이션 멀티시드 평균, mas_lgnn_5agent.py 최신 재실행 결과)
+SIM_AUC  = 0.9931
 gae_aucs = [r['AUC'] for r in seed_records['LightGAE']]
 real_auc = np.mean(gae_aucs)
 gap      = SIM_AUC - real_auc
@@ -548,12 +539,6 @@ print(f"\n  에이전트별 이상 점수 (attack sessions, seed={SEEDS[-1]}):")
 print(f"  {'Agent':<16} {'Mean Score':>12} {'Max Score':>12}")
 for i, name in enumerate(AGENT_NAMES):
     print(f"  {name:<16} {atk_node[:, i].mean():>12.4f} {atk_node[:, i].max():>12.4f}")
-
-# refusal_flag 통계
-ref_n = X_normal[:, 1, 5].mean() * 100
-ref_a = X_attack[:, 1, 5].mean() * 100
-print("\n  [refusal_flag] Researcher 거부율:")
-print(f"  정상 {ref_n:.1f}%  |  공격 {ref_a:.1f}%")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §6.  FIGURES
@@ -646,7 +631,7 @@ fig4, ax4 = plt.subplots(figsize=(8, 5))
 envs = ["Simulation\n(N=200, 5-agent)", f"Real LLM\n(N={N_ATTACK}, 4-agent)"]
 real_f1_mean = np.mean([r['F1'] for r in seed_records['LightGAE']])
 aucs4 = [SIM_AUC, real_auc]
-f1s4  = [0.9957, real_f1_mean]
+f1s4  = [0.9789, real_f1_mean]
 x4    = np.arange(2)
 w4    = 0.3
 b_auc = ax4.bar(x4 - w4/2, aucs4, w4, color=[BLUE, RED],   alpha=0.85, label="AUC")
@@ -709,7 +694,6 @@ for name, records in seed_records.items():
           f"{np.mean(f1s_):>9.4f}{best}")
 print("  " + "-" * 54)
 print(f"\n  교차 환경 AUC Gap: {gap:+.4f}  (sim {SIM_AUC:.4f} -> real {real_auc:.4f})")
-print(f"  refusal_flag: 정상 {ref_n:.1f}%  |  공격 {ref_a:.1f}%")
 print(f"\n  Figure 저장 위치:")
 for i, fn in enumerate(["feature_dist", "roc", "node_score", "cross_env", "ablation"], 1):
     print(f"    output/real_llm/lgnn_fig{i}_{fn}.png")

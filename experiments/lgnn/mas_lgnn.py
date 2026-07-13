@@ -8,8 +8,8 @@ Quick Identification of Anomalous Interactions in Multi-Agent AI Systems
 System Model  G = (A, E, M):
   A = {v0:Orchestrator, v1:Researcher, v2:Writer}
   E = {(v0,v1), (v1,v2), (v0,v2)}
-  M = {δ: latency,  τ: token_count,  f: api_freq,
-        Δc: ctx_delta,  s: call_seq,  r: refusal_flag}
+  M = {δ: latency,  τ: token_count,  f: sentence_count,
+        Δc: ctx_delta,  s: joint_deviation_flag}
 
 Attack Taxonomy (4 Types):
   Type-I   Direct Override     — immediate role hijack at Researcher
@@ -57,7 +57,7 @@ os.makedirs(OUT, exist_ok=True)
 
 N_AGENTS    = 3
 AGENT_NAMES = ["Orchestrator", "Researcher", "Writer"]
-FEAT_NAMES  = ["latency", "token_count", "api_freq", "ctx_delta", "call_seq", "refusal_flag"]
+FEAT_NAMES  = ["latency", "token_count", "sentence_count", "ctx_delta", "joint_deviation_flag"]
 N_FEATS     = len(FEAT_NAMES)
 
 EDGES = [(0, 1), (1, 2), (0, 2)]      # directed pipeline + supervisory edge
@@ -79,9 +79,9 @@ ADJ = build_adj()                      # fixed graph topology for all sessions
 # ══════════════════════════════════════════════════════════════
 
 NP = dict(latency=(0.85, 0.12), token_count=(160, 25),
-          api_freq=2.5,          ctx_delta=(0.05, 0.02))
+          sentence_count=2.5,    ctx_delta=(0.05, 0.02))
 AP = dict(latency=(1.30, 0.30), token_count=(240, 50),
-          api_freq=5.5,          ctx_delta=(0.18, 0.06))
+          sentence_count=5.5,    ctx_delta=(0.18, 0.06))
 
 ATTACK_CFG = {
     "Normal":          {"p_r": 0.0,  "p_w": 0.0 },
@@ -112,14 +112,14 @@ def sample_agent(p: float, context_scale: float = 1.0) -> list:
     mu_l, sg_l = _lerp(NP["latency"],     AP["latency"],     p)
     mu_t, sg_t = _lerp(NP["token_count"], AP["token_count"], p)
     mu_c, sg_c = _lerp(NP["ctx_delta"],   AP["ctx_delta"],   p)
-    lam_a      = _lerp(NP["api_freq"],    AP["api_freq"],    p)
+    lam_a      = _lerp(NP["sentence_count"], AP["sentence_count"], p)
     # Latency and ctx_delta scale with upstream context size
     # (more Researcher output → longer Writer processing time)
     lat_scale = 0.6 + 0.4 * context_scale
     ctx_scale = 0.5 + 0.5 * context_scale
     lat_val = max(0.05, np.random.normal(mu_l * lat_scale, sg_l))
     tok_val = max(10,   int(np.random.normal(mu_t, sg_t)))
-    # call_seq: joint latency+token deviation flag, derived from the *realized*
+    # joint_deviation_flag: joint latency+token deviation flag, derived from the *realized*
     # lat/tok values (not sampled directly from p) to avoid label leakage.
     lat_z = (lat_val - NP["latency"][0]) / NP["latency"][1]
     tok_z = (tok_val - NP["token_count"][0]) / NP["token_count"][1]
@@ -129,7 +129,6 @@ def sample_agent(p: float, context_scale: float = 1.0) -> list:
         max(0,    int(np.random.poisson(lam_a))),
         max(0.0,  np.random.normal(mu_c * ctx_scale, sg_c)),
         int(lat_z > 1.5 and tok_z > 1.0),
-        int(np.random.random() < p * 0.02),   # refusal_flag: rare even under attack (calibrated to real-LLM ~0.5-2%)
     ]
 
 def make_session(atk_key="Normal", n_turns=30, win=5):

@@ -22,14 +22,14 @@ np.random.seed(42); random.seed(42)
 
 BLUE="#4C9BE8"; RED="#E8604C"; GREEN="#5BAD6F"
 GRAY="#AAAAAA"; ORANGE="#F0A500"
-FEATS = ["latency","token_count","api_freq","call_seq","ctx_delta"]
+FEATS = ["latency","token_count","sentence_count","joint_deviation_flag","ctx_delta"]
 ISO_DELAY = 5   # 격리 응답 시간 (턴)
 
 # ── 분포 파라미터 (분리도 2.5~3σ — 현실적 난이도) ──
 NP = dict(latency=(0.85,0.12), token_count=(160,25),
-          api_freq=2.5,        ctx_delta=(0.05,0.02))
+          sentence_count=2.5,  ctx_delta=(0.05,0.02))
 AP = dict(latency=(1.15,0.22), token_count=(220,42),
-          api_freq=4.5,        ctx_delta=(0.13,0.04))
+          sentence_count=4.5,  ctx_delta=(0.13,0.04))
 
 def sample_meta(p=0.0, isolated=False):
     if isolated: p = 0.0
@@ -40,17 +40,17 @@ def sample_meta(p=0.0, isolated=False):
         NP["token_count"][0] + p*(AP["token_count"][0] - NP["token_count"][0]),
         NP["token_count"][1] + p*(AP["token_count"][1] - NP["token_count"][1]))))
     api = max(0, int(np.random.poisson(
-        NP["api_freq"]       + p*(AP["api_freq"]       - NP["api_freq"]))))
+        NP["sentence_count"]  + p*(AP["sentence_count"]  - NP["sentence_count"]))))
     ctx = max(0.0, np.random.normal(
         NP["ctx_delta"][0]   + p*(AP["ctx_delta"][0]   - NP["ctx_delta"][0]),
         NP["ctx_delta"][1]   + p*(AP["ctx_delta"][1]   - NP["ctx_delta"][1])))
-    # call_seq: joint latency+token deviation flag, derived from the *realized*
-    # lat/tok values (not sampled directly from p) to avoid label leakage.
+    # joint_deviation_flag: joint latency+token deviation flag, derived from the
+    # *realized* lat/tok values (not sampled directly from p) to avoid label leakage.
     lat_z = (lat - NP["latency"][0]) / NP["latency"][1]
     tok_z = (tok - NP["token_count"][0]) / NP["token_count"][1]
     seq = int(lat_z > 1.5 and tok_z > 1.0)
     return dict(latency=round(lat,4), token_count=tok,
-                api_freq=api, call_seq=seq, ctx_delta=round(ctx,4),
+                sentence_count=api, joint_deviation_flag=seq, ctx_delta=round(ctx,4),
                 label=int(p > 0.3))
 
 # ══════════════════════════════════════════════
@@ -204,8 +204,8 @@ fig1,axes=plt.subplots(2,2,figsize=(12,8))
 fig1.suptitle("Figure 1. Metadata Feature Distributions: Normal vs. Anomalous (Agent-2)\n"
               "n=1200 per condition",fontsize=12,fontweight="bold")
 fl={"latency":"Response Latency δ (s)","token_count":"Token Volume τ",
-    "api_freq":"API Call Frequency f","ctx_delta":"Context Size Variation Δc"}
-for ax,feat in zip(axes.flatten(),["latency","token_count","api_freq","ctx_delta"]):
+    "sentence_count":"Sentence Count (api_freq proxy)","ctx_delta":"Context Size Variation Δc"}
+for ax,feat in zip(axes.flatten(),["latency","token_count","sentence_count","ctx_delta"]):
     bp=ax.boxplot([n2n[feat].values,n2a[feat].values],patch_artist=True,widths=0.5,
                   medianprops=dict(color="white",linewidth=2.5))
     bp["boxes"][0].set_facecolor(BLUE); bp["boxes"][1].set_facecolor(RED)

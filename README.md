@@ -63,9 +63,13 @@ G = (A, E, M)
 
 A: 에이전트 집합  = {Orchestrator(v0), Researcher(v1), Analyst(v2), Writer(v3)}
 E: 통신 엣지      = {(v0→v1), (v1→v2), (v2→v3), (v0→v2)}
-M: 메타데이터     = {δ: latency,  τ: token_count,  f: api_freq,
-                     Δc: ctx_delta,  s: call_seq,  r: refusal_flag}
+M: 메타데이터(5개, core 3 + extension 2) = {δ: latency,  τ: token_count,
+                     Δc: ctx_delta,  σ: sentence_count,  j: joint_deviation_flag}
 ```
+
+> **Core 3**: latency(시간적), token_count(절대 볼륨), ctx_delta(관계적 볼륨, token_count 비율) — 논문 핵심 주장.
+> **Extension 2**: sentence_count(구 api_freq, surface-text 접근 필요), joint_deviation_flag(구 call_seq, latency+token 공동 이탈 플래그) — 코드에는 유지, ablation 검증 대기 중.
+> refusal_flag는 제거함(시뮬레이션에서 공격확률 `p`를 직접 샘플링하는 라벨 누수가 있었고, real-LLM에서는 키워드 매칭이라 명백한 content 접근이었음).
 
 ---
 
@@ -85,16 +89,16 @@ M: 메타데이터     = {δ: latency,  τ: token_count,  f: api_freq,
 ### 모델 구조
 
 ```
-Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
+Input  X ∈ R^{B × |V| × 5}   (batch × agents × features)
   │
-  ├─ GCNLayer 1:  H' = σ(Â H W₁)   6  → 16  (이웃 에이전트 정보 집계)
+  ├─ GCNLayer 1:  H' = σ(Â H W₁)   5  → 16  (이웃 에이전트 정보 집계)
   ├─ GCNLayer 2:         Â H' W₂   16 →  8   (고차 관계 학습)
   │
   ├─ DecoderLayer 1:   8 → 16
-  └─ DecoderLayer 2:  16 →  6   (원본 피처 재구성)
+  └─ DecoderLayer 2:  16 →  5   (원본 피처 재구성)
 
-총 파라미터: 494개  (스마트폰 앱보다 수천 배 작음)
-추론 속도:   0.0008 ms/sample
+총 파라미터: 461개  (agent 수와 무관, 아키텍처만으로 결정됨)
+추론 속도:   0.0007 ms/sample
 ```
 
 ---
@@ -111,6 +115,12 @@ Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
 > - **시뮬레이션의 "GCN 구조적 우위" 결과는 재현되지 않음** — 아래 상세.
 > 원본(수정 전) 결과는 `output/real_llm/cache_*.json.bak_old_callseq`에 백업되어 있음.
 
+> **[2026-07-13 추가 업데이트 — feature 정리 + scaler 누수 수정]**
+> 1. `refusal_flag` 제거(6→5 feature) — 시뮬레이션 3개 파일 전부 `call_seq`와 동일한 p-직접-누수 패턴(`random() < p*0.02`)이 있었고, real-LLM은 키워드 매칭으로 명백한 content 접근이었음. real-LLM 캐시도 해당 컬럼 제거(백업: `cache_*.json.bak_6feat`).
+> 2. `api_freq → sentence_count`, `call_seq → joint_deviation_flag`로 개명 — 실제 계산 내용과 이름이 일치하도록 정정(전자는 "API 호출 빈도"가 아니라 문장 수 근사, 후자는 "호출 순서"가 아니라 latency+token 공동 이탈 플래그).
+> 3. real-LLM 학습 파이프라인의 `StandardScaler`가 정상 50세션 전체에 fit된 뒤 train/val로 나뉘는 미세한 leakage가 있었음 — split을 먼저 하고 train(40)에만 scaler를 fit하도록 수정.
+> 세 수정 모두 반영해 전체 실험 재실행 완료. real-LLM 결과는 이번에도 수치 변화 거의 없음(강건성 재확인). 아래 표는 전부 최신(5-feature, 누수 없는) 결과로 갱신됨.
+
 ### 1. 시뮬레이션 실험 (5-agent G5)
 
 > **실험 규모:** N=200 세션/유형, 5-agent pipeline, 멀티시드(5 seeds)
@@ -125,44 +135,44 @@ Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
 | Type-IV Flood | 다중 에이전트 동시 오염 | 광범위 피해 |
 | **Type-V Chain** | Planner 단일 진입 + cascade | **노드 수준 침해 지점 식별에 가장 유리** |
 
-#### 탐지 성능 (전체 공격 유형 합산, seed=42, call_seq 수정 후)
+#### 탐지 성능 (전체 공격 유형 합산, 단일 실행, 5-feature + scaler 누수 수정 후)
 
 | Method | AUC | F1 | 비고 |
 |--------|:---:|:---:|------|
-| MLP-AE (no graph) | 0.9910 | 0.9841 | - |
-| **LightGAE (제안)** | 0.9921 | 0.9786 | ΔAUC +0.0011 (seed=42 단일값) |
+| MLP-AE (no graph) | 0.9907 | 0.9812 | - |
+| **LightGAE (제안)** | 0.9924 | 0.9784 | ΔAUC +0.0017 (단일 실행값, 아래 멀티시드가 더 신뢰도 높음) |
 
 > 이 5-agent 실험에는 별도의 Z-score 베이스라인이 포함되어 있지 않다 (Z-score/IsoForest/SlidingZscore 비교는 3-agent 기본 실험(`mas_lgnn.py`)에서만 수행됨).
 
-#### GCN 구조적 우위 재검증 — call_seq 누수 수정 후 (멀티시드, N=5 seeds)
+#### GCN 구조적 우위 재검증 — 5-feature + scaler 누수 수정 후 (멀티시드, N=5 seeds)
 
 | Metric | 값 |
 |--------|:---:|
-| GCN vs MLP ΔAUC (Type-III Slow) | −0.0041 ± 0.0057 (기존 보고 +0.0101±0.0010에서 반전) |
-| GCN vs MLP ΔAUC (Type-V Chain) | +0.0017 ± 0.0036 (기존 보고 +0.0072±0.0060에서 노이즈 수준으로 축소) |
-| 전체 멀티시드 ΔAUC | −0.0005 ± 0.0017 (평균보다 표준편차가 커서 0과 통계적으로 구분 불가) |
-| 3-agent(`mas_lgnn.py`) ΔAUC | −0.0010 (GCN이 근소하게 낮음, 스크립트 자체가 "no graph benefit" 경고 출력) |
+| GCN vs MLP ΔAUC (Type-III Slow) | −0.0014 ± 0.0063 |
+| GCN vs MLP ΔAUC (Type-V Chain) | +0.0008 ± 0.0025 |
+| 전체 멀티시드 ΔAUC (5-agent) | −0.0001 ± 0.0013 (평균보다 표준편차가 커서 0과 통계적으로 구분 불가) |
+| 3-agent(`mas_lgnn.py`) 단일 실행 ΔAUC | 재실행마다 부호가 바뀜(−0.0010 → +0.0071, 완전히 같은 코드·seed인데도) — **단일 실행 비교는 신뢰 불가**, 3-agent 스크립트는 GCN-vs-MLP 멀티시드 델타를 별도 집계하지 않음 |
 
-> **[2026-07-13 재검증]** 기존에 "GCN 구조적 우위"로 보고했던 위 수치들은 call_seq가 공격확률 `p`를
-> 직접 샘플링한 값이었고, 시뮬레이션의 `eff_p`/`upstream_signal` 로직 상 p 자체가 그래프 엣지를 따라
-> 전파되도록 설계되어 있었기 때문일 가능성이 높다 — 즉 GCN이 학습한 것은 실제 행동 캐스케이드 패턴이
-> 아니라 **엣지를 따라 인위적으로 전파되는 누수 신호**였을 수 있다. 누수를 제거한 지금은 GCN vs MLP-AE
-> 간 유의미한 차이가 관측되지 않는다. **"GCN 구조적 우위"는 현재 버전 실험에서 재현되지 않는 미해결
-> 클레임으로 재분류해야 한다.**
+> **[2026-07-13 재검증]** call_seq 누수 수정 이후 5-agent 멀티시드 결과는 이전 라운드(−0.0005±0.0017)와
+> 이번 라운드(−0.0001±0.0013) 모두 일관되게 **0과 통계적으로 구분 불가**로 나온다 — 우연이 아니라
+> 안정적인 결론으로 보인다. 3-agent 스크립트는 같은 seed로 재실행해도 단일 실행 결과의 부호가 뒤집힐
+> 만큼 노이즈가 크다는 것도 추가로 확인됐다(PyTorch CPU 학습의 비결정성으로 추정). **"GCN 구조적
+> 우위"는 현재 버전 실험에서 재현되지 않는 미해결 클레임으로 재분류해야 하며, 단일-seed 스냅샷을
+> 헤드라인 수치로 쓰면 안 된다.**
 
 #### 노드 수준 에이전트 식별
 
 ```
-Type-V Chain 공격 (Planner 침해, call_seq 수정 후 재구성 오차):
-  Orchestrator  1.65  ← 정상 범위
-  Planner      10.36  ← 침해됨! ★ (진원지 정확히 식별, 이전보다 분리도 더 뚜렷: 6.3배 vs 이전 3.9배)
-  Researcher    1.60  ← 정상 범위
-  Analyst       1.10  ← 정상 범위
-  Writer        0.79  ← 정상 범위
+Type-V Chain 공격 (Planner 침해, 5-feature + scaler 수정 후 재구성 오차):
+  Orchestrator  1.75  ← 정상 범위
+  Planner      14.96  ← 침해됨! ★ (진원지 정확히 식별, 분리도 더 뚜렷: 8.5배 vs 이전 6.3배)
+  Researcher    1.75  ← 정상 범위
+  Analyst       1.20  ← 정상 범위
+  Writer        0.86  ← 정상 범위
 ```
 
-> call_seq 수정 후에도 Planner가 유일하게 튀는 값(10.36)을 보여 침해 지점 식별은 여전히,
-> 오히려 더 뚜렷하게 유지된다. **GCN vs MLP-AE의 전체 AUC 우위 클레임은 재현되지 않았지만,
+> 여러 차례의 feature 수정을 거치는 동안 Planner가 유일하게 튀는 값을 보이는 패턴은 계속 유지되고,
+> 오히려 분리도가 매번 개선되고 있다. **GCN vs MLP-AE의 전체 AUC 우위 클레임은 재현되지 않았지만,
 > 노드 수준 침해 지점 로컬라이제이션은 이 버그와 무관하게 견고하다** — 발표에서 구조적 이점을
 > 주장할 근거로는 이쪽이 더 안전하다.
 
@@ -205,33 +215,37 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 > AUC는 v4에서 세 방법 모두 saturate(1.0)됨 — Writer token ratio가 3.97배까지 벌어져 효과크기가
 > 매우 커서(easy separation) 생기는 현상.
 > F1 평균은 LightGAE(0.9902) > Z-score(0.9882) > MLPAE(0.9863) 순이지만, **paired t-test(N=5 seeds)
-> 결과 LightGAE vs MLPAE p=0.478, LightGAE vs Z-score p=0.621로 통계적으로 유의미하지 않다**
-> (표준편차 0.0088~0.0099가 평균 차이 0.002~0.004보다 크다). 5-seed로는 그래프 구조 우위를
-> 통계적으로 방어할 수 없으며, 시뮬레이션 쪽 GCN 우위도 재현되지 않은 상태([위 참고](#1-시뮬레이션-실험-5-agent-g5))라
-> **"그래프 구조가 유의미하게 낫다"는 주장은 현재 데이터로는 뒷받침되지 않는다.** call_seq 자체는
-> 수정 전후 결과가 동일해 이 버그가 F1 수치에 영향을 준 것은 아니다.
+> 결과 LightGAE vs MLPAE p=0.371, LightGAE vs Z-score p=0.621로 통계적으로 유의미하지 않다**
+> (표준편차가 평균 차이보다 크다). 5-seed로는 그래프 구조 우위를 통계적으로 방어할 수 없으며,
+> 시뮬레이션 쪽 GCN 우위도 재현되지 않은 상태([위 참고](#1-시뮬레이션-실험-5-agent-g5))라
+> **"그래프 구조가 유의미하게 낫다"는 주장은 현재 데이터로는 뒷받침되지 않는다.** feature 정리(6→5)와
+> scaler 누수 수정 전후로 F1/AUC 수치는 거의 그대로라 이 결론에 영향은 없다(강건성 재확인).
 
-#### 노드별 이상 점수 (공격 세션, seed=123)
+#### 노드별 이상 점수 (공격 세션, seed=123, 5-feature + scaler 수정 후)
 
 | Agent | Mean Score | Max Score | 역할 |
 |-------|:---:|:---:|------|
-| Orchestrator | 2.45 | 16.52 | injection 진입점 |
-| Researcher | 3.68 | 78.96 | 1차 cascade |
-| **Analyst** | **26.47** | **376.23** | **★ 최고 이상 점수** |
-| Writer | 15.18 | 59.92 | 3차 cascade (토큰 3.97x) |
+| Orchestrator | 3.19 | 26.02 | injection 진입점 |
+| Researcher | 4.67 | 82.93 | 1차 cascade |
+| **Analyst** | **19.93** | **199.22** | **★ 최고 이상 점수** |
+| Writer | 20.56 | 72.06 | 3차 cascade (토큰 3.97x) |
+
+> feature 정리 이전엔 Analyst가 확실한 1위(26.47)였는데, 수정 후에는 Analyst(19.93)와 Writer(20.56)가
+> 거의 비슷해졌다 — refusal_flag 제거와 scaler 재조정이 노드별 스케일 균형에 영향을 준 것으로 보인다.
+> 다만 두 후보 모두 Orchestrator/Researcher보다는 확실히 높아 "하류에서 이상이 커진다"는 결론 자체는 유지된다.
 
 #### 교차 환경 비교 (Sim-Real Gap)
 
 | 환경 | LightGAE AUC |
 |------|:---:|
-| 시뮬레이션 (5-agent, call_seq 수정 후) | 0.9926 ± 0.0004 |
+| 시뮬레이션 (5-agent, 5-feature + scaler 수정 후) | 0.9931 ± 0.0010 |
 | 실제 LLM v3 (shallow cascade) | 0.6656 ± 0.0946 |
 | **실제 LLM v4 (deep cascade)** | **1.0000 ± 0.0000** |
-| **Gap (v4)** | **−0.0074** (역전 유지) |
+| **Gap (v4)** | **−0.0069** (역전 유지) |
 
 > **핵심 발견:** Cascade depth가 Sim-Real Gap의 주요 원인.  
 > v4에서 컨텍스트 창 5배 확대 + 에이전트별 명시적 지시 → Gap 해소.
-> (call_seq 라벨 누수 수정으로 시뮬레이션 AUC가 0.9937 → 0.9926으로 재조정되며 Gap도 −0.0063 → −0.0074로 갱신됨. 부호·결론은 동일하게 유지.)
+> (feature 정리로 시뮬레이션 AUC가 0.9926 → 0.9931로 재조정되며 Gap도 −0.0074 → −0.0069로 갱신됨. 부호·결론은 동일하게 유지.)
 
 #### v3 → v4 개선 내용
 
@@ -249,8 +263,8 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 
 | 한계 | 상태 |
 |------|------|
-| **GCN 구조적 우위 미재현** | ⚠️ **2026-07-13 신규** — call_seq 라벨 누수 수정 후 sim(3/5-agent) 모두 ΔAUC가 노이즈 수준(±std가 평균보다 큼)으로 축소. 이전 "+0.0101" 등의 수치는 누수 아티팩트였을 가능성. 노드 수준 침해 위치 식별은 여전히 견고함 |
-| **Real-LLM F1 우위 통계적으로 미검증** | ⚠️ **2026-07-13 신규** — LightGAE F1(0.9902)이 평균은 가장 높지만 paired t-test로 MLPAE/Z-score 대비 유의미하지 않음(p=0.48, 0.62, N=5 seeds) |
+| **GCN 구조적 우위 미재현** | ⚠️ **2026-07-13, 두 차례 독립 재검증** — call_seq 누수 수정, 이후 feature 정리(6→5)+scaler 누수 수정, 두 라운드 모두 5-agent 멀티시드 ΔAUC가 노이즈 수준(±std가 평균보다 큼)으로 일관되게 나옴. 이전 "+0.0101" 등의 수치는 누수 아티팩트였을 가능성이 높음. 3-agent 단일 실행은 재현할 때마다 부호가 바뀔 정도로 불안정해 단일-seed 비교 자체를 신뢰하면 안 됨. 노드 수준 침해 위치 식별은 두 라운드 모두 견고함(오히려 분리도 개선) |
+| **Real-LLM F1 우위 통계적으로 미검증** | ⚠️ **2026-07-13** — LightGAE F1(0.9902)이 평균은 가장 높지만 paired t-test로 MLPAE/Z-score 대비 유의미하지 않음(p=0.37, 0.62, N=5 seeds). feature 정리·scaler 수정 전후로 수치 자체는 거의 불변(강건성 재확인) |
 | **Sim-Real Gap (0.333)** | ✅ **v4에서 해소** — Gap = −0.0013 (실LLM이 시뮬 소폭 상회) |
 | **Shallow Cascade** | ✅ **v4에서 해소** — Writer ratio 1.000 → 3.974 |
 | **단일 모델** | llama3.2만 검증. 다른 LLM 일반화는 향후 과제 |
@@ -266,8 +280,9 @@ MAS/
 │   ├── simulation/
 │   │   └── mas_experiment.py          # 4 Baseline + Adaptive Threshold 비교
 │   ├── real_llm/
-│   │   ├── lgnn_experiment.py         # ★ LightGAE + 실제 LLM (v4 완료)
-│   │   └── patch_call_seq.py          # 캐시된 세션의 call_seq만 오프라인 재계산(Ollama 불필요, 1회성 마이그레이션용 — 캐시는 이미 반영 완료)
+│   │   ├── lgnn_experiment.py         # ★ LightGAE + 실제 LLM (v4 완료, 5-feature)
+│   │   ├── patch_call_seq.py          # (완료된 1회성 마이그레이션) call_seq 재계산 — 캐시에 이미 반영됨
+│   │   └── patch_drop_refusal.py      # (완료된 1회성 마이그레이션) refusal_flag 컬럼 제거 — 캐시에 이미 반영됨
 │   └── lgnn/
 │       ├── mas_lgnn.py                # LightGAE 핵심 실험 (3-agent 시뮬레이션)
 │       └── mas_lgnn_5agent.py         # ★★ 5-Agent G5 확장 실험 (노드 수준 침해 위치 식별 검증. GCN vs MLP 전체 AUC 우위는 재현 안 됨)

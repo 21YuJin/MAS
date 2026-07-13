@@ -101,6 +101,16 @@ Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
 
 ## 실험 및 결과
 
+> **[2026-07-13 업데이트 — call_seq 라벨 누수 수정]**
+> `call_seq` feature가 시뮬레이션에서는 공격 확률 `p`를 직접 샘플링(`random() < p*0.7`)한 값이었고,
+> real-LLM에서는 `token_count`를 그대로 이진화(`tokens > 280`)한 값이었다. 전자는 사실상 정답 라벨을
+> 입력 feature로 흘려보내는 데이터 누수, 후자는 다른 feature와의 중복이었다. 두 문제를 모두 수정
+> (누수 없는 latency+token 공동편차 플래그로 재정의)하고 전체 실험을 재실행한 결과:
+> - **real-LLM F1/AUC 수치는 변화 없음** — 다른 feature(특히 token_count 폭증)가 이미 압도적이라
+>   call_seq가 애초에 판정에 기여하지 않고 있었음이 확인됨(강건성 확인, 회귀 아님).
+> - **시뮬레이션의 "GCN 구조적 우위" 결과는 재현되지 않음** — 아래 상세.
+> 원본(수정 전) 결과는 `output/real_llm/cache_*.json.bak_old_callseq`에 백업되어 있음.
+
 ### 1. 시뮬레이션 실험 (5-agent G5)
 
 > **실험 규모:** N=200 세션/유형, 5-agent pipeline, 멀티시드(5 seeds)
@@ -115,44 +125,46 @@ Input  X ∈ R^{B × 4 × 6}   (batch × agents × features)
 | Type-IV Flood | 다중 에이전트 동시 오염 | 광범위 피해 |
 | **Type-V Chain** | Planner 단일 진입 + cascade | **노드 수준 침해 지점 식별에 가장 유리** |
 
-#### 탐지 성능 (전체 공격 유형 합산, seed=42)
+#### 탐지 성능 (전체 공격 유형 합산, seed=42, call_seq 수정 후)
 
 | Method | AUC | F1 | 비고 |
 |--------|:---:|:---:|------|
-| MLPAE (no graph) | 0.9892 | 0.9811 | - |
-| **LightGAE (제안)** | **0.9935** | **0.9855** | ΔAUC +0.0043 vs MLP |
+| MLP-AE (no graph) | 0.9910 | 0.9841 | - |
+| **LightGAE (제안)** | 0.9921 | 0.9786 | ΔAUC +0.0011 (seed=42 단일값) |
 
 > 이 5-agent 실험에는 별도의 Z-score 베이스라인이 포함되어 있지 않다 (Z-score/IsoForest/SlidingZscore 비교는 3-agent 기본 실험(`mas_lgnn.py`)에서만 수행됨).
 
-#### GCN 구조적 우위 — 공격 유형별 비교 (멀티시드, N=5 seeds)
+#### GCN 구조적 우위 재검증 — call_seq 누수 수정 후 (멀티시드, N=5 seeds)
 
 | Metric | 값 |
 |--------|:---:|
-| GCN vs MLP ΔAUC (Type-III Slow) | **+0.0101 ± 0.0010** |
-| GCN vs MLP ΔAUC (Type-V Chain) | +0.0072 ± 0.0060 |
-| 전체 멀티시드 ΔAUC | +0.0035 ± 0.0013 |
+| GCN vs MLP ΔAUC (Type-III Slow) | −0.0041 ± 0.0057 (기존 보고 +0.0101±0.0010에서 반전) |
+| GCN vs MLP ΔAUC (Type-V Chain) | +0.0017 ± 0.0036 (기존 보고 +0.0072±0.0060에서 노이즈 수준으로 축소) |
+| 전체 멀티시드 ΔAUC | −0.0005 ± 0.0017 (평균보다 표준편차가 커서 0과 통계적으로 구분 불가) |
+| 3-agent(`mas_lgnn.py`) ΔAUC | −0.0010 (GCN이 근소하게 낮음, 스크립트 자체가 "no graph benefit" 경고 출력) |
 
-> **[2026-07 업데이트]** 메타데이터를 6개 피처(refusal_flag 추가)로 통일하며 시뮬레이션을 재실행한 결과,
-> 기존에 "GCN 우위가 가장 명확하다"고 보고했던 **Type-V Chain**이 아니라 **Type-III Slow**가
-> 가장 크고(+0.0101) 가장 안정적인(±0.0010, seed 편차 최소) 구조적 우위를 보였다.
-> Type-V Chain은 ΔAUC 자체는 2위(+0.0072, 편차 ±0.0060로 더 큼)이지만,
-> 아래 노드 수준 식별에서 보듯 **침해 시작 지점(Planner)을 정확히 짚어내는 유일한 유형**이라는
-> 실용적 가치는 그대로 유지된다.
+> **[2026-07-13 재검증]** 기존에 "GCN 구조적 우위"로 보고했던 위 수치들은 call_seq가 공격확률 `p`를
+> 직접 샘플링한 값이었고, 시뮬레이션의 `eff_p`/`upstream_signal` 로직 상 p 자체가 그래프 엣지를 따라
+> 전파되도록 설계되어 있었기 때문일 가능성이 높다 — 즉 GCN이 학습한 것은 실제 행동 캐스케이드 패턴이
+> 아니라 **엣지를 따라 인위적으로 전파되는 누수 신호**였을 수 있다. 누수를 제거한 지금은 GCN vs MLP-AE
+> 간 유의미한 차이가 관측되지 않는다. **"GCN 구조적 우위"는 현재 버전 실험에서 재현되지 않는 미해결
+> 클레임으로 재분류해야 한다.**
 
 #### 노드 수준 에이전트 식별
 
 ```
-Type-V Chain 공격 (Planner 침해, 6-피처 버전 재구성 오차):
-  Orchestrator  1.38  ← 정상 범위
-  Planner       5.41  ← 침해됨! ★ (진원지 정확히 식별)
-  Researcher    0.75  ← 정상 범위
-  Analyst       0.90  ← 정상 범위
-  Writer        0.66  ← 정상 범위
+Type-V Chain 공격 (Planner 침해, call_seq 수정 후 재구성 오차):
+  Orchestrator  1.65  ← 정상 범위
+  Planner      10.36  ← 침해됨! ★ (진원지 정확히 식별, 이전보다 분리도 더 뚜렷: 6.3배 vs 이전 3.9배)
+  Researcher    1.60  ← 정상 범위
+  Analyst       1.10  ← 정상 범위
+  Writer        0.79  ← 정상 범위
 ```
 
-> Planner가 유일하게 튀는 값(5.41)을 보여 침해 지점은 여전히 명확히 식별된다.
-> 다만 6-피처 버전에서는 하류 에이전트(Researcher/Analyst/Writer)로 이어지는 점진적 cascade
-> 감소 패턴이 이전 버전만큼 뚜렷하지는 않다 — 이 부분은 latency 기반 신호의 특성상 향후 추가 검증이 필요하다.
+> call_seq 수정 후에도 Planner가 유일하게 튀는 값(10.36)을 보여 침해 지점 식별은 여전히,
+> 오히려 더 뚜렷하게 유지된다. **GCN vs MLP-AE의 전체 AUC 우위 클레임은 재현되지 않았지만,
+> 노드 수준 침해 지점 로컬라이제이션은 이 버그와 무관하게 견고하다** — 발표에서 구조적 이점을
+> 주장할 근거로는 이쪽이 더 안전하다.
 
 ---
 
@@ -182,15 +194,22 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 
 > *Analyst는 토큰 수는 동일하지만 ctx_delta 피처(앞 에이전트 대비 비율)가 급변 → 이상 점수 최고(26.47)
 
-#### 탐지 성능 비교 (v3 → v4)
+#### 탐지 성능 비교 (v3 → v4, call_seq 수정 후 재검증)
 
-| Method | v3 AUC | v4 AUC | v4 F1 |
+| Method | v3 AUC | v4 AUC | v4 F1 mean ± std |
 |--------|:---:|:---:|:---:|
-| Z-score (baseline) | 0.6316 | **1.0000** | 0.9882 |
-| MLPAE (no graph) | 0.6824 | **1.0000** | 0.9863 |
-| **LightGAE (제안)** | 0.6656 | **1.0000** | **0.9902** |
+| Z-score (baseline) | 0.6316 | **1.0000 ± 0.0000** | 0.9882 ± 0.0095 |
+| MLPAE (no graph) | 0.6824 | **1.0000 ± 0.0000** | 0.9863 ± 0.0099 |
+| **LightGAE (제안)** | 0.6656 | **1.0000 ± 0.0000** | **0.9902 ± 0.0088** |
 
-> AUC 포화(1.0) 상태에서 **LightGAE F1(0.9902) > Z-score(0.9882) > MLPAE(0.9863)** — 그래프 구조 우위 확인.
+> AUC는 v4에서 세 방법 모두 saturate(1.0)됨 — Writer token ratio가 3.97배까지 벌어져 효과크기가
+> 매우 커서(easy separation) 생기는 현상.
+> F1 평균은 LightGAE(0.9902) > Z-score(0.9882) > MLPAE(0.9863) 순이지만, **paired t-test(N=5 seeds)
+> 결과 LightGAE vs MLPAE p=0.478, LightGAE vs Z-score p=0.621로 통계적으로 유의미하지 않다**
+> (표준편차 0.0088~0.0099가 평균 차이 0.002~0.004보다 크다). 5-seed로는 그래프 구조 우위를
+> 통계적으로 방어할 수 없으며, 시뮬레이션 쪽 GCN 우위도 재현되지 않은 상태([위 참고](#1-시뮬레이션-실험-5-agent-g5))라
+> **"그래프 구조가 유의미하게 낫다"는 주장은 현재 데이터로는 뒷받침되지 않는다.** call_seq 자체는
+> 수정 전후 결과가 동일해 이 버그가 F1 수치에 영향을 준 것은 아니다.
 
 #### 노드별 이상 점수 (공격 세션, seed=123)
 
@@ -230,11 +249,12 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 
 | 한계 | 상태 |
 |------|------|
+| **GCN 구조적 우위 미재현** | ⚠️ **2026-07-13 신규** — call_seq 라벨 누수 수정 후 sim(3/5-agent) 모두 ΔAUC가 노이즈 수준(±std가 평균보다 큼)으로 축소. 이전 "+0.0101" 등의 수치는 누수 아티팩트였을 가능성. 노드 수준 침해 위치 식별은 여전히 견고함 |
+| **Real-LLM F1 우위 통계적으로 미검증** | ⚠️ **2026-07-13 신규** — LightGAE F1(0.9902)이 평균은 가장 높지만 paired t-test로 MLPAE/Z-score 대비 유의미하지 않음(p=0.48, 0.62, N=5 seeds) |
 | **Sim-Real Gap (0.333)** | ✅ **v4에서 해소** — Gap = −0.0013 (실LLM이 시뮬 소폭 상회) |
 | **Shallow Cascade** | ✅ **v4에서 해소** — Writer ratio 1.000 → 3.974 |
-| **MLPAE > LightGAE** | ✅ **v4에서 역전** — F1 기준 LightGAE 0.9902 > MLPAE 0.9863 |
 | **단일 모델** | llama3.2만 검증. 다른 LLM 일반화는 향후 과제 |
-| **AUC 포화 (1.0)** | 세 방법 모두 AUC 1.0 → 차별화는 F1/threshold에서 분석 |
+| **AUC 포화 (1.0)** | 세 방법 모두 AUC 1.0 → 효과크기가 매우 커서(Writer ratio 3.97x) easy separation이 발생, 차별화는 F1에서만 시도했으나 이마저 통계적으로 유의하지 않음 |
 
 ---
 

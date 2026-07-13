@@ -44,7 +44,11 @@ def sample_meta(p=0.0, isolated=False):
     ctx = max(0.0, np.random.normal(
         NP["ctx_delta"][0]   + p*(AP["ctx_delta"][0]   - NP["ctx_delta"][0]),
         NP["ctx_delta"][1]   + p*(AP["ctx_delta"][1]   - NP["ctx_delta"][1])))
-    seq = int(np.random.random() < p * 0.65)
+    # call_seq: joint latency+token deviation flag, derived from the *realized*
+    # lat/tok values (not sampled directly from p) to avoid label leakage.
+    lat_z = (lat - NP["latency"][0]) / NP["latency"][1]
+    tok_z = (tok - NP["token_count"][0]) / NP["token_count"][1]
+    seq = int(lat_z > 1.5 and tok_z > 1.0)
     return dict(latency=round(lat,4), token_count=tok,
                 api_freq=api, call_seq=seq, ctx_delta=round(ctx,4),
                 label=int(p > 0.3))

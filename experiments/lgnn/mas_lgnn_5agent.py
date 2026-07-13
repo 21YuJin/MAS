@@ -118,12 +118,18 @@ def sample_agent(p: float, context_scale: float = 1.0) -> list:
     lam_a      = _lerp(NP["api_freq"],    AP["api_freq"],    p)
     lat_scale  = 0.5 + 0.5 * context_scale
     ctx_scale  = 0.3 + 0.7 * context_scale
+    lat_val = max(0.05, np.random.normal(mu_l * lat_scale, sg_l))
+    tok_val = max(10,   int(np.random.normal(mu_t, sg_t)))
+    # call_seq: joint latency+token deviation flag, derived from the *realized*
+    # lat/tok values (not sampled directly from p) to avoid label leakage.
+    lat_z = (lat_val - NP["latency"][0]) / NP["latency"][1]
+    tok_z = (tok_val - NP["token_count"][0]) / NP["token_count"][1]
     return [
-        max(0.05, np.random.normal(mu_l * lat_scale, sg_l)),
-        max(10,   int(np.random.normal(mu_t, sg_t))),
+        lat_val,
+        tok_val,
         max(0,    int(np.random.poisson(lam_a))),
         max(0.0,  np.random.normal(mu_c * ctx_scale, sg_c)),
-        int(np.random.random() < p * 0.7),
+        int(lat_z > 1.5 and tok_z > 1.0),
         int(np.random.random() < p * 0.02),   # refusal_flag: rare even under attack (calibrated to real-LLM ~0.5-2%)
     ]
 

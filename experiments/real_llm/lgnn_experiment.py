@@ -286,7 +286,9 @@ def extract_features(text, latency, tokens, prev_tokens):
     """
     sent_count   = len(re.findall(r'[.!?]', text))
     ctx_delta    = tokens / max(prev_tokens, 1)
-    call_seq     = 1 if tokens > 280 else 0
+    # joint token+ctx_delta deviation flag (not a bare token_count threshold,
+    # to avoid redundancy with the token_count feature itself)
+    call_seq     = 1 if (tokens > 280 and ctx_delta > 1.3) else 0
     refusal_flag = 1 if any(p in text.lower() for p in REFUSAL_PATTERNS) else 0
     return [latency, float(tokens), float(sent_count), ctx_delta, float(call_seq), float(refusal_flag)]
 
@@ -508,15 +510,25 @@ for seed in SEEDS:
                     X_val=X_val, y_te=y_te, r_gae=r_gae, r_z=r_z, r_mlp=r_mlp,
                     theta_gae=theta_gae)
 
-print(f"\n  {'Method':<22} {'AUC mean':>10} {'AUC std':>9} {'F1 mean':>9}")
-print("  " + "-" * 54)
+print(f"\n  {'Method':<22} {'AUC mean':>10} {'AUC std':>9} {'F1 mean':>9} {'F1 std':>9}")
+print("  " + "-" * 64)
 for name, records in seed_records.items():
     aucs  = [r['AUC'] for r in records]
     f1s   = [r['F1']  for r in records]
     win   = " <<< best" if np.mean(aucs) == max(
         np.mean([r['AUC'] for r in v]) for v in seed_records.values()) else ""
     print(f"  {name:<22} {np.mean(aucs):>10.4f} {np.std(aucs):>9.4f} "
-          f"{np.mean(f1s):>9.4f}{win}")
+          f"{np.mean(f1s):>9.4f} {np.std(f1s):>9.4f}{win}")
+
+from scipy import stats as _stats
+gae_f1 = [r['F1'] for r in seed_records['LightGAE']]
+mlp_f1 = [r['F1'] for r in seed_records['MLPAE']]
+z_f1   = [r['F1'] for r in seed_records['Z-score']]
+t_gm, p_gm = _stats.ttest_rel(gae_f1, mlp_f1)
+t_gz, p_gz = _stats.ttest_rel(gae_f1, z_f1)
+print(f"\n  [paired t-test, F1, N=5 seeds]")
+print(f"  LightGAE vs MLPAE  : t={t_gm:+.3f}  p={p_gm:.4f}")
+print(f"  LightGAE vs Z-score: t={t_gz:+.3f}  p={p_gz:.4f}")
 print("  " + "-" * 54)
 
 # 교차 환경 비교

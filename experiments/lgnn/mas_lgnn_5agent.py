@@ -21,6 +21,7 @@ System Model G5:
 import time
 import warnings
 import os
+import json
 import numpy as np
 import torch
 import torch.nn as nn
@@ -418,7 +419,16 @@ for ak in atk_keys:
     print(f"{ak:<22} {auc_g:>10.4f} {auc_m:>10.4f} {auc_g-auc_m:>+8.4f}{star}")
 
 # Node-level localization
-print(f"\n  에이전트별 이상 점수 (attack sessions):")
+# NOTE: this table is computed from the single main run above (seed=42 only,
+# set via torch.manual_seed(42)/np.random.seed(42) at module load), not from
+# the multi-seed loop below. Each row averages node_sc over every test-set
+# session/window of that attack type (all sliding-window samples from all
+# 200 sessions land in the test split for non-Normal types) -- i.e. a
+# seed-42 representative run, session/window-averaged, NOT a single example
+# and NOT averaged across the 5 multi-seed runs. Localization stability
+# across seeds is not yet verified; treat separation ratios (e.g. the ~8x
+# Type-V Chain figure) as a single-seed snapshot.
+print(f"\n  에이전트별 이상 점수 (attack sessions, seed=42 대표 실행, 세션/윈도우 평균):")
 print(f"{'Attack':<22} " + "  ".join(f"{a:>14}" for a in AGENT_NAMES))
 for ak in atk_keys:
     mask = (t_test == ak)
@@ -544,7 +554,7 @@ im = ax3.imshow(heat_data, aspect="auto", cmap="RdYlBu_r")
 ax3.set_xticks(range(N_AGENTS)); ax3.set_xticklabels(AGENT_NAMES, fontsize=10)
 ax3.set_yticks(range(len(row_labels))); ax3.set_yticklabels(row_labels, fontsize=9)
 ax3.set_title("Figure 3. Per-Agent Anomaly Score Heatmap\n"
-              "(5-Agent MAS -- high score = likely compromised)",
+              "(5-Agent MAS, seed=42 representative run -- high score = likely compromised)",
               fontsize=12, fontweight="bold")
 plt.colorbar(im, ax=ax3, label="Mean Reconstruction Error")
 for i in range(heat_data.shape[0]):
@@ -651,6 +661,52 @@ print(f"\n  Per-attack type ΔAUC across seeds:")
 for ak, dlist in dauc_per_atk.items():
     star = " <<< GCN advantage" if np.mean(dlist) > 0.005 else ""
     print(f"    {ak:<20}: {np.mean(dlist):+.4f} +- {np.std(dlist):.4f}{star}")
+
+# ── Paired t-test: LightGAE vs MLP-AE, overall AUC, N=len(SEEDS) seeds ──
+# Same-seed, same-split pairing (see loop above): for each seed both models
+# are trained/evaluated on identical Xtr/Xte, so a paired (not independent)
+# test is the correct one. ttest_rel(gcn, mlp) is mathematically equivalent
+# to ttest_1samp(gcn - mlp, 0).
+gcn_auc_seeds = np.array([r['AUC'] for r in records_gae], dtype=float)
+mlp_auc_seeds = np.array([r['AUC'] for r in records_mlp], dtype=float)
+t_stat, p_value = stats.ttest_rel(gcn_auc_seeds, mlp_auc_seeds, alternative="two-sided")
+
+print(f"\n  [Paired t-test: LightGAE vs MLP-AE, AUC, N={len(SEEDS)} seeds]")
+print(f"  GCN AUC per seed  : {gcn_auc_seeds.tolist()}")
+print(f"  MLP AUC per seed  : {mlp_auc_seeds.tolist()}")
+print(f"  ΔAUC per seed     : {[round(d, 4) for d in delta_seeds]}")
+print(f"  Mean ΔAUC         : {np.mean(delta_seeds):+.4f}")
+print(f"  Std  ΔAUC (ddof=1): {np.std(delta_seeds, ddof=1):.4f}")
+print(f"  t-statistic       : {t_stat:+.4f}")
+print(f"  p-value (2-sided) : {p_value:.6f}")
+
+import sys as _sys
+import sklearn as _sklearn
+env_versions = {
+    "python": _sys.version.split()[0],
+    "torch": torch.__version__,
+    "numpy": np.__version__,
+    "scikit_learn": _sklearn.__version__,
+    "scipy": __import__("scipy").__version__,
+    "matplotlib": matplotlib.__version__,
+}
+print(f"\n  [Environment] {env_versions}")
+
+ttest_result = {
+    "env_versions": env_versions,
+    "seeds": SEEDS,
+    "gcn_auc_per_seed": gcn_auc_seeds.tolist(),
+    "mlp_auc_per_seed": mlp_auc_seeds.tolist(),
+    "delta_auc_per_seed": [float(d) for d in delta_seeds],
+    "mean_delta_auc": float(np.mean(delta_seeds)),
+    "std_delta_auc_ddof1": float(np.std(delta_seeds, ddof=1)),
+    "t_statistic": float(t_stat),
+    "p_value_two_sided": float(p_value),
+    "n_seeds": int(len(SEEDS)),
+}
+with open(f"{OUT}/multiseed_ttest_result.json", "w") as f:
+    json.dump(ttest_result, f, indent=2)
+print(f"  Saved: {OUT}/multiseed_ttest_result.json")
 
 fig5, ax5 = plt.subplots(figsize=(8, 5))
 x5 = np.arange(len(SEEDS)); w5 = 0.35

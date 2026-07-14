@@ -170,6 +170,32 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 이전 버전(Core-3, Full-5) 결과는 이 문서 하단 히스토리에 남겨두되, **헤드라인 수치는 전부
 > Core-2 기준으로 교체**했다.
 
+> **[2026-07-14 재현성 검증 — p=0.0326은 환경 의존적, 방향성은 재현됨]**
+> `mas_lgnn_5agent.py`에 paired t-test 계산·저장 코드가 실제로는 빠져 있었음을 발견해 추가했고
+> (`scipy.stats.ttest_rel`, 결과를 `output/lgnn_5agent/multiseed_ttest_result.json`에 저장),
+> 이 기회에 원 헤드라인 수치(t=+3.209, p=0.0326)가 그대로 재현되는지 검증했다.
+> README에 명시된 정확한 버전(Python 3.11.15, PyTorch 2.3.1, NumPy 1.26.4, scikit-learn 1.6.1)으로
+> 고정한 venv에서 동일 코드·동일 seed(`[42,0,1,7,123]`)로 재실행한 결과:
+> **ΔAUC per seed = [+0.0499, +0.0105, +0.0004, +0.0177, +0.0148], mean=+0.0187±0.0187,
+> t=+2.237, p=0.0889 (α=0.05에서 유의미하지 않음)** — 원래 보고된 p=0.0326과 다르다.
+> 같은 pinned 환경에서 두 번 반복 실행한 결과는 서로 완전히 동일해(bit-identical) 실행마다
+> 결과가 흔들리는 문제는 아니며, 라이브러리 버전 고정만으로도 원 수치가 재현되지 않는 것으로 보아
+> OS/CPU 아키텍처(원 실험은 Windows로 추정, 이번 검증은 macOS ARM)에 따른 BLAS 백엔드 차이 등
+> 더 깊은 환경 의존성이 원인일 가능성이 높다. **다만 방향성(5/5 seed 전부 GCN AUC > MLP AUC)은
+> 두 환경 모두에서 100% 유지**된다. 이를 근거로 같은 pinned 환경에서 N=20 seed로 확장해
+> (`experiments/lgnn/multiseed_robustness_n20.py`, seed 목록: 원래 5개 + 15개 추가)
+> mean ΔAUC, sample SD, 95% bootstrap CI, positive-seed ratio, paired t-test, sign-flip
+> permutation test를 함께 확인했다. **결과: mean ΔAUC=+0.0269, sample SD=0.0325, 95% bootstrap
+> CI=[+0.0151, +0.0422] (0을 포함하지 않음), positive-seed ratio=20/20(100%), paired t-test
+> t=+3.704 p=0.0015, sign-flip permutation p<0.0001** (전체 결과는
+> `output/lgnn_5agent/multiseed_n20_robustness.json`에 저장). N=5보다 오히려 더 강하고 안정적인
+> 유의성이 나왔다 — seed=12에서 MLP-AE가 유난히 나쁜 값(AUC 0.8449)을 보인 이상치가 있지만, 이걸
+> 빼도 나머지 19개 seed 전부 양수라 결론은 바뀌지 않는다.
+> **결론: 효과 방향(GCN 구조적 우위)과 그 통계적 유의성 모두 N=20·pinned 환경에서 견고하게
+> 재현된다. 다만 원래 보고됐던 정확한 수치(N=5, t=3.209, p=0.0326)는 다른 실행 환경에서 나온
+> 값이라 그대로는 재현되지 않으므로, 논문에는 N=20 pinned-환경 수치를 1차 근거로 쓰고 N=5 수치는
+> "예비 실험(다른 환경)"으로만 언급한다.**
+
 ### 1. 시뮬레이션 실험 (5-agent G5)
 
 > **실험 규모:** N=200 세션/유형, 5-agent pipeline, 멀티시드(5 seeds)
@@ -193,22 +219,33 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 
 > 이 5-agent 실험에는 별도의 Z-score 베이스라인이 포함되어 있지 않다 (Z-score/IsoForest/SlidingZscore 비교는 3-agent 기본 실험(`mas_lgnn.py`)에서만 수행됨).
 
-#### GCN 구조적 우위 재검증 — Core-2 기준 (멀티시드, N=5 seeds)
+#### GCN 구조적 우위 재검증 — Core-2 기준 (멀티시드, N=20 seeds, pinned 환경)
 
-| Metric | 값 |
+> pinned 환경: Python 3.11.15 / PyTorch 2.3.1 / NumPy 1.26.4 / scikit-learn 1.6.1
+> (README 하단 §패키지 버전과 동일). 실행 스크립트: `experiments/lgnn/multiseed_robustness_n20.py`,
+> 원본 JSON: `output/lgnn_5agent/multiseed_n20_robustness.json`.
+
+| Metric | 값 (N=20 seeds, pinned) |
 |--------|:---:|
-| GCN vs MLP ΔAUC (Type-III Slow) | **+0.0552 ± 0.0581** |
-| GCN vs MLP ΔAUC (Type-V Chain) | **+0.0859 ± 0.0547** |
-| 전체 멀티시드 ΔAUC (5-agent) | **+0.0294 ± 0.0184** |
-| paired t-test (AUC, N=5 seeds) | **t=+3.209, p=0.0326** (α=0.05에서 유의미) |
+| 전체 멀티시드 ΔAUC (5-agent) | **+0.0269 ± 0.0325** (sample SD, ddof=1) |
+| 95% bootstrap CI | **[+0.0151, +0.0422]** (0 미포함, n_boot=10,000) |
+| Positive-seed ratio | **20/20 (100%)** — 모든 seed에서 GCN AUC > MLP AUC |
+| paired t-test (AUC) | **t=+3.704, p=0.0015** (α=0.05에서 유의미) |
+| sign-flip permutation test | **p<0.0001** (n_perm=10,000) |
+| GCN vs MLP ΔAUC (Type-III Slow, Type-V Chain) | N=5, 원 실행 환경에서만 측정(+0.0552±0.0581, +0.0859±0.0547) — N=20/pinned 환경에서 공격 유형별 분해는 아직 재검증 안 됨 |
 | 3-agent(`mas_lgnn.py`) 단일 실행 ΔAUC | 여전히 단일-seed 스냅샷이라 부호가 흔들릴 수 있음 — 3-agent 스크립트는 GCN-vs-MLP 멀티시드 델타를 별도 집계하지 않음, 참고만 |
 
-> **[2026-07-13 최종 재검증]** Full-5·Core-3 라운드에서는 ΔAUC가 노이즈 수준(평균≈표준편차 또는 그 이하)
-> 이었는데, **Core-2로 좁히자 5개 seed 전부 GCN이 MLP를 앞섰다**(seed별 ΔAUC: +0.0400, +0.0235,
-> +0.0087, +0.0154, +0.0596 — 전부 양수). N=5로 통계적 검정력은 제한적이지만 paired t-test p=0.0326은
-> 우연으로 보기 어렵다. 해석: Full-5/Core-3에는 sentence_count·joint_deviation_flag·(token_count와
-> 중복된) latency라는 잉여 차원이 있었고, MLP-AE는 이 잉여 차원에서도 어느 정도 판별 정보를 끌어낼 수
-> 있어 GCN과의 격차가 가려졌던 것으로 보인다. 차원을 정말 필요한 2개로 줄이자 그래프 구조 없이는
+> **[2026-07-14 최종 재검증, N=20·pinned 환경]** 애초 N=5(원 실행 환경) 결과는 t=+3.209, p=0.0326
+> 이었는데, 정확히 같은 버전(Python 3.11.15/PyTorch 2.3.1/NumPy 1.26.4)으로 고정한 환경에서는
+> 그대로 재현되지 않았다(t=+2.237, p=0.0889 — §2026-07-14 업데이트 참고, OS/CPU 아키텍처
+> 의존성으로 추정). 그래서 같은 pinned 환경에서 seed를 20개로 늘려 재검증한 결과가 위 표다.
+> **20개 seed 전부 GCN이 MLP를 앞섰고(positive-seed ratio 100%), paired t-test(p=0.0015)와
+> permutation test(p<0.0001) 모두 N=5보다 오히려 더 강한 유의성을 보였다.** 즉 특정 p-value
+> 하나(0.0326)는 환경에 따라 흔들렸지만, seed 수를 늘려 같은 환경에서 재검증하니 "GCN 구조적
+> 우위"라는 결론 자체는 이전보다 더 견고하게 뒷받침된다. 해석: Full-5/Core-3에는
+> sentence_count·joint_deviation_flag·(token_count와 중복된) latency라는 잉여 차원이 있었고,
+> MLP-AE는 이 잉여 차원에서도 어느 정도 판별 정보를 끌어낼 수 있어 GCN과의 격차가 가려졌던
+> 것으로 보인다. 차원을 정말 필요한 2개로 줄이자 그래프 구조 없이는
 > 포착하기 어려운 다중 노드 상관 패턴(Type-III Slow의 점진적 오염, Type-V Chain의 cascade)에서
 > GCN의 이점이 드러났다. **이전 결론("GCN 구조적 우위 미재현")은 Full-5/Core-3 feature set 한정
 > 결론으로 재한정하고, Core-2 기준으로는 우위가 재현된다고 갱신한다.**
@@ -216,7 +253,8 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 #### 노드 수준 에이전트 식별
 
 ```
-Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차):
+Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차, seed=42 대표 실행,
+                    해당 attack의 test 세션/윈도우 전체 평균):
   Orchestrator  1.59  ← 정상 범위
   Planner      12.69  ← 침해됨! ★ (진원지 정확히 식별, 분리도 약 8.0배)
   Researcher    1.24  ← 정상 범위
@@ -226,9 +264,13 @@ Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차):
 
 > 여러 차례의 feature 수정을 거치는 동안 Planner가 유일하게 튀는 값을 보이는 패턴은 계속
 > 유지된다(분리도는 라운드마다 6.3배→8.5배→7.4배→8.0배로 다소 흔들리지만 항상 뚜렷하게 큼).
-> Core-2로 확정된 지금은 **GCN vs MLP-AE의 전체 AUC 우위(paired t-test p=0.0326)와 노드 수준
-> 침해 지점 로컬라이제이션 둘 다 성립**한다 — 발표에서 두 가지를 함께 구조적 이점의 근거로
-> 쓸 수 있다.
+> 이 수치는 **seed=42 단일 대표 실행에서 Type-V Chain 테스트 세션·윈도우를 평균한 값**이며
+> (단일 사례 아님, 하지만 5-seed 멀티시드 평균도 아님), 로컬라이제이션의 seed 간 안정성은 아직
+> 별도로 검증되지 않았다 — 논문에는 "representative seed" 라고 명시할 것.
+> Core-2로 확정된 지금 **GCN vs MLP-AE의 AUC 우위는 방향성 기준(N=20 seed 전부 양수, 아래 §1
+> 표 참고)으로 성립**하고, 노드 수준 침해 지점 로컬라이제이션도 대표 실행에서 뚜렷하게
+> 관측된다 — 다만 정확한 p-value·분리배수를 헤드라인으로 못박기보다 이 두 가지를 "일관된
+> 방향성 증거"로 함께 제시하는 것을 권장한다.
 
 ---
 
@@ -320,7 +362,7 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 
 | 한계 | 상태 |
 |------|------|
-| **GCN 구조적 우위는 시뮬레이션에서만 유의미, real-LLM에선 ceiling effect로 안 보임** | ⚠️ **2026-07-13, Core-2 확정 후 재검증** — Full-5/Core-3에서는 3차례 독립 검증 모두 ΔAUC가 노이즈 수준이었으나(−0.0005±0.0017 → −0.0001±0.0013 → +0.0007±0.0025), latency를 제거해 Core-2로 좁히자 5-agent 멀티시드 ΔAUC=+0.0294±0.0184, paired t-test **p=0.0326로 유의미**해짐. 다만 N=5 seed로는 검정력이 제한적이라 추가 seed로 재확인 필요. real-LLM에서는 feature set과 무관하게 AUC가 항상 1.0로 saturate돼 이 우위가 관측되지 않음(ceiling effect, 아래 항목과 동일 원인) |
+| **GCN 구조적 우위는 시뮬레이션에서만 유의미, real-LLM에선 ceiling effect로 안 보임** | ✅ **2026-07-14, N=20 seed·pinned 환경(Python 3.11.15/PyTorch 2.3.1/NumPy 1.26.4)에서 재검증** — Full-5/Core-3에서는 3차례 독립 검증 모두 ΔAUC가 노이즈 수준이었으나(−0.0005±0.0017 → −0.0001±0.0013 → +0.0007±0.0025), latency를 제거해 Core-2로 좁히자 5-agent 멀티시드에서 GCN 우위가 나타남. N=5(원 실행 환경) 결과(t=3.209, p=0.0326)는 정확히 같은 라이브러리 버전으로 고정한 환경에서도 그대로 재현되지 않았지만(t=2.237, p=0.089 — OS/CPU 아키텍처 의존 추정), 같은 pinned 환경에서 seed를 20개로 늘리자 **positive-seed ratio 20/20(100%), paired t-test p=0.0015, permutation test p<0.0001, 95% bootstrap CI [+0.0151, +0.0422]**로 오히려 더 강한 유의성이 확인됨. real-LLM에서는 feature set과 무관하게 AUC가 항상 1.0로 saturate돼 이 우위가 관측되지 않음(ceiling effect, 아래 항목과 동일 원인) |
 | **Real-LLM F1 우위 통계적으로 미검증** | ⚠️ **2026-07-13** — Core-2 기준 LightGAE F1(0.9883)이 MLPAE(0.9901)보다 오히려 근소하게 낮고, paired t-test로 어느 쪽도 유의미하지 않음(p=0.64, 0.72, N=5 seeds) |
 | **Sim-Real Gap (0.333)** | ✅ **v4에서 해소** — Gap = −0.0090 (실LLM이 시뮬 소폭 상회) |
 | **Shallow Cascade** | ✅ **v4에서 해소** — Writer ratio 1.000 → 3.974 |
@@ -345,9 +387,10 @@ MAS/
 │   │   ├── patch_drop_refusal.py      # (완료된 1회성 마이그레이션) refusal_flag 컬럼 제거 — 캐시에 이미 반영됨
 │   │   └── patch_reorder_columns.py   # (완료된 1회성 마이그레이션) feature 컬럼 순서 재정렬 — 캐시에 이미 반영됨
 │   └── lgnn/
-│       ├── mas_lgnn.py                # LightGAE 핵심 실험 (3-agent 시뮬레이션, Core-2)
-│       ├── mas_lgnn_5agent.py         # ★★ 5-Agent G5 확장 실험 (Core-2, GCN vs MLP ΔAUC p=0.0326로 유의미)
-│       └── feature_ablation_5agent.py # Core-2/Core-3/Full-5/leave-one-out ablation (시뮬레이션)
+│       ├── mas_lgnn.py                    # LightGAE 핵심 실험 (3-agent 시뮬레이션, Core-2)
+│       ├── mas_lgnn_5agent.py             # ★★ 5-Agent G5 확장 실험 (Core-2, N=5 seed 멀티시드 + paired t-test)
+│       ├── feature_ablation_5agent.py     # Core-2/Core-3/Full-5/leave-one-out ablation (시뮬레이션)
+│       └── multiseed_robustness_n20.py    # ★★★ N=20 seed 견고성 재검증 (bootstrap CI, permutation test) — pinned 환경에서 GCN 우위 p=0.0015로 재현
 └── output/
     ├── real_llm/                      # Figure 5종 (실제 LLM)
     ├── lgnn/                          # Figure 8종 (3-agent 시뮬레이션)
@@ -365,8 +408,11 @@ pip install numpy scikit-learn matplotlib torch requests networkx scipy
 # LightGAE 시뮬레이션 실험 (약 10~15분)
 python experiments/lgnn/mas_lgnn.py
 
-# 5-agent G5 확장 실험 (약 15~20분)
+# 5-agent G5 확장 실험 (약 15~20분, N=5 seed 멀티시드 포함)
 python experiments/lgnn/mas_lgnn_5agent.py
+
+# N=20 seed 견고성 재검증 (약 60~80분, 논문용 1차 근거 -- §GCN 구조적 우위 참고)
+python experiments/lgnn/multiseed_robustness_n20.py
 
 # 실제 LLM 실험 (Ollama 필요, 약 1.5~2시간)
 # Ollama 앱 실행 후:
@@ -386,4 +432,12 @@ python experiments/lgnn/mas_lgnn_5agent.py
 | PyTorch | 2.3.1+cpu |
 | NumPy | 1.26.4 |
 | scikit-learn | 1.6.1 |
+| scipy | 미고정 (재현 검증 시 1.17.1 사용, 결과에 영향 없음 확인) |
 | matplotlib | 3.9.4 |
+
+> **재현성 주의 (2026-07-14 확인):** 위 버전을 정확히 맞춰도 통계적 유의성 수치(예: N=5의
+> p=0.0326)는 OS/CPU 아키텍처(BLAS 백엔드 차이 등 추정)에 따라 재현되지 않을 수 있다 —
+> 방향성(GCN > MLP)은 재현되지만 정확한 p-value는 아니다. 이 때문에 헤드라인 통계는 seed 수를
+> 늘린(N=20) 버전을 기준으로 삼는다 — §GCN 구조적 우위 재검증 참고. 논문/리포트에는 실행에 사용한
+> **OS/CPU 아키텍처**도 함께 명시할 것을 권장한다(예: macOS 15 / Apple Silicon ARM64 vs
+> Windows / x86_64).

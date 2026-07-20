@@ -196,7 +196,11 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 값이라 그대로는 재현되지 않으므로, 논문에는 N=20 pinned-환경 수치를 1차 근거로 쓰고 N=5 수치는
 > "예비 실험(다른 환경)"으로만 언급한다.**
 
-### 1. 시뮬레이션 실험 (5-agent G5)
+### 1. 시뮬레이션 실험 (5-agent G5) — archived
+
+> ⚠️ 이 절의 스크립트는 모두 `archive/experiments/lgnn/`, `archive/experiments/simulation/`으로
+> 이동했다(아래 경로 표기는 이동 전 원래 위치 기준). 현재는 참고용 기록이며 능동적으로
+> 유지보수하지 않는다 — 아래 §2 실제 LLM 실험이 현재 기준 실험이다.
 
 > **실험 규모:** N=200 세션/유형, 5-agent pipeline, 멀티시드(5 seeds)
 
@@ -374,27 +378,38 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 
 ## 프로젝트 구조
 
+> **2026-07-20 업데이트 — 시뮬레이션 실험 archive 이동.** 이제 real-LLM 실험만 능동적으로
+> 사용한다. 시뮬레이션 기반 코드(`experiments/simulation/`, `experiments/lgnn/`)와 그 결과물
+> (`output/simulation/`, `output/lgnn/`, `output/lgnn_5agent/`)은 삭제하지 않고 `archive/` 아래로
+> 옮겨 보관했다. 아래 "1. 시뮬레이션 실험" 절의 수치·경로는 archive 이동 이전 기준이며, 참고용
+> 기록으로 남겨둔다(스크립트를 다시 돌리려면 `archive/experiments/...` 경로 사용).
+
 ```
 MAS/
 ├── experiments/
-│   ├── simulation/
-│   │   └── mas_experiment.py          # 4 Baseline + Adaptive Threshold 비교 (Core-2)
-│   ├── real_llm/
-│   │   ├── lgnn_experiment.py         # ★ LightGAE + 실제 LLM (v4 완료, Core-2 헤드라인)
-│   │   ├── feature_ablation.py        # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)
-│   │   ├── feature_correlation_breakdown.py  # latency-token_count 상관관계 role/조건별 분해
-│   │   ├── patch_call_seq.py          # (완료된 1회성 마이그레이션) call_seq 재계산 — 캐시에 이미 반영됨
-│   │   ├── patch_drop_refusal.py      # (완료된 1회성 마이그레이션) refusal_flag 컬럼 제거 — 캐시에 이미 반영됨
-│   │   └── patch_reorder_columns.py   # (완료된 1회성 마이그레이션) feature 컬럼 순서 재정렬 — 캐시에 이미 반영됨
-│   └── lgnn/
-│       ├── mas_lgnn.py                    # LightGAE 핵심 실험 (3-agent 시뮬레이션, Core-2)
-│       ├── mas_lgnn_5agent.py             # ★★ 5-Agent G5 확장 실험 (Core-2, N=5 seed 멀티시드 + paired t-test)
-│       ├── feature_ablation_5agent.py     # Core-2/Core-3/Full-5/leave-one-out ablation (시뮬레이션)
-│       └── multiseed_robustness_n20.py    # ★★★ N=20 seed 견고성 재검증 (bootstrap CI, permutation test) — pinned 환경에서 GCN 우위 p=0.0015로 재현
-└── output/
-    ├── real_llm/                      # Figure 5종 (실제 LLM)
-    ├── lgnn/                          # Figure 8종 (3-agent 시뮬레이션)
-    └── lgnn_5agent/                   # Figure 5종 (5-agent G5)
+│   └── real_llm/
+│       ├── lgnn_experiment.py         # ★ LightGAE + 실제 LLM (v4 완료, Core-2 헤드라인)
+│       ├── experiment.py              # QUAD 실제 LLM 실험 v2 (초기 버전)
+│       ├── feature_ablation.py        # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)
+│       ├── feature_correlation_breakdown.py  # latency-token_count 상관관계 role/조건별 분해
+│       ├── patch_call_seq.py          # (완료된 1회성 마이그레이션) call_seq 재계산 — 캐시에 이미 반영됨
+│       ├── patch_drop_refusal.py      # (완료된 1회성 마이그레이션) refusal_flag 컬럼 제거 — 캐시에 이미 반영됨
+│       └── patch_reorder_columns.py   # (완료된 1회성 마이그레이션) feature 컬럼 순서 재정렬 — 캐시에 이미 반영됨
+├── output/
+│   └── real_llm/                      # Figure 5종 (실제 LLM)
+└── archive/                            # 시뮬레이션 실험 보관 (더 이상 능동 사용 안 함)
+    ├── experiments/
+    │   ├── simulation/mas_experiment.py       # 4 Baseline + Adaptive Threshold 비교 (Core-2)
+    │   └── lgnn/
+    │       ├── mas_lgnn.py                    # LightGAE 핵심 실험 (3-agent 시뮬레이션, Core-2)
+    │       ├── mas_lgnn_5agent.py             # 5-Agent G5 확장 실험 (Core-2, N=5 seed 멀티시드 + paired t-test)
+    │       ├── feature_ablation_5agent.py     # Core-2/Core-3/Full-5/leave-one-out ablation (시뮬레이션)
+    │       └── multiseed_robustness_n20.py    # N=20 seed 견고성 재검증 (bootstrap CI, permutation test)
+    └── output/
+        ├── simulation/
+        ├── lgnn/                       # Figure 8종 (3-agent 시뮬레이션)
+        ├── lgnn_5agent/                 # Figure 5종 (5-agent G5)
+        └── lgnn_root_old/               # 구버전 중복 출력 (2026-06-29)
 ```
 
 ---
@@ -405,19 +420,14 @@ MAS/
 # 환경 설정
 pip install numpy scikit-learn matplotlib torch requests networkx scipy
 
-# LightGAE 시뮬레이션 실험 (약 10~15분)
-python experiments/lgnn/mas_lgnn.py
-
-# 5-agent G5 확장 실험 (약 15~20분, N=5 seed 멀티시드 포함)
-python experiments/lgnn/mas_lgnn_5agent.py
-
-# N=20 seed 견고성 재검증 (약 60~80분, 논문용 1차 근거 -- §GCN 구조적 우위 참고)
-python experiments/lgnn/multiseed_robustness_n20.py
-
 # 실제 LLM 실험 (Ollama 필요, 약 1.5~2시간)
 # Ollama 앱 실행 후:
 .\.venv\Scripts\python.exe -u experiments/real_llm/lgnn_experiment.py
 ```
+
+> 시뮬레이션 스크립트(`mas_lgnn.py`, `mas_lgnn_5agent.py`, `multiseed_robustness_n20.py` 등)는
+> `archive/experiments/lgnn/`, `archive/experiments/simulation/`으로 이동했다. 필요 시
+> `python archive/experiments/lgnn/mas_lgnn.py` 형태로 실행 가능하지만 현재는 유지보수 대상이 아니다.
 
 > 실제 LLM 실험은 crash recovery를 지원합니다.
 > 중단 후 재실행 시 수집된 세션은 `output/real_llm/cache_*.json`에서 자동 복원됩니다.

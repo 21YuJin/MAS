@@ -17,6 +17,16 @@
     "attack_test": 50,
     "split_unit": "original task_id (group split) -- see group_split_3way()"
   },
+  "dataset_provenance": {
+    "topology_id": "topology_4agent_v1",
+    "dataset_summary_csv": "./output/real_llm\\dataset_summary.csv",
+    "session_metadata_files": [
+      "./output/real_llm\\session_metadata_normal.json",
+      "./output/real_llm\\session_metadata_attack.json"
+    ],
+    "n_task_categories": 9,
+    "n_attack_types": 7
+  },
   "threshold_policy": "threshold = percentile(normal_validation_reconstruction_scores, THRESHOLD_PERCENTILE); prediction = int(session_score > threshold). Never computed from training or test/attack scores.",
   "threshold_percentile": 95,
   "per_seed": [

@@ -302,6 +302,36 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > MLPAE,Z-score}`에 그대로 저장돼, 나중에 threshold를 재검토하거나 다른 percentile로 재계산해볼
 > 때 실험을 다시 돌리지 않고도 감사(audit)할 수 있다.
 
+> **데이터셋 provenance: "기준 데이터셋이 무엇인가"에 답하기 위한 세션 단위 출처 기록.**
+> 매 세션마다 `session_id, task_id, task_category, input_length, injection_enabled,
+> attack_type, generation_seed, model_name, topology_id, timestamp`(+ `metadata_source`)를
+> 기록한다.
+>
+> | 필드 | 값의 근거 |
+> |------|-----------|
+> | `session_id` | `normal_001`~`normal_050`, `attack_001`~`attack_050` |
+> | `task_id` | `task_000`~`task_019` — `TASKS[i % len(TASKS)]`의 인덱스 |
+> | `task_category` | `TASK_CATEGORIES`(20개 task 고정 라벨, 9종: summarization/explanation/description/outline/comparison/risk_assessment/best_practices/definition/mechanism) |
+> | `input_length` | Agent_0가 실제로 받는 입력 길이 = `len(task) + len(injection or "")` (문자 수) |
+> | `injection_enabled` | ground_truth_label과 동일한 근거(§Ground-truth label 정의) |
+> | `attack_type` | 공격 세션만: `ATTACK_TYPES`(`INJECTIONS`의 7개 템플릿과 1:1 대응하는 slug) |
+> | `generation_seed` | Ollama `options.seed`로 실제 전달되는 세션별 생성 seed(정상: `i`, 공격: `100000+i`) — **재현성의 핵심**: 같은 (model, prompt, seed)면 같은 응답이 나온다 |
+> | `model_name`, `topology_id` | `llama3.2`, `topology_4agent_v1`(`N_AGENTS`+`EDGES`로 정의된 그래프 구조 식별자) |
+> | `timestamp` | 세션 수집 시각(UTC ISO 8601) |
+>
+> `output/real_llm/session_metadata_{normal,attack}.json`에 저장되며 `cache_{normal,attack}.json`과
+> position-aligned(레코드 i가 캐시 리스트 인덱스 i를 설명)이다. cache 포맷 자체는 바꾸지 않았다 —
+> `feature_ablation.py`/`feature_correlation_breakdown.py`가 여전히 순수 feature 배열로
+> 읽기 때문. 매 실행마다 `output/real_llm/dataset_summary.csv`(정상+공격 100행, 위 필드 전부)를
+> 자동 재생성한다 — 이 CSV가 논문에서 "기준 데이터셋" 질문에 답하는 단일 표.
+>
+> **현재 캐시(50+50)는 이 provenance 체계 이전에 수집됐다.** `task_id`/`task_category`/
+> `input_length`/`injection_enabled`/`attack_type`/`model_name`/`topology_id`는 세션 순서만으로
+> 결정론적으로 복원 가능해 자동으로 채워지지만(`metadata_source: "reconstructed_from_cache_position"`),
+> `generation_seed`와 `timestamp`는 당시 실제로 기록되지 않았으므로 **`null`로 남겨두고 추측해
+> 채우지 않는다.** 앞으로 새로 수집되는 세션은 실제 Ollama 호출에 seed가 전달되고
+> (`metadata_source: "collected_at_runtime"`) 수집 시각도 함께 기록된다.
+
 
 
 #### 파이프라인 구조
@@ -538,9 +568,11 @@ MAS/
 │       └── cross_env_comparison.py        # supplementary: headline(real-LLM) vs legacy(synthetic) 비교만 생성
 ├── output/
 │   ├── real_llm/                          # ★ Headline 결과물
-│   │   ├── results_summary.json           # 헤드라인 AUC/F1 + attack_success_observed_rate (시뮬레이션 수치 없음)
+│   │   ├── results_summary.json           # 헤드라인 AUC/F1 + threshold/per_seed 감사 기록 + dataset_provenance 포인터
 │   │   ├── cache_normal.json / cache_attack.json           # ground_truth_label=0/1 세션 feature 캐시
 │   │   ├── attack_success_observed_normal.json / _attack.json  # 진단 전용, label 아님 (신규 세션에만 존재)
+│   │   ├── session_metadata_normal.json / _attack.json     # 세션별 provenance (cache_*.json과 position-aligned)
+│   │   ├── dataset_summary.csv             # ★ "기준 데이터셋이 무엇인가" — 정상+공격 100행, 매 실행마다 재생성
 │   │   └── lgnn_fig*.png                  # Figure 1~4 (feature_dist, roc, node_score, ablation)
 │   └── synthetic_legacy/                  # ⚠️ Legacy 결과물
 │       ├── simulation/

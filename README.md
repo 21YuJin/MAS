@@ -239,6 +239,19 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > `Agent_0=orchestration, Agent_1=research, Agent_2=analysis, Agent_3=writing`. 아래 파이프라인
 > 구조·injection 설계 설명은 이 예시 role 기준으로 서술한다(실제 prompt 텍스트는 바뀌지 않았음).
 
+> **Ground-truth label 정의(모든 Real-LLM 실험 공통):** `ground_truth_label = int(injection_enabled)`
+> — 세션 수집 시 injection template을 삽입했는지 여부로만 결정하며, 응답 텍스트에서 키워드가
+> 관측됐는지는 label에 절대 반영하지 않는다. 공격 성공 여부(응답에 인젝션 흔적이 실제로 나타났는지)는
+> `attack_success_observed`라는 별도 진단 필드로만 기록하고, AUC/F1 등 모델 평가에는 쓰지 않는다.
+> `experiments/real_llm/lgnn_experiment.py`는 `detect_injection_pattern()`으로 Agent_0 응답에
+> injected role marker("analyst"/"writer")가 새어 나왔는지 확인해 이 필드를 채우고,
+> `output/real_llm/results_summary.json`의 `attack_success_observed_rate`
+> (공격 세션 기준)·`attack_success_observed_false_positive_rate`(정상 세션 기준, 오탐 점검용)에
+> 저장한다. [superseded] `experiments/real_llm/experiment.py`(v2)는 과거 Writer 노드의 label을
+> `detect_injection_pattern()` 결과로 결정했었는데 — 이는 응답 키워드 매칭을 ground truth로 쓰는
+> 잘못된 방식이었다 — 이번에 headline과 동일한 `int(injection_enabled)` 기준으로 수정했다
+> (수정 내역은 파일 상단 주석 참고).
+
 #### 파이프라인 구조
 
 ```
@@ -460,7 +473,9 @@ MAS/
 │       └── cross_env_comparison.py        # supplementary: headline(real-LLM) vs legacy(synthetic) 비교만 생성
 ├── output/
 │   ├── real_llm/                          # ★ Headline 결과물
-│   │   ├── results_summary.json           # 헤드라인 AUC/F1 (method별 mean/std) — 시뮬레이션 수치 없음
+│   │   ├── results_summary.json           # 헤드라인 AUC/F1 + attack_success_observed_rate (시뮬레이션 수치 없음)
+│   │   ├── cache_normal.json / cache_attack.json           # ground_truth_label=0/1 세션 feature 캐시
+│   │   ├── attack_success_observed_normal.json / _attack.json  # 진단 전용, label 아님 (신규 세션에만 존재)
 │   │   └── lgnn_fig*.png                  # Figure 1~4 (feature_dist, roc, node_score, ablation)
 │   └── synthetic_legacy/                  # ⚠️ Legacy 결과물
 │       ├── simulation/

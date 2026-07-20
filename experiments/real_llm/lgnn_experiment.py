@@ -52,7 +52,17 @@ PURPLE = "#9B59B6"
 GRAY   = "#AAAAAA"
 
 N_AGENTS    = 4
-AGENT_NAMES = ["Orchestrator", "Researcher", "Analyst", "Writer"]
+# Generic IDs only -- graph nodes, model I/O, figures, and printed results all key off
+# AGENT_NAMES so nothing here presupposes a specific workflow. The example prompt roles
+# actually used in run_session() below are recorded separately in AGENT_ROLES and never
+# feed into the model, the adjacency graph, or any result label.
+AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]
+AGENT_ROLES = {
+    "Agent_0": "orchestration",
+    "Agent_1": "research",
+    "Agent_2": "analysis",
+    "Agent_3": "writing",
+}
 FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = 5
 
@@ -423,10 +433,10 @@ else:
 X_normal = np.array(X_normal)   # (N_NORMAL, 4, 5)
 X_attack = np.array(X_attack)   # (N_ATTACK, 4, 5)
 
-# 인젝션 효과: Orchestrator 토큰 20% 이상 증가한 세션 수
-orch_normal_mean = X_normal[:, 0, 1].mean()
-injection_hits   = int((X_attack[:, 0, 1] > orch_normal_mean * 1.20).sum())
-print(f"  Orchestrator 토큰 기반 인젝션 감지율: {injection_hits}/{N_ATTACK} "
+# 인젝션 효과: Agent_0(injection 진입점) 토큰 20% 이상 증가한 세션 수
+agent0_normal_mean = X_normal[:, 0, 1].mean()
+injection_hits      = int((X_attack[:, 0, 1] > agent0_normal_mean * 1.20).sum())
+print(f"  {AGENT_NAMES[0]} 토큰 기반 인젝션 감지율: {injection_hits}/{N_ATTACK} "
       f"({injection_hits/N_ATTACK*100:.0f}%)")
 
 X_normal = np.array(X_normal)   # (N_NORMAL, 4, 5)
@@ -583,13 +593,13 @@ for i, name in enumerate(AGENT_NAMES):
 # ══════════════════════════════════════════════════════════════════════════════
 print(f"\n[Figure] 생성 중...")
 
-# ── Fig 1: Researcher 피처 분포 ───────────────────────────────────────────
+# ── Fig 1: Agent_1/Agent_2 피처 분포 ───────────────────────────────────────
 fig1, axes1 = plt.subplots(2, N_FEATS, figsize=(18, 7))
 fig1.suptitle(f"Figure 1. Feature Distributions — Normal vs. Attack\n"
               f"Real LLM: Ollama {MODEL}  (N={N_NORMAL} normal, {N_ATTACK} attack)",
               fontsize=12, fontweight="bold")
 
-for row, agent_idx in enumerate([1, 2]):   # Researcher, Analyst
+for row, agent_idx in enumerate([1, 2]):   # Agent_1, Agent_2
     for col, feat in enumerate(FEAT_NAMES):
         ax = axes1[row, col]
         ax.hist(X_normal[:, agent_idx, col], bins=10, alpha=0.7, color=BLUE,

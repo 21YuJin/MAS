@@ -25,7 +25,15 @@ from scipy import stats
 warnings.filterwarnings('ignore')
 
 N_AGENTS    = 4
-AGENT_NAMES = ["Orchestrator", "Researcher", "Analyst", "Writer"]
+# Generic IDs only, consistent with lgnn_experiment.py -- see AGENT_ROLES there for the
+# example prompt roles actually used to collect these cached sessions.
+AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]
+AGENT_ROLES = {
+    "Agent_0": "orchestration",
+    "Agent_1": "research",
+    "Agent_2": "analysis",
+    "Agent_3": "writing",
+}
 FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = len(FEAT_NAMES)
 EDGES       = [(0, 1), (1, 2), (2, 3), (0, 2)]

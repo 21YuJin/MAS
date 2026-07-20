@@ -66,6 +66,10 @@ N_NORMAL = len(X_normal)
 N_ATTACK = len(X_attack)
 print(f"Loaded cache: normal={N_NORMAL}  attack={N_ATTACK}")
 
+# anomaly threshold = percentile(normal_validation_scores, THRESHOLD_PERCENTILE) --
+# consistent with lgnn_experiment.py; change this one constant to retune sensitivity.
+THRESHOLD_PERCENTILE = 95
+
 # Original task_id per normal session. lgnn_experiment.py's collection loop
 # assigns task = TASKS[i % N_TASKS] in session order, and cache_normal.json
 # preserves that order, so position i always corresponds to task_id
@@ -232,7 +236,7 @@ for s in SEEDS:
         sc_test = model.score(torch.FloatTensor(X_te), ADJ)
         sc_val  = model.score(torch.FloatTensor(X_val), ADJ)
         assert len(sc_val) == len(X_val), "threshold must be estimated from validation-normal scores only"
-        theta   = float(np.percentile(sc_val, 95))
+        theta   = float(np.percentile(sc_val, THRESHOLD_PERCENTILE))
         pred    = (sc_test > theta).astype(int)
 
         m = metrics(y_te, sc_test, pred)

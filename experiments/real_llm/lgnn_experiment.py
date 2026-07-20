@@ -41,8 +41,13 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL      = "llama3.2"
 OUT        = "./output/real_llm"
 
-N_NORMAL = 50   # 정상 세션 수 (train 40 + val 10)
-N_ATTACK = 50   # 공격 세션 수
+N_NORMAL = 50   # 정상 세션 수 (3-way split: train/val/test, 아래 §5 NORMAL_SPLIT_FRACTIONS)
+N_ATTACK = 50   # 공격 세션 수 (test 전용)
+
+# anomaly threshold = percentile(normal_validation_scores, THRESHOLD_PERCENTILE) --
+# never train scores, never test/attack scores (§5). Change this one constant to
+# retune sensitivity; nothing else in the file needs editing.
+THRESHOLD_PERCENTILE = 95
 
 BLUE   = "#4C9BE8"
 RED    = "#E8604C"
@@ -587,6 +592,7 @@ def group_split_3way(group_ids, seed, n_train, n_val, n_test):
 
 
 seed_records = {"LightGAE": [], "MLPAE": [], "Z-score": []}
+seed_details = []   # per-seed threshold / val-score distribution / test predictions
 last = {}
 
 for seed in SEEDS:
@@ -636,15 +642,17 @@ for seed in SEEDS:
     # ── LightGAE ──────────────────────────────────────────────
     # model.fit(X_normal_train): X_tr is normal-train-only (asserted above); attack
     # data/labels never appear on the left of train_lgae/train_mlpae below, and
-    # theta_* thresholds are percentiles of validation-normal scores (val_sc_*/
-    # zval), never train or test scores. Attack data only enters via X_te.
+    # theta_* thresholds are percentile(normal_val_scores, THRESHOLD_PERCENTILE)
+    # (val_sc_*/zval), never train or test scores. Attack data only enters via X_te.
+    # prediction = int(session_score > threshold), applied elementwise below.
     gae = LightGAE(in_dim=N_CORE, hid=16, emb=8)
     train_lgae(gae, X_tr, ADJ, epochs=160, lr=1e-3, bs=16)
     sc_gae, node_sc = gae.score(torch.FloatTensor(X_te), ADJ)
     val_sc_gae, _   = gae.score(torch.FloatTensor(X_val), ADJ)
     assert len(val_sc_gae) == len(X_val), "threshold must be estimated from validation-normal scores only"
-    theta_gae       = float(np.percentile(val_sc_gae, 95))
-    r_gae = metrics(y_te, sc_gae, (sc_gae > theta_gae).astype(int))
+    theta_gae       = float(np.percentile(val_sc_gae, THRESHOLD_PERCENTILE))
+    pred_gae        = (sc_gae > theta_gae).astype(int)
+    r_gae = metrics(y_te, sc_gae, pred_gae)
 
     # ── MLPAE (ablation) ──────────────────────────────────────
     mlp_m = MLPAE(in_dim=N_AGENTS*N_CORE, n_feats=N_CORE, hid=16, emb=8)
@@ -652,8 +660,9 @@ for seed in SEEDS:
     sc_mlp, _     = mlp_m.score(torch.FloatTensor(X_te))
     val_sc_mlp, _ = mlp_m.score(torch.FloatTensor(X_val))
     assert len(val_sc_mlp) == len(X_val), "threshold must be estimated from validation-normal scores only"
-    theta_mlp     = float(np.percentile(val_sc_mlp, 95))
-    r_mlp = metrics(y_te, sc_mlp, (sc_mlp > theta_mlp).astype(int))
+    theta_mlp     = float(np.percentile(val_sc_mlp, THRESHOLD_PERCENTILE))
+    pred_mlp      = (sc_mlp > theta_mlp).astype(int)
+    r_mlp = metrics(y_te, sc_mlp, pred_mlp)
 
     # ── Z-score baseline ──────────────────────────────────────
     flat_tr  = X_tr.reshape(len(X_tr), -1)
@@ -664,12 +673,59 @@ for seed in SEEDS:
     zte      = np.linalg.norm(zsc.transform(flat_te), axis=1)
     zval     = np.linalg.norm(zsc.transform(flat_val), axis=1)
     assert len(zval) == len(X_val), "threshold must be estimated from validation-normal scores only"
-    z_th     = float(np.percentile(zval, 95))
-    r_z      = metrics(y_te, zte, (zte > z_th).astype(int))
+    z_th     = float(np.percentile(zval, THRESHOLD_PERCENTILE))
+    pred_z   = (zte > z_th).astype(int)
+    r_z      = metrics(y_te, zte, pred_z)
 
     seed_records["LightGAE"].append(r_gae)
     seed_records["MLPAE"].append(r_mlp)
     seed_records["Z-score"].append(r_z)
+
+    # threshold/validation-distribution/test-prediction detail for results_summary.json
+    # -- kept per seed so the JSON is a complete, re-auditable record of what each
+    # seed's model actually saw and decided, not just the aggregated AUC/F1.
+    def _score_summary(values):
+        values = np.asarray(values, dtype=float)
+        return {
+            "n": int(len(values)),
+            "mean": float(values.mean()),
+            "std": float(values.std()),
+            "min": float(values.min()),
+            "max": float(values.max()),
+            f"p{THRESHOLD_PERCENTILE}": float(np.percentile(values, THRESHOLD_PERCENTILE)),
+            "values": values.tolist(),
+        }
+
+    seed_details.append({
+        "seed": seed,
+        "split_sizes": {
+            "normal_train": len(idx_tr), "normal_val": len(idx_val),
+            "normal_test": len(idx_ten), "attack_test": N_ATTACK,
+        },
+        "methods": {
+            "LightGAE": {
+                "threshold": theta_gae,
+                "val_score_distribution": _score_summary(val_sc_gae),
+                "test_scores": sc_gae.tolist(),
+                "test_predictions": pred_gae.tolist(),
+                "test_ground_truth": y_te.tolist(),
+            },
+            "MLPAE": {
+                "threshold": theta_mlp,
+                "val_score_distribution": _score_summary(val_sc_mlp),
+                "test_scores": sc_mlp.tolist(),
+                "test_predictions": pred_mlp.tolist(),
+                "test_ground_truth": y_te.tolist(),
+            },
+            "Z-score": {
+                "threshold": z_th,
+                "val_score_distribution": _score_summary(zval),
+                "test_scores": zte.tolist(),
+                "test_predictions": pred_z.tolist(),
+                "test_ground_truth": y_te.tolist(),
+            },
+        },
+    })
 
     dg = r_gae['AUC'] - r_z['AUC']
     print(f"  seed={seed:3d}  split(train/val/test_normal)={len(idx_tr)}/{len(idx_val)}/{len(idx_ten)}  "
@@ -720,6 +776,12 @@ results_summary = {
         "attack_test": N_ATTACK,
         "split_unit": "original task_id (group split) -- see group_split_3way()",
     },
+    "threshold_policy":
+        "threshold = percentile(normal_validation_reconstruction_scores, "
+        "THRESHOLD_PERCENTILE); prediction = int(session_score > threshold). "
+        "Never computed from training or test/attack scores.",
+    "threshold_percentile": THRESHOLD_PERCENTILE,
+    "per_seed": seed_details,
     "ground_truth_label_definition":
         "int(injection_enabled) -- fixed by which pool (normal vs. attack) a "
         "session was collected into; never derived from response content or "

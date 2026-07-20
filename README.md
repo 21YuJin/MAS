@@ -293,6 +293,17 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 >   underlying task always land in the same split, never spanning train/val/test.
 > ```
 
+> **Threshold 정책: `threshold = percentile(normal_validation_scores, THRESHOLD_PERCENTILE)`,
+> `prediction = int(session_score > threshold)`.** percentile 기준값(기본 95)은 코드 상단의
+> `THRESHOLD_PERCENTILE` 상수 하나로 바꿀 수 있다(`experiments/real_llm/lgnn_experiment.py`,
+> `feature_ablation.py`) — 다른 곳을 고칠 필요 없이 민감도를 조정 가능. 매 seed·method별
+> **threshold 값, validation score 분포(n/mean/std/min/max/p95/전체 값), test score·prediction·
+> ground-truth**가 `output/real_llm/results_summary.json`의 `per_seed[].methods.{LightGAE,
+> MLPAE,Z-score}`에 그대로 저장돼, 나중에 threshold를 재검토하거나 다른 percentile로 재계산해볼
+> 때 실험을 다시 돌리지 않고도 감사(audit)할 수 있다.
+
+
+
 #### 파이프라인 구조
 
 ```

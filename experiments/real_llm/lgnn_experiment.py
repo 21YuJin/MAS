@@ -36,7 +36,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_auc_score, f1_score, confusion_matrix, roc_curve
+from sklearn.metrics import roc_auc_score, f1_score, confusion_matrix, roc_curve, average_precision_score
 from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings('ignore')
@@ -849,9 +849,21 @@ print(f"    Split unit: original task_id (0..{len(TASKS)-1}), group split -- rep
       f"the same underlying task always land in the same split, never spanning train/val/test.")
 
 
+def recall_at_fpr(y, sc, target_fpr=0.05):
+    """Security-operations-relevant operating point: the best recall achievable
+    while keeping FPR at or below target_fpr, read directly off the ROC curve
+    (independent of the percentile-based threshold used for TPR/FPR/F1 above --
+    this is a separate diagnostic curve point, not the deployed threshold)."""
+    if len(np.unique(y)) < 2:
+        return 0.0
+    fpr_r, tpr_r, _ = roc_curve(y, sc)
+    feasible = tpr_r[fpr_r <= target_fpr]
+    return round(float(feasible.max()) if len(feasible) else 0.0, 4)
+
+
 def metrics(y, sc, pd):
     if len(np.unique(y)) < 2:
-        return dict(TPR=0, FPR=0, precision=0, F1=0, AUC=0.5)
+        return dict(TPR=0, FPR=0, precision=0, F1=0, AUC=0.5, AUPRC=0.5, recall_at_5fpr=0)
     tn, fp, fn, tp = confusion_matrix(y, pd, labels=[0, 1]).ravel()
     return dict(
         TPR=round(tp / (tp + fn + 1e-8), 4),          # == recall
@@ -859,6 +871,8 @@ def metrics(y, sc, pd):
         precision=round(tp / (tp + fp + 1e-8), 4),
         F1 =round(f1_score(y, pd, zero_division=0), 4),
         AUC=round(roc_auc_score(y, sc), 4),
+        AUPRC=round(average_precision_score(y, sc), 4),
+        recall_at_5fpr=recall_at_fpr(y, sc, target_fpr=0.05),
     )
 
 
@@ -1014,6 +1028,11 @@ for seed in SEEDS:
                 "test_scores": sc_gae.tolist(),
                 "test_predictions": pred_gae.tolist(),
                 "test_ground_truth": y_te.tolist(),
+                # per-agent reconstruction error, row-aligned with test_scores/
+                "test_node_scores": node_sc.tolist(),
+                # test_ground_truth (normal_test rows first, then attack_test, in
+                # AGENT_NAMES column order) -- feeds node-level localization
+                # metrics (entry-node top-1/MRR/Hit@1) without retraining.
             },
             "MLPAE": {
                 "threshold": theta_mlp,
@@ -1135,7 +1154,7 @@ def compute_per_attack_type_metrics(seed_details_, meta_attack_, method_name="Li
     out = {}
     for atype in attack_types_:
         idxs = [i for i, m in enumerate(meta_attack_) if m["attack_type"] == atype]
-        aucs, f1s = [], []
+        aucs, f1s, auprcs, r5fprs = [], [], [], []
         for sd in seed_details_:
             md = sd["methods"][method_name]
             n_test_normal = sd["split_sizes"]["normal_test"]
@@ -1149,12 +1168,18 @@ def compute_per_attack_type_metrics(seed_details_, meta_attack_, method_name="Li
                 continue
             aucs.append(roc_auc_score(sub_gts, sub_scores))
             f1s.append(f1_score(sub_gts, sub_preds, zero_division=0))
+            auprcs.append(average_precision_score(sub_gts, sub_scores))
+            r5fprs.append(recall_at_fpr(np.array(sub_gts), np.array(sub_scores), target_fpr=0.05))
         out[atype] = {
             "n_attack_sessions": len(idxs),
             "auc_mean": float(np.mean(aucs)) if aucs else None,
             "auc_std":  float(np.std(aucs)) if aucs else None,
             "f1_mean":  float(np.mean(f1s)) if f1s else None,
             "f1_std":   float(np.std(f1s)) if f1s else None,
+            "auprc_mean": float(np.mean(auprcs)) if auprcs else None,
+            "auprc_std":  float(np.std(auprcs)) if auprcs else None,
+            "recall_at_5pct_fpr_mean": float(np.mean(r5fprs)) if r5fprs else None,
+            "recall_at_5pct_fpr_std":  float(np.std(r5fprs)) if r5fprs else None,
         }
     return out
 
@@ -1163,11 +1188,13 @@ run_completed = (len(X_normal) == N_NORMAL and len(X_attack) == N_ATTACK and not
 EXPERIMENT_ID = f"exp_{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 RERUN_COMMAND = f"python {os.path.relpath(os.path.abspath(__file__))}"
 
-lightgae_aucs_  = [r['AUC'] for r in seed_records['LightGAE']]
-lightgae_f1s_   = [r['F1'] for r in seed_records['LightGAE']]
-lightgae_tprs_  = [r['TPR'] for r in seed_records['LightGAE']]      # == recall
-lightgae_fprs_  = [r['FPR'] for r in seed_records['LightGAE']]
-lightgae_precs_ = [r['precision'] for r in seed_records['LightGAE']]
+lightgae_aucs_    = [r['AUC'] for r in seed_records['LightGAE']]
+lightgae_f1s_     = [r['F1'] for r in seed_records['LightGAE']]
+lightgae_tprs_    = [r['TPR'] for r in seed_records['LightGAE']]      # == recall
+lightgae_fprs_    = [r['FPR'] for r in seed_records['LightGAE']]
+lightgae_precs_   = [r['precision'] for r in seed_records['LightGAE']]
+lightgae_auprcs_  = [r['AUPRC'] for r in seed_records['LightGAE']]
+lightgae_r5fprs_  = [r['recall_at_5fpr'] for r in seed_records['LightGAE']]
 
 # 헤드라인 결과 저장 (real-LLM 단독 결과만; 시뮬레이션 수치와는 절대 이 파일에서 합치지 않는다.
 # 시뮬레이션과의 교차 환경 비교가 필요하면 experiments/synthetic_legacy/cross_env_comparison.py
@@ -1201,6 +1228,8 @@ results_summary = {
         "precision": float(np.mean(lightgae_precs_)),
         "recall": float(np.mean(lightgae_tprs_)),
         "fpr": float(np.mean(lightgae_fprs_)),
+        "auprc": float(np.mean(lightgae_auprcs_)),
+        "recall_at_5pct_fpr": float(np.mean(lightgae_r5fprs_)),
     },
     "per_attack_type": compute_per_attack_type_metrics(seed_details, meta_attack, "LightGAE"),
     "localization": {

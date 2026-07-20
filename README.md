@@ -434,6 +434,34 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 3개 task × 2 seed 샘플에 대한 self-test만 수행(`data/`에 아무것도 저장하지 않음), 실제 페어링
 > 대상(어떤 task를 몇 번 반복할지)은 다음 재수집 단계에서 확정한다.
 
+> **[2026-07-20] 평가·재현성 출력 구조 완성 — 다음 재수집 전에 먼저 확정.** 비싼 real-LLM
+> 실행을 하고 나서 필요한 로그가 빠졌다는 걸 알게 되는 상황을 막기 위해, 다음 재수집보다 먼저
+> `results_summary.json`을 아래 스키마로 확장했다(기존 필드는 하위 호환을 위해 그대로 유지 —
+> `cross_env_comparison.py`가 여전히 `methods`/`seeds`를 최상위에서 읽기 때문).
+>
+> | 블록 | 내용 |
+> |------|------|
+> | `experiment` | `experiment_id`(타임스탬프 기반), `dataset_version`(현재 `real_llm_v1` — 아직 새 task/attack config 미연동), `config_path`(topology config 경로), `git_commit` |
+> | `dataset` | `normal_train`/`normal_validation`/`normal_test`/`attack_test` 개수 |
+> | `threshold` | `policy`, `percentile`, 대표값(`value`, SEEDS 마지막 seed의 LightGAE threshold — seed별 전체 값은 `per_seed[]`에) |
+> | `metrics` | LightGAE(제안 기법) 기준 `auc`/`f1`/`precision`/`recall`/`fpr` 평균(신규: `precision`을 `metrics()` 함수에 추가) |
+> | `per_attack_type` | 현재 7개 `ATTACK_TYPES` slug별 AUC/F1 — **이미 저장된 `per_seed[]`의 test score/prediction/ground-truth를 재사용해 사후 계산**(재학습 없음). 정상-test는 공유하고 공격만 유형별로 필터링 |
+> | `localization` | 대표 seed(`SEEDS[-1]`)의 에이전트별 평균/최대 이상 점수 |
+> | `environment` | Python/PyTorch/NumPy/SciPy/scikit-learn 버전, OS, CPU 아키텍처, **Ollama 버전**(API로 조회), model 식별자, generation/model-init/split seed 정책, git commit, prompt template 버전, topology 버전, dataset 버전 |
+> | `run_status` | `completed`/`partial` 구분 + 기대/실제 세션 수 + 실패 세션 수 |
+> | `data_provenance_summary` | 이번 실행에서 **캐시 복원**했는지 **새로 수집**했는지 (정상/공격 각각) |
+> | `rerun_command` | 이 실행을 재현하는 정확한 명령 (콘솔에도 동일하게 출력) |
+>
+> **실패한 세션 별도 기록.** `ask_ollama()`가 예외를 던지거나 빈 응답을 반환하면 이제 `ok=False`를
+> 함께 반환하고, `run_session()`이 세션 내 4개 agent 호출 중 하나라도 실패하면 `session_ok=False`를
+> 반환한다. 이런 세션은 (기존처럼 fallback 값으로 채워 정상 데이터에 섞이긴 하지만) 별도로
+> `failed_sessions.json`에 `{session_id, task_id, injection_enabled, reason}` 형태로 기록되고
+> `run_status.n_failed_sessions`에도 집계된다 — 이번 실행은 기존 캐시를 그대로 썼으므로 0건.
+>
+> **한계:** `metrics()`가 이미 계산해 저장해둔 값을 재사용/재조합하는 방식이라 새 계산 로직
+> 검증은 되지만, `precision` 필드 자체가 새로 추가된 거라 과거 커밋 결과와 직접 비교할 값은
+> 없다(신규 필드이므로 당연함). 재실행해 `methods`(기존 필드)가 이전 커밋과 bit-identical한지로
+> 회귀 여부를 확인했다 — 정확히 동일함(LightGAE F1=0.99406 등).
 
 
 #### 파이프라인 구조

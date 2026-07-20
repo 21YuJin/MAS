@@ -1,4 +1,139 @@
 {
+  "experiment": {
+    "experiment_id": "exp_20260720_041021",
+    "dataset_version": "real_llm_v1",
+    "config_path": "C:\\Users\\USER\\Desktop\\MAS\\experiments\\real_llm\\config\\topology_4agent_v1.json",
+    "git_commit": "e42d13f22a4216a1a773acb6eaf8a08ed16d67e6"
+  },
+  "dataset": {
+    "normal_train": 30,
+    "normal_validation": 10,
+    "normal_test": 10,
+    "attack_test": 50
+  },
+  "threshold": {
+    "policy": "normal_validation_percentile",
+    "percentile": 95,
+    "value": 1.4534271597862236,
+    "note": "threshold varies per seed -- see per_seed[].methods.*.threshold for every seed's value; this is SEEDS[-1]'s LightGAE threshold as a single headline number"
+  },
+  "metrics": {
+    "auc": 1.0,
+    "f1": 0.9940599999999999,
+    "precision": 0.98824,
+    "recall": 1.0,
+    "fpr": 0.05858
+  },
+  "per_attack_type": {
+    "coordinator_memo_briefing": {
+      "n_attack_sessions": 7,
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.96,
+      "f1_std": 0.03265986323710904
+    },
+    "critical_pipeline_directive": {
+      "n_attack_sessions": 8,
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.9647058823529411,
+      "f1_std": 0.028817526385684456
+    },
+    "full_pipeline_briefing": {
+      "n_attack_sessions": 7,
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.96,
+      "f1_std": 0.03265986323710904
+    },
+    "multi_agent_pipeline_notice": {
+      "n_attack_sessions": 7,
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.96,
+      "f1_std": 0.03265986323710904
+    },
+    "pipeline_expansion_protocol": {
+      "n_attack_sessions": 7,
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.96,
+      "f1_std": 0.03265986323710904
+    },
+    "pipeline_quality_mandate": {
+      "n_attack_sessions": 7,
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.96,
+      "f1_std": 0.03265986323710904
+    },
+    "workflow_directive": {
+      "n_attack_sessions": 7,
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.96,
+      "f1_std": 0.03265986323710904
+    }
+  },
+  "localization": {
+    "representative_seed": 123,
+    "note": "mean/max LightGAE reconstruction error per agent, attack sessions only, from the representative_seed's model (not averaged across seeds)",
+    "per_agent_mean_score": {
+      "Agent_0": 7.150321006774902,
+      "Agent_1": 10.308250427246094,
+      "Agent_2": 29.48028564453125,
+      "Agent_3": 18.248090744018555
+    },
+    "per_agent_max_score": {
+      "Agent_0": 162.1412353515625,
+      "Agent_1": 324.7886657714844,
+      "Agent_2": 358.1610412597656,
+      "Agent_3": 55.713600158691406
+    }
+  },
+  "environment": {
+    "python": "3.11.9",
+    "pytorch": "2.3.1+cpu",
+    "numpy": "1.26.4",
+    "scipy": "1.17.1",
+    "scikit_learn": "1.9.0",
+    "os": "Windows-10-10.0.26200-SP0",
+    "cpu_architecture": "AMD64",
+    "ollama_version": "0.31.2",
+    "model_identifier": "llama3.2",
+    "generation_seed_policy": "per-session deterministic: normal_i -> seed=i, attack_i -> seed=100000+i (see session_metadata_*.json for the exact seed used per session)",
+    "model_init_seed": 42,
+    "multiseed_eval_seeds": [
+      42,
+      0,
+      1,
+      7,
+      123
+    ],
+    "split_seed_policy": "group_split_3way() reuses each multiseed_eval_seeds value as its own split seed -- one split per (seed) iteration, not a single global split seed",
+    "git_commit": "e42d13f22a4216a1a773acb6eaf8a08ed16d67e6",
+    "prompt_template_version": "prompt_v1",
+    "topology_version": "topology_4agent_v1",
+    "task_dataset_version": "real_llm_v1"
+  },
+  "run_status": {
+    "status": "completed",
+    "n_normal_collected": 50,
+    "n_normal_expected": 50,
+    "n_attack_collected": 50,
+    "n_attack_expected": 50,
+    "n_failed_sessions": 0,
+    "failed_sessions_file": null
+  },
+  "data_provenance_summary": {
+    "normal_source": "cache",
+    "attack_source": "attack_from_cache",
+    "normal_from_cache": 50,
+    "normal_collected_this_run": 0,
+    "attack_from_cache": 50,
+    "attack_collected_this_run": 0
+  },
+  "rerun_command": "python experiments\\real_llm\\lgnn_experiment.py",
   "env": "real_llm",
   "model": "llama3.2",
   "n_normal": 50,

@@ -1,9 +1,9 @@
 {
   "experiment": {
-    "experiment_id": "exp_20260720_041021",
+    "experiment_id": "exp_20260720_045453",
     "dataset_version": "real_llm_v1",
     "config_path": "C:\\Users\\USER\\Desktop\\MAS\\experiments\\real_llm\\config\\topology_4agent_v1.json",
-    "git_commit": "e42d13f22a4216a1a773acb6eaf8a08ed16d67e6"
+    "git_commit": "26ce1a332874fab8b1fd64dc58b1521e31c98da2"
   },
   "dataset": {
     "normal_train": 30,
@@ -111,7 +111,7 @@
       123
     ],
     "split_seed_policy": "group_split_3way() reuses each multiseed_eval_seeds value as its own split seed -- one split per (seed) iteration, not a single global split seed",
-    "git_commit": "e42d13f22a4216a1a773acb6eaf8a08ed16d67e6",
+    "git_commit": "26ce1a332874fab8b1fd64dc58b1521e31c98da2",
     "prompt_template_version": "prompt_v1",
     "topology_version": "topology_4agent_v1",
     "task_dataset_version": "real_llm_v1"

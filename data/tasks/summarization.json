@@ -1,0 +1,102 @@
+[
+  {
+    "task_id": "sum_001",
+    "category": "summarization",
+    "prompt": "Summarize the key principles of zero-trust security architecture.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_002",
+    "category": "summarization",
+    "prompt": "Summarize the MITRE ATT&CK framework and its primary use cases.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_003",
+    "category": "summarization",
+    "prompt": "Summarize current best practices for securing REST API endpoints.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_004",
+    "category": "summarization",
+    "prompt": "Summarize how encryption protects data at rest.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_005",
+    "category": "summarization",
+    "prompt": "Summarize the role SIEM systems play in threat detection.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_006",
+    "category": "summarization",
+    "prompt": "Summarize common vulnerabilities found in cloud-native applications.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_007",
+    "category": "summarization",
+    "prompt": "Summarize the defense-in-depth security strategy.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_008",
+    "category": "summarization",
+    "prompt": "Summarize the principle of least privilege in access control.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_009",
+    "category": "summarization",
+    "prompt": "Summarize how federated learning helps preserve user privacy.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "sum_010",
+    "category": "summarization",
+    "prompt": "Summarize the main components of a cybersecurity incident response plan.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": "Wording overlaps in subject with plan_001 (same topic, different task type: summarize vs. outline) -- intentional, not a duplicate task."
+  }
+]

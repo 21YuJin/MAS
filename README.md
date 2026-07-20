@@ -365,6 +365,38 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 채우지 않는다.** 앞으로 새로 수집되는 세션은 실제 Ollama 호출에 seed가 전달되고
 > (`metadata_source: "collected_at_runtime"`) 수집 시각도 함께 기록된다.
 
+> **[2026-07-20] 정상 task source 객관화 — 다음 재수집(v2) 준비, 아직 미연동.**
+> 위 표의 `task_id`/`task_category`는 여전히 `lgnn_experiment.py` 내부에 하드코딩된 20개
+> `TASKS`(§4)에서 나온다. 다음 번 정상 데이터 재수집부터는 이걸 완전히 대체할 독립적인
+> task 소스 체계를 새로 만들어 검증까지 마쳤다 — **아직 `lgnn_experiment.py`에 연결하지는
+> 않았다** (연결 및 실제 재수집은 다음 단계에서 진행).
+>
+> ```
+> data/tasks/{summarization,qa,comparison,planning,technical_reasoning}.json
+>   → experiments/real_llm/task_loader.py   (로드 + 검증)
+>   → experiments/real_llm/generate_task_split.py  → data/splits/normal_task_split_v1.json
+>   → (다음 단계) session generator → Ollama 실행 → metadata dataset
+> ```
+>
+> - **5개 category, 각 10개, 총 50개 task.** 전부 `source_type: "manually_curated"`로 정직하게
+>   표기(실제 공개 벤치마크에서 가져온 게 아니라 이 저장소를 위해 직접 작성했으므로 `public_benchmark`라고
+>   허위 표기하지 않음), `license`(`CC0-1.0`)까지 필드로 기록. task마다
+>   `task_id, category, prompt, source_type, source_name, source_item_id, license, notes` 8개
+>   필드 전부 존재.
+> - `task_loader.load_all_tasks()`가 로드 시 매번 검증: task_id 전역 유일성, 파일명과 task 내부
+>   `category` 필드 일치, 카테고리 최소 5개, 카테고리별 개수 출력(`python task_loader.py`로 단독
+>   실행 시: `comparison 10 / planning 10 / qa 10 / summarization 10 / technical_reasoning 10`).
+> - **Split은 한 번만 생성해 고정 저장.** `generate_task_split.py`는 세션이 아니라 **task_id
+>   단위로** 60/20/20 층화(category별 비례) split을 만들어 `data/splits/normal_task_split_v1.json`에
+>   저장한다(10개/category × 60/20/20 = 6/2/2, 나머지 없이 정확히 나눠떨어짐 → train 30 /
+>   validation 10 / test 10 tasks). **두 번째 실행부터는 파일이 이미 있으면 아무것도 하지 않고
+>   건너뛴다**(`--force --reason "..."` 없이는 덮어쓰지 않음) — 매 실행마다 split이 바뀌면
+>   결과를 비교할 수 없기 때문. task_id 기준 split이므로 같은 task를 여러 번 반복 실행해서 만든
+>   세션들은 전부 자동으로 같은 split에 들어간다(반복 실행이 train/test에 걸쳐 나뉘는 것을
+>   구조적으로 방지).
+> - 검증 완료: train/validation/test 세 집합이 서로 겹치지 않음, 합치면 정확히 50개 task_id
+>   전체가 됨 — `validate_split()`이 매 생성 시 assert.
+
 
 
 #### 파이프라인 구조
@@ -582,10 +614,21 @@ Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차, seed=42 대표 실
 
 ```
 MAS/
+├── data/                                    # ★ 정상 task 소스 (2026-07-20~, 아직 session generator 미연동)
+│   ├── tasks/                               # 5 categories x 10 tasks = 50 (전부 manually_curated)
+│   │   ├── summarization.json
+│   │   ├── qa.json
+│   │   ├── comparison.json
+│   │   ├── planning.json
+│   │   └── technical_reasoning.json
+│   └── splits/
+│       └── normal_task_split_v1.json        # task_id 기준 고정 split (train 30 / val 10 / test 10), 1회 생성 후 재사용
 ├── experiments/
 │   ├── real_llm/                          # ★ Headline — 공식 최종 실험
 │   │   ├── config/
 │   │   │   └── topology_4agent_v1.json    # ★ 그래프 구조(nodes/edges/primary_predecessor)의 유일한 정의처
+│   │   ├── task_loader.py                 # data/tasks/*.json 로드 + 검증 (task_id 유일성, 카테고리 최소 5개 등)
+│   │   ├── generate_task_split.py         # data/splits/normal_task_split_v1.json 1회 생성 스크립트
 │   │   ├── lgnn_experiment.py             # ★★★ LightGAE + 실제 LLM (v4, Core-2) — 유일한 headline 진입점
 │   │   ├── experiment.py                  # [superseded] QUAD 실제 LLM 실험 v2 (초기 버전, 참고용)
 │   │   ├── feature_ablation.py            # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)

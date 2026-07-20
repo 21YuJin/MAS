@@ -1,0 +1,90 @@
+{
+  "split_version": "normal_task_split_v1",
+  "split_seed": 2026,
+  "split_fractions": {
+    "train": 0.6,
+    "validation": 0.2,
+    "test": 0.2
+  },
+  "n_tasks_total": 50,
+  "train_task_ids": [
+    "comp_001",
+    "comp_003",
+    "comp_004",
+    "comp_005",
+    "comp_007",
+    "comp_009",
+    "plan_001",
+    "plan_003",
+    "plan_004",
+    "plan_005",
+    "plan_007",
+    "plan_009",
+    "qa_001",
+    "qa_003",
+    "qa_004",
+    "qa_005",
+    "qa_007",
+    "qa_009",
+    "sum_001",
+    "sum_003",
+    "sum_004",
+    "sum_005",
+    "sum_007",
+    "sum_009",
+    "tr_001",
+    "tr_003",
+    "tr_004",
+    "tr_005",
+    "tr_007",
+    "tr_009"
+  ],
+  "validation_task_ids": [
+    "comp_008",
+    "comp_010",
+    "plan_008",
+    "plan_010",
+    "qa_008",
+    "qa_010",
+    "sum_008",
+    "sum_010",
+    "tr_008",
+    "tr_010"
+  ],
+  "test_task_ids": [
+    "comp_002",
+    "comp_006",
+    "plan_002",
+    "plan_006",
+    "qa_002",
+    "qa_006",
+    "sum_002",
+    "sum_006",
+    "tr_002",
+    "tr_006"
+  ],
+  "per_split_category_counts": {
+    "train": {
+      "comparison": 6,
+      "planning": 6,
+      "qa": 6,
+      "summarization": 6,
+      "technical_reasoning": 6
+    },
+    "validation": {
+      "comparison": 2,
+      "planning": 2,
+      "qa": 2,
+      "summarization": 2,
+      "technical_reasoning": 2
+    },
+    "test": {
+      "comparison": 2,
+      "planning": 2,
+      "qa": 2,
+      "summarization": 2,
+      "technical_reasoning": 2
+    }
+  },
+  "regenerated_reason": null
+}

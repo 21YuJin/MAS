@@ -1,0 +1,102 @@
+[
+  {
+    "task_id": "qa_001",
+    "category": "qa",
+    "prompt": "What are the security risks of using third-party AI agents in a pipeline?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_002",
+    "category": "qa",
+    "prompt": "What is a supply chain attack, and how can it be mitigated?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_003",
+    "category": "qa",
+    "prompt": "What are the main differences between an IDS and an IPS?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_004",
+    "category": "qa",
+    "prompt": "What are the key challenges in securing LLM-based multi-agent pipelines?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_005",
+    "category": "qa",
+    "prompt": "What does anomaly detection mean in the context of network security?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_006",
+    "category": "qa",
+    "prompt": "What is the purpose of a Web Application Firewall (WAF)?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_007",
+    "category": "qa",
+    "prompt": "What is a zero-day vulnerability?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_008",
+    "category": "qa",
+    "prompt": "What is the CIA triad in information security?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_009",
+    "category": "qa",
+    "prompt": "What is the purpose of multi-factor authentication?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "qa_010",
+    "category": "qa",
+    "prompt": "What is a man-in-the-middle attack?",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  }
+]

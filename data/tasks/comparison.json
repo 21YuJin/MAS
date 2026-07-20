@@ -1,0 +1,102 @@
+[
+  {
+    "task_id": "comp_001",
+    "category": "comparison",
+    "prompt": "Compare symmetric and asymmetric encryption methods.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_002",
+    "category": "comparison",
+    "prompt": "Compare intrusion detection systems and intrusion prevention systems in terms of response behavior.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_003",
+    "category": "comparison",
+    "prompt": "Compare role-based access control and attribute-based access control.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_004",
+    "category": "comparison",
+    "prompt": "Compare on-premise and cloud-based SIEM deployments.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_005",
+    "category": "comparison",
+    "prompt": "Compare black-box and white-box penetration testing approaches.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_006",
+    "category": "comparison",
+    "prompt": "Compare signature-based and behavior-based malware detection methods.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_007",
+    "category": "comparison",
+    "prompt": "Compare TLS 1.2 and TLS 1.3 in terms of security guarantees.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_008",
+    "category": "comparison",
+    "prompt": "Compare centralized and federated identity management architectures.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_009",
+    "category": "comparison",
+    "prompt": "Compare static application security testing and dynamic application security testing.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  },
+  {
+    "task_id": "comp_010",
+    "category": "comparison",
+    "prompt": "Compare container isolation and virtual machine isolation for workload security.",
+    "source_type": "manually_curated",
+    "source_name": "MAS-security internal task set v1 (authored for this repository)",
+    "source_item_id": null,
+    "license": "CC0-1.0 (originally authored for this repository, no external rights)",
+    "notes": null
+  }
+]

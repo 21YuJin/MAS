@@ -1,0 +1,54 @@
+{
+  "purpose": "15 step -- propagation ground-truth schema + node-level localization metrics, joined from configs/attacks/chain.json + session_metadata_attack.json + results_summary.json per_seed test_node_scores (no retraining, no new Ollama calls)",
+  "propagation_ground_truth_file": "./output/real_llm\\propagation_ground_truth.json",
+  "caveat": "affected_hit_at_1 and score_ratio are trivial/undefined on the current v1 chain-only dataset (expected_propagation_path = all 4 agents for every session, so there is no unaffected-node baseline). entry_top1/entry_mrr/compromised_node_mean_rank are NOT trivial and ARE informative: the entry node is top-1 only ~2% of the time and has the lowest mean anomaly score of the 4 agents -- LightGAE's node score currently tracks downstream cascade impact, not the injection entry point (triage signal, not attribution). See this file's docstring / stdout for detail.",
+  "per_seed": [
+    {
+      "seed": 42,
+      "entry_top1_accuracy": 0.04,
+      "entry_mrr": 0.33166666666666655,
+      "affected_hit_at_1": 1.0,
+      "compromised_node_mean_rank": 3.32,
+      "score_ratio_mean": null
+    },
+    {
+      "seed": 0,
+      "entry_top1_accuracy": 0.02,
+      "entry_mrr": 0.30333333333333334,
+      "affected_hit_at_1": 1.0,
+      "compromised_node_mean_rank": 3.56,
+      "score_ratio_mean": null
+    },
+    {
+      "seed": 1,
+      "entry_top1_accuracy": 0.02,
+      "entry_mrr": 0.32333333333333336,
+      "affected_hit_at_1": 1.0,
+      "compromised_node_mean_rank": 3.34,
+      "score_ratio_mean": null
+    },
+    {
+      "seed": 7,
+      "entry_top1_accuracy": 0.02,
+      "entry_mrr": 0.36999999999999994,
+      "affected_hit_at_1": 1.0,
+      "compromised_node_mean_rank": 3.0,
+      "score_ratio_mean": null
+    },
+    {
+      "seed": 123,
+      "entry_top1_accuracy": 0.0,
+      "entry_mrr": 0.3016666666666667,
+      "affected_hit_at_1": 1.0,
+      "compromised_node_mean_rank": 3.46,
+      "score_ratio_mean": null
+    }
+  ],
+  "aggregate": {
+    "entry_top1_accuracy_mean": 0.02,
+    "entry_mrr_mean": 0.32599999999999996,
+    "affected_hit_at_1_mean": 1.0,
+    "compromised_node_mean_rank_mean": 3.336,
+    "score_ratio_mean": null
+  }
+}

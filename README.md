@@ -474,9 +474,9 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > | `experiment` | `experiment_id`(타임스탬프 기반), `dataset_version`(현재 `real_llm_v1` — 아직 새 task/attack config 미연동), `config_path`(topology config 경로), `git_commit` |
 > | `dataset` | `normal_train`/`normal_validation`/`normal_test`/`attack_test` 개수 |
 > | `threshold` | `policy`, `percentile`, 대표값(`value`, SEEDS 마지막 seed의 LightGAE threshold — seed별 전체 값은 `per_seed[]`에) |
-> | `metrics` | LightGAE(제안 기법) 기준 `auc`/`f1`/`precision`/`recall`/`fpr` 평균(신규: `precision`을 `metrics()` 함수에 추가) |
-> | `per_attack_type` | 현재 7개 `ATTACK_TYPES` slug별 AUC/F1 — **이미 저장된 `per_seed[]`의 test score/prediction/ground-truth를 재사용해 사후 계산**(재학습 없음). 정상-test는 공유하고 공격만 유형별로 필터링 |
-> | `localization` | 대표 seed(`SEEDS[-1]`)의 에이전트별 평균/최대 이상 점수 |
+> | `metrics` | LightGAE(제안 기법) 기준 `auc`/`f1`/`precision`/`recall`/`fpr`/`auprc`/`recall_at_5pct_fpr` 평균(`precision`은 2026-07-20 추가, `auprc`/`recall_at_5pct_fpr`는 2026-07-20 후반 추가 — 아래 §Session-level 지표 확장 참고) |
+> | `per_attack_type` | 현재 7개 `ATTACK_TYPES` slug별 AUC/F1/AUPRC/recall@5%FPR — **이미 저장된 `per_seed[]`의 test score/prediction/ground-truth를 재사용해 사후 계산**(재학습 없음). 정상-test는 공유하고 공격만 유형별로 필터링 |
+> | `localization` | 대표 seed(`SEEDS[-1]`)의 에이전트별 평균/최대 이상 점수. seed별 전체 노드 점수(`test_node_scores`, 모든 test 세션 × 4 agent)는 `per_seed[].methods.LightGAE`에 별도 저장 — 재학습 없이 node-level 분석에 재사용 가능 |
 > | `environment` | Python/PyTorch/NumPy/SciPy/scikit-learn 버전, OS, CPU 아키텍처, **Ollama 버전**(API로 조회), model 식별자, generation/model-init/split seed 정책, git commit, prompt template 버전, topology 버전, dataset 버전 |
 > | `run_status` | `completed`/`partial` 구분 + 기대/실제 세션 수 + 실패 세션 수 |
 > | `data_provenance_summary` | 이번 실행에서 **캐시 복원**했는지 **새로 수집**했는지 (정상/공격 각각) |
@@ -492,6 +492,62 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 검증은 되지만, `precision` 필드 자체가 새로 추가된 거라 과거 커밋 결과와 직접 비교할 값은
 > 없다(신규 필드이므로 당연함). 재실행해 `methods`(기존 필드)가 이전 커밋과 bit-identical한지로
 > 회귀 여부를 확인했다 — 정확히 동일함(LightGAE F1=0.99406 등).
+
+#### Session-level 지표 확장 (AUPRC, Recall@5%FPR)
+
+> **[2026-07-20 후반]** `metrics()`에 `AUPRC`(`average_precision_score`)와 `recall_at_5fpr`
+> (ROC 곡선에서 FPR ≤ 5%를 만족하는 지점 중 최대 recall — 실제 배포 threshold와는 별개의
+> 진단용 연산점)를 추가했다. 기존 캐시로 재실행(Ollama 호출 없음)한 결과:
+>
+> | 지표 | LightGAE |
+> |---|:---:|
+> | AUPRC | 1.0000 |
+> | Recall @ 5% FPR | 1.0000 |
+>
+> 헤드라인 AUC/F1 등 기존 필드는 재실행 전후 bit-identical(회귀 없음 확인).
+
+#### Node-level Localization (전파 ground truth + entry-node 식별)
+
+> **[2026-07-20 후반]** 공격 시나리오 propagation ground-truth 스키마를 고정하고
+> (`{injection_entry_node, directly_compromised_nodes, propagation_affected_nodes,
+> unaffected_nodes, expected_propagation_path, observed_propagation_path}`), 기존
+> `configs/attacks/chain.json`(공격 템플릿) × `session_metadata_attack.json`(세션별
+> `attack_type`) × `results_summary.json`의 신규 `test_node_scores`(seed별 에이전트별
+> 재구성 오차, 재학습 없이 재사용)를 조인해 node-level localization을 측정했다
+> (`experiments/real_llm/localization_analysis.py`, 새 Ollama 호출 없음).
+>
+> **`observed_propagation_path`는 채울 수 없다** — `real_llm_v1` 캐시는 5차원 feature 벡터만
+> 저장하고 원문 응답 텍스트를 보관하지 않아서, 이미 수집된 50개 공격 세션에 대해 소급 적용할
+> 방법이 없다(다음 재수집부터 원문 캡처를 추가해야 함). 대신 `expected_propagation_path`만
+> 채워 저장했다(`output/real_llm/propagation_ground_truth.json`).
+>
+> | 지표 (5-seed 평균) | 값 | 성격 |
+> |---|:---:|---|
+> | Entry-node Top-1 accuracy | 0.0200 | **의미 있는 측정** |
+> | Entry-node MRR | 0.3260 | **의미 있는 측정** |
+> | Compromised-node mean rank | 3.336 / 4 | **의미 있는 측정** |
+> | Affected-node Hit@1 | 1.0000 | 자명함(원인: 아래 한계) |
+> | Affected-vs-benign score ratio | 정의 불가 | 자명함(원인: 아래 한계) |
+>
+> **자명한 두 지표:** 현재 데이터셋의 7개 `attack_type`이 전부 `configs/attacks/chain.json`
+> 하나에서 나왔고, 모든 템플릿이 `expected_propagation_path`로 4-agent 전체를 지정한다 —
+> 즉 "unaffected node"가 있는 세션이 0건이라 score_ratio는 분모를 만들 수 없고
+> affected_hit@1은 구조상 항상 1.0이다. 의미 있는 측정이 되려면 진입점이 다양한
+> 공격(`direct.json`/`slow.json`/`length_preserving.json`, 아직 수집 미연동)이 필요하다.
+>
+> **자명하지 않은 발견:** entry-node top-1/MRR/mean-rank는 4개 후보 중 진짜 진입 노드를
+> 맞히는 실제 예측 과제이고, 결과는 낮다 — 진입 노드(Agent_0)가 top-1으로 뽑히는 비율은 겨우
+> 2%이고, 4개 agent 중 평균 이상 점수가 **가장 낮다**(Agent_0=7.15 < Agent_1=10.31 <
+> Agent_3=18.25 < Agent_2=29.48, `results_summary.json`의 `localization` 블록). 즉 현재
+> LightGAE의 node score는 **공격이 실제로 들어온 지점이 아니라 cascade 효과가 가장 크게
+> 누적되는 지점(Agent_2)을 가리킨다** — 침해 원인(attribution)이 아니라 사고 영향도가 가장
+> 큰 곳(triage)을 알려주는 신호라는 뜻이다. 17단계에서 요청한 "Node score는 침해 원인을
+> 확정하는 값이 아니라 사고 조사 우선순위를 제공하는 triage score"라는 해석과 정확히 부합하는
+> 실증 근거다.
+>
+> 실행 스크립트: `experiments/real_llm/localization_analysis.py` [headline, 캐시·기존
+> results_summary.json 재사용·Ollama 호출 없음]. 결과: `output/real_llm/propagation_ground_truth.json`,
+> `output/real_llm/localization_metrics.json`.
 
 
 #### 파이프라인 구조
@@ -737,6 +793,7 @@ MAS/
 │   │   ├── feature_ablation.py            # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)
 │   │   ├── feature_correlation_breakdown.py  # latency-token_count 상관관계 role/조건별 분해
 │   │   ├── baseline_ablation.py           # strong baseline + graph ablation (No/Random/Correct-edge, 캐시 재사용)
+│   │   ├── localization_analysis.py       # propagation ground-truth 스키마 + node-level localization (캐시·results_summary.json 재사용)
 │   │   ├── patch_call_seq.py              # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨
 │   │   ├── patch_drop_refusal.py          # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨
 │   │   └── patch_reorder_columns.py       # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨

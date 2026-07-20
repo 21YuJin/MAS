@@ -252,6 +252,30 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 잘못된 방식이었다 — 이번에 headline과 동일한 `int(injection_enabled)` 기준으로 수정했다
 > (수정 내역은 파일 상단 주석 참고).
 
+> **학습 방식: Normal-only novelty detection.** LightGAE/MLPAE는 분류기가 아니라 정상 세션만으로
+> 학습하는 novelty detector다 — 공격 세션·공격 라벨은 학습, scaler fitting, threshold 추정
+> 어디에도 들어가지 않는다. 매 seed마다:
+>
+> | Split | Normal | Attack | 용도 |
+> |-------|:---:|:---:|------|
+> | Train | 40 | 0 | `model.fit`(비지도 학습) — `train_lgae`/`train_mlpae`에 attack 데이터는 인자로도 전달되지 않음 |
+> | Validation | 10 | 0 | held-out 정상 세션. scaler/threshold 추정에 attack 데이터가 섞이지 않았는지 확인하는 용도 |
+> | Test | 10 | 50 | val-normal + attack. 이 지점에서만 attack 데이터·라벨이 등장(AUC/F1 평가용) |
+>
+> `StandardScaler`는 train(40)에만 `fit`되고(`scaler.n_samples_seen_ == 40` 런타임 assert로 검증),
+> 이상 탐지 threshold(θ, 95th percentile)도 train 세션의 재구성 오차에서만 계산한다(`len(tr_sc) == 40`
+> assert). 코드에는 세션 인덱스 permutation이 정상 세션 풀(`N_NORMAL`)만 포함하는지, split 크기가
+> 어긋나지 않는지도 매 seed마다 assert로 검증한다 — 위반 시 즉시 `AssertionError`로 실행이 멈춘다.
+> 실행 로그에는 `Learning setup: Normal-only novelty detection`과 위 표와 동일한 train/val/test
+> normal·attack 개수가 매 실행마다 출력된다(2026-07-20, 아래 예시로 실행 검증 완료).
+>
+> ```
+> Learning setup: Normal-only novelty detection
+>   Train:      normal= 40  attack=0    (model.fit on normal-only, unsupervised)
+>   Validation: normal= 10  attack=0    (held-out normal, threshold/scaler untouched by attack)
+>   Test:       normal= 10  attack= 50  (val-normal + attack -- only place attack data/labels appear)
+> ```
+
 #### 파이프라인 구조
 
 ```

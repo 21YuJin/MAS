@@ -1,0 +1,36 @@
+{
+  "env": "real_llm",
+  "model": "llama3.2",
+  "n_normal": 50,
+  "n_attack": 50,
+  "seeds": [
+    42,
+    0,
+    1,
+    7,
+    123
+  ],
+  "ground_truth_label_definition": "int(injection_enabled) -- fixed by which pool (normal vs. attack) a session was collected into; never derived from response content or keyword matching. See attack_success_observed_* for the (unused-as-label) keyword-based diagnostic.",
+  "attack_success_observed_rate": null,
+  "attack_success_observed_false_positive_rate": null,
+  "methods": {
+    "LightGAE": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.9882799999999999,
+      "f1_std": 0.01133303136852625
+    },
+    "MLPAE": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.9901399999999999,
+      "f1_std": 0.006198257819742562
+    },
+    "Z-score": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.98652,
+      "f1_std": 0.01762514113418669
+    }
+  }
+}

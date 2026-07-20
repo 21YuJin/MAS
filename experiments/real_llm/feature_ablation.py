@@ -143,10 +143,15 @@ FEATURE_SETS = {
 
 SEEDS = [42, 0, 1, 7, 123]
 n_tr  = int(N_NORMAL * 0.80)   # 40
+n_val = N_NORMAL - n_tr         # 10
 
 print("="*70)
 print("  Feature-Set Ablation -- Real-LLM 4-Agent MAS (Ollama llama3.2)")
 print("="*70)
+print("\n  Learning setup: Normal-only novelty detection")
+print(f"    Train:      normal={n_tr:3d}  attack=0    (model.fit on normal-only, unsupervised)")
+print(f"    Validation: normal={n_val:3d}  attack=0    (held-out normal, threshold/scaler untouched by attack)")
+print(f"    Test:       normal={n_val:3d}  attack={N_ATTACK:3d}  (val-normal + attack -- only place attack data/labels appear)")
 
 results = {name: {"AUC": [], "F1": []} for name in FEATURE_SETS}
 
@@ -154,11 +159,14 @@ for s in SEEDS:
     torch.manual_seed(s); np.random.seed(s)
 
     idx_n     = np.random.permutation(N_NORMAL)
+    assert set(idx_n.tolist()) == set(range(N_NORMAL))
     Xn_sh_raw = X_normal[idx_n]
     X_tr_raw  = Xn_sh_raw[:n_tr]
     X_val_raw = Xn_sh_raw[n_tr:]
+    assert X_tr_raw.shape[0] == n_tr and X_val_raw.shape[0] == n_val
 
     scaler   = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
+    assert scaler.n_samples_seen_ == n_tr, "scaler must be fit on training-normal sessions only"
     X_tr_all = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
     X_val_all= scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
     Xa_all   = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
@@ -169,12 +177,14 @@ for s in SEEDS:
     for name, cols in FEATURE_SETS.items():
         X_tr = X_tr_all[:, :, cols]
         X_te = X_te_all[:, :, cols]
+        assert X_tr.shape[0] == n_tr, "model.fit input (X_tr) must be normal-only training sessions"
 
         model = LightGAE(in_dim=len(cols), hid=16, emb=8)
         train_gae(model, X_tr, ADJ, epochs=160, lr=1e-3, bs=16)
 
         sc_test = model.score(torch.FloatTensor(X_te), ADJ)
         sc_tr   = model.score(torch.FloatTensor(X_tr), ADJ)
+        assert len(sc_tr) == n_tr, "threshold percentile must be computed over training-normal scores only"
         theta   = float(np.percentile(sc_tr, 95))
         pred    = (sc_test > theta).astype(int)
 

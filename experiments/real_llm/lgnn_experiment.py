@@ -509,7 +509,17 @@ for i, nm in enumerate(AGENT_NAMES):
 # ══════════════════════════════════════════════════════════════════════════════
 print(f"\n[3/3] 멀티시드 학습 + 평가 (seeds={SEEDS})...")
 
-n_tr = int(N_NORMAL * 0.80)   # 40
+n_tr  = int(N_NORMAL * 0.80)   # 40
+n_val = N_NORMAL - n_tr        # 10
+
+# LightGAE/MLPAE are normal-only novelty detectors, not classifiers: they fit
+# purely on normal sessions and flag anything that reconstructs poorly. Attack
+# sessions/labels must never reach training, scaler fitting, or threshold
+# estimation -- they only appear at test time as held-out positives.
+print("\n  Learning setup: Normal-only novelty detection")
+print(f"    Train:      normal={n_tr:3d}  attack=0    (model.fit on normal-only, unsupervised)")
+print(f"    Validation: normal={n_val:3d}  attack=0    (held-out normal, threshold/scaler untouched by attack)")
+print(f"    Test:       normal={n_val:3d}  attack={N_ATTACK:3d}  (val-normal + attack -- only place attack data/labels appear)")
 
 
 def metrics(y, sc, pd):
@@ -533,12 +543,20 @@ for seed in SEEDS:
 
     # Split raw (unscaled) sessions first, then fit the scaler on the train
     # split only -- avoids leaking validation-session statistics into scaling.
+    # idx_n permutes indices 0..N_NORMAL-1 ONLY -- X_attack is never part of this
+    # pool, so it structurally cannot land in X_tr_raw/X_val_raw below.
     idx_n     = np.random.permutation(N_NORMAL)
+    assert set(idx_n.tolist()) == set(range(N_NORMAL)), \
+        "idx_n must be a permutation of normal-session indices only"
     Xn_sh_raw = X_normal[idx_n]
     X_tr_raw  = Xn_sh_raw[:n_tr]
     X_val_raw = Xn_sh_raw[n_tr:]
+    assert X_tr_raw.shape[0] == n_tr and X_val_raw.shape[0] == n_val, \
+        "normal train/val split sizes drifted from the declared learning setup"
 
     scaler   = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
+    assert scaler.n_samples_seen_ == n_tr, \
+        f"scaler must be fit on exactly the {n_tr} training-normal sessions, saw {scaler.n_samples_seen_}"
     X_tr_all = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
     X_val_all= scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
     Xa_s_all = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
@@ -548,6 +566,7 @@ for seed in SEEDS:
     X_val = X_val_all[:, :, CORE_COLS]
     Xa_s  = Xa_s_all[:, :, CORE_COLS]
     X_te  = np.concatenate([X_val, Xa_s])
+    assert X_tr.shape[0] == n_tr, "X_tr (model.fit input) must contain exactly the training-normal sessions"
     # ground_truth_label = int(injection_enabled): X_val is drawn purely from the
     # no-injection pool and Xa_s purely from the injection-enabled pool (§4), so the
     # label below is fixed by pool membership -- never by inspecting response content
@@ -555,10 +574,15 @@ for seed in SEEDS:
     y_te  = np.array([0]*len(X_val) + [1]*N_ATTACK)
 
     # ── LightGAE ──────────────────────────────────────────────
+    # model.fit(X_normal_train): X_tr is normal-only (asserted above); Xa_s/attack
+    # labels never appear on the left of train_lgae/train_mlpae calls below, and
+    # theta_* thresholds are percentiles of tr_sc/tr_mlp -- scores of X_tr itself,
+    # never of X_te/Xa_s. Attack data only enters via X_te at scoring time.
     gae = LightGAE(in_dim=N_CORE, hid=16, emb=8)
     train_lgae(gae, X_tr, ADJ, epochs=160, lr=1e-3, bs=16)
     sc_gae, node_sc = gae.score(torch.FloatTensor(X_te), ADJ)
     tr_sc, _        = gae.score(torch.FloatTensor(X_tr), ADJ)
+    assert len(tr_sc) == n_tr, "threshold percentile must be computed over training-normal scores only"
     theta_gae       = float(np.percentile(tr_sc, 95))
     r_gae = metrics(y_te, sc_gae, (sc_gae > theta_gae).astype(int))
 
@@ -567,6 +591,7 @@ for seed in SEEDS:
     train_mlpae(mlp_m, X_tr, epochs=160, lr=1e-3, bs=16)
     sc_mlp, _  = mlp_m.score(torch.FloatTensor(X_te))
     tr_mlp, _  = mlp_m.score(torch.FloatTensor(X_tr))
+    assert len(tr_mlp) == n_tr, "threshold percentile must be computed over training-normal scores only"
     theta_mlp  = float(np.percentile(tr_mlp, 95))
     r_mlp = metrics(y_te, sc_mlp, (sc_mlp > theta_mlp).astype(int))
 
@@ -574,6 +599,7 @@ for seed in SEEDS:
     flat_tr = X_tr.reshape(len(X_tr), -1)
     flat_te = X_te.reshape(len(X_te), -1)
     zsc     = StandardScaler().fit(flat_tr)
+    assert zsc.n_samples_seen_ == n_tr, "Z-score scaler must be fit on training-normal sessions only"
     zte     = np.linalg.norm(zsc.transform(flat_te), axis=1)
     ztr_s   = np.linalg.norm(zsc.transform(flat_tr), axis=1)
     z_th    = float(np.percentile(ztr_s, 95))

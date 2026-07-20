@@ -397,6 +397,43 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > - 검증 완료: train/validation/test 세 집합이 서로 겹치지 않음, 합치면 정확히 50개 task_id
 >   전체가 됨 — `validate_split()`이 매 생성 시 assert.
 
+> **[2026-07-20] 공격 시나리오와 보안 위협 모델 고정 — 마찬가지로 아직 미연동.**
+> 공격 템플릿도 실행 코드에서 완전히 분리했다. `configs/attacks/{direct,slow,chain,
+> length_preserving}.json` 4개 파일, 총 12개 템플릿(`chain` 7개는 기존
+> `lgnn_experiment.py`의 `INJECTIONS` 7개를 **바이트 단위로 동일하게** 이전한 것이고,
+> `direct`/`slow`/`length_preserving`은 이번에 새로 설계).
+>
+> | 필드 | 의미 |
+> |------|------|
+> | `template_id` | 버전 포함(`chain_v1_...`, `direct_v1_...`) — 템플릿을 나중에 바꿔도 이전 버전 결과와 구분 가능 |
+> | `injection_agent` / `target_agent` | 공격이 주입되는 지점 / 의도한 최종 영향 지점 (topology config의 실제 node여야 함, `attack_loader`가 검증) |
+> | `expected_propagation_path` | injection_agent에서 target_agent까지의 예상 경로 — **각 구간이 topology의 실제 edge와 일치하는지 `attack_loader`가 매 로드 시 검증**(존재하지 않는 경로를 주장하는 공격 템플릿은 로드 자체가 실패) |
+> | `intensity` | `low`/`medium`/`high` 중 하나로 고정된 vocabulary |
+> | `attack_goal`, `attacker_capability`, `injection_channel`, `expected_security_impact` | 이 공격이 단순 데이터 변형이 아니라 **보안 위협 시나리오**임을 명시(예: `attack_goal: downstream_instruction_override`, `attacker_capability: untrusted_external_content_modification`) |
+>
+> 4개 attack_type의 위협 모델:
+> - **direct**: 진입 노드(Agent_0) 자체를 즉시·명시적으로 탈취. `expected_propagation_path=[Agent_0]`(하류로도 흘러가지만 공격의 목표 자체는 진입점)
+> - **slow**: 매 hop마다 눈에 띄지 않는 작은 변형만 요청, 누적되어 하류에 영향(legacy 시뮬레이션의 "Type-III Slow Poison"과 같은 위협 모델, 거기서도 탐지가 가장 어려웠음)
+> - **chain**: 기존 headline 실험의 구조 — Agent_0에 주입돼 하류 3개 노드 전체로 구조적 cascade(대부분의 현재 실험 결과가 이 유형)
+> - **length_preserving**: 방어 체계가 token_count 기반이라는 걸 아는 공격자가 응답 길이를 baseline과 비슷하게 유지하도록 명시적으로 지시 — Core-2(token_count, ctx_delta)가 여전히 이 공격을 잡아낼 수 있는지가 이 유형의 존재 이유. `length_constraint` 필드가 null이 아닌 유일한 유형
+>
+> `experiments/real_llm/attack_loader.py`가 매 로드 시 검증: 필드 완전성, `template_id` 전역
+> 유일성, 파일명·`attack_type` 일치, `intensity` vocabulary, injection/target agent가 실제
+> topology node인지, propagation path가 실제 edge로만 구성되는지, 4개 필수 attack_type이 모두
+> 있는지. 별도 테스트로 propagation path가 존재하지 않는 edge를 참조하는 경우와 attack_type이
+> 하나 빠진 경우 모두 `AssertionError`로 걸러짐을 확인했다.
+>
+> `experiments/real_llm/generate_attack_pairs.py`는 같은 base task로 정상·공격 세션 쌍을
+> 만든다 — `{"pair_id": "comp_001_seed_42", "base_task_id": "comp_001", "generation_seed": 42,
+> "injection_enabled": false/true, ...}` 형태로, 공격 멤버는 `attack_type`/`attack_template_id`/
+> `intensity_intended`도 함께 갖는다. `intensity_intended`는 **의도한(config) intensity**이고,
+> 실제 세션이 수집되면 세션 메타데이터의 `attack_success_observed` 등 **관측된 지표**와 나란히
+> 저장할 수 있도록 필드를 분리해뒀다(하나가 다른 하나를 덮어쓰지 않음). `validate_pairs()`로
+> 모든 pair가 정확히 정상 1개 + 공격 1개로 구성되고 `base_task_id`/`generation_seed`가
+> 일치하는지 검증한다. **이 스크립트도 아직 `lgnn_experiment.py`에 연결되지 않았다** — 실행하면
+> 3개 task × 2 seed 샘플에 대한 self-test만 수행(`data/`에 아무것도 저장하지 않음), 실제 페어링
+> 대상(어떤 task를 몇 번 반복할지)은 다음 재수집 단계에서 확정한다.
+
 
 
 #### 파이프라인 구조
@@ -623,12 +660,20 @@ MAS/
 │   │   └── technical_reasoning.json
 │   └── splits/
 │       └── normal_task_split_v1.json        # task_id 기준 고정 split (train 30 / val 10 / test 10), 1회 생성 후 재사용
+├── configs/
+│   └── attacks/                             # ★ 공격 시나리오 정의 (2026-07-20~, 아직 session generator 미연동)
+│       ├── direct.json                      # 즉시·명시적 role hijack (2 templates)
+│       ├── slow.json                        # 점진적·저강도 누적 drift (2 templates)
+│       ├── chain.json                       # 하류 cascade (기존 INJECTIONS 7개를 그대로 이전)
+│       └── length_preserving.json           # 길이 유지형 evasion 시도 (1 template)
 ├── experiments/
 │   ├── real_llm/                          # ★ Headline — 공식 최종 실험
 │   │   ├── config/
 │   │   │   └── topology_4agent_v1.json    # ★ 그래프 구조(nodes/edges/primary_predecessor)의 유일한 정의처
 │   │   ├── task_loader.py                 # data/tasks/*.json 로드 + 검증 (task_id 유일성, 카테고리 최소 5개 등)
 │   │   ├── generate_task_split.py         # data/splits/normal_task_split_v1.json 1회 생성 스크립트
+│   │   ├── attack_loader.py               # configs/attacks/*.json 로드 + topology 교차 검증
+│   │   ├── generate_attack_pairs.py       # 정상·공격 matched pair 생성기 (self-test만, 아직 미연동)
 │   │   ├── lgnn_experiment.py             # ★★★ LightGAE + 실제 LLM (v4, Core-2) — 유일한 headline 진입점
 │   │   ├── experiment.py                  # [superseded] QUAD 실제 LLM 실험 v2 (초기 버전, 참고용)
 │   │   ├── feature_ablation.py            # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)

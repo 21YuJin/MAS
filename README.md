@@ -156,6 +156,36 @@ M: 메타데이터(최종 2개) = {τ: token_count,  Δc: ctx_delta}
 상세 실행 스크립트: `experiments/synthetic_legacy/lgnn/feature_ablation_5agent.py` [legacy],
 `experiments/real_llm/feature_ablation.py` [headline], `experiments/real_llm/feature_correlation_breakdown.py` [headline].
 
+### 그래프 구조 기여도 검증 (strong baseline + graph ablation)
+
+> **질문:** LightGAE의 성능이 실제 4-agent communication edge에서 오는가, 아니면 이 고정
+> topology에서는 에이전트 정보를 섞기만 해도 같은 결과가 나오는가? 기존 real_llm_v1 캐시
+> (정상 50 + 공격 50)만 재사용해 새 Ollama 호출 없이 검증했다 — split/scaler/threshold
+> 정책/feature/파라미터 예산(hid=16, emb=8)/optimizer/epoch(160)/seed(5개)를 헤드라인 실험과
+> 완전히 동일하게 고정하고 6개 방법만 바꿨다.
+
+| Method | AUC (mean) | F1 (mean±std) | 비고 |
+|---|---|---|---|
+| Z-score (baseline) | 1.0000 | 0.9902±0.0088 | 학습 모델 없음 |
+| Node-wise MLP-AE | 1.0000 | 0.9864±0.0144 | 노드 간 정보 혼합 전혀 없음 (진짜 "no-graph" 하한선) |
+| Flattened MLP-AE | 1.0000 | 0.9941±0.0079 | 4 agent 전부를 하나로 concat, topology 사전지식 없음 |
+| LightGAE No-edge | 1.0000 | 0.9821±0.0220 | 인접행렬=단위행렬 (self-loop만) |
+| LightGAE Random-edge | 1.0000 | 0.9883±0.0141 | 실제 edge 수(4개)만큼 무작위 노드쌍, seed마다 재추첨 |
+| **LightGAE Correct-edge (헤드라인)** | **1.0000** | **0.9941±0.0079** | 실제 topology_4agent_v1 edge |
+
+> **해석:** 6개 방법 모두 AUC=1.0000으로 수렴하고, F1도 paired t-test 기준 Correct-edge가
+> Random-edge(p=0.53)·No-edge(p=0.37)·Flattened MLP-AE(p=1.00, F1 완전 동일)와 유의미하게
+> 다르지 않다. 즉 **현재 데이터셋/공격 설계에서는 graph 구조 자체가 주는 명시적 우위가 거의
+> 없다** — Z-score조차 AUC=1.0000이 나올 만큼 신호가 강하기 때문. 이는 성능 저하가 아니라
+> Node-wise MLP-AE ≈ LightGAE No-edge (두 방법은 아키텍처상 거의 동일한 연산이어야 한다는
+> 예상과도 일치, AUC 차이 0.0000)로 구현이 내부적으로 일관됨을 보여주는 sanity check이기도
+> 하다. 논문에서 graph 구조의 기여를 주장하려면 이후 단계(14단계 length-preserving attack 등,
+> 개별 에이전트 편차만으로는 탐지가 어려운 공격)로 신호를 약화시킨 조건에서 재검증이 필요하다
+> — 이 실험은 그 필요성을 뒷받침하는 근거로 남긴다.
+
+실행 스크립트: `experiments/real_llm/baseline_ablation.py` [headline, 캐시 전용·Ollama 호출 없음].
+결과: `output/real_llm/baseline_ablation_results.json`.
+
 ---
 
 ## 구현: LightGAE (Lightweight Graph Autoencoder)
@@ -706,6 +736,7 @@ MAS/
 │   │   ├── experiment.py                  # [superseded] QUAD 실제 LLM 실험 v2 (초기 버전, 참고용)
 │   │   ├── feature_ablation.py            # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)
 │   │   ├── feature_correlation_breakdown.py  # latency-token_count 상관관계 role/조건별 분해
+│   │   ├── baseline_ablation.py           # strong baseline + graph ablation (No/Random/Correct-edge, 캐시 재사용)
 │   │   ├── patch_call_seq.py              # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨
 │   │   ├── patch_drop_refusal.py          # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨
 │   │   └── patch_reorder_columns.py       # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨

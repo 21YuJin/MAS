@@ -1,0 +1,105 @@
+{
+  "purpose": "16 step -- strong baseline + graph ablation, reusing the existing real_llm_v1 cache (no new Ollama calls)",
+  "shared_config": {
+    "seeds": [
+      42,
+      0,
+      1,
+      7,
+      123
+    ],
+    "threshold_percentile": 95,
+    "core_features": [
+      "token_count",
+      "ctx_delta"
+    ],
+    "epochs": 160,
+    "lr": 0.001,
+    "batch_size": 16,
+    "weight_decay": 0.0001,
+    "hid": 16,
+    "emb": 8,
+    "split": {
+      "normal_train": 30,
+      "normal_val": 10,
+      "normal_test": 10,
+      "attack_test": 50
+    }
+  },
+  "methods": {
+    "Z-score": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.99018,
+      "f1_std": 0.008765477739404717,
+      "precision_mean": 0.9806800000000001,
+      "recall_mean": 1.0,
+      "fpr_mean": 0.09494
+    },
+    "Node-wise MLP-AE": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.98636,
+      "f1_std": 0.014409524627828626,
+      "precision_mean": 0.9774799999999999,
+      "recall_mean": 0.9960000000000001,
+      "fpr_mean": 0.12524
+    },
+    "Flattened MLP-AE": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.9941000000000001,
+      "f1_std": 0.007850095540819854,
+      "precision_mean": 0.98838,
+      "recall_mean": 1.0,
+      "fpr_mean": 0.06262
+    },
+    "LightGAE No-edge": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.98214,
+      "f1_std": 0.021953368761991846,
+      "precision_mean": 0.9818200000000001,
+      "recall_mean": 0.984,
+      "fpr_mean": 0.11112
+    },
+    "LightGAE Random-edge": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.98834,
+      "f1_std": 0.014131468430421509,
+      "precision_mean": 0.9773400000000001,
+      "recall_mean": 1.0,
+      "fpr_mean": 0.11312
+    },
+    "LightGAE Correct-edge": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "f1_mean": 0.9940999999999999,
+      "f1_std": 0.007850095540819854,
+      "precision_mean": 0.98838,
+      "recall_mean": 1.0,
+      "fpr_mean": 0.05858
+    }
+  },
+  "significance_tests": {
+    "correct_vs_random_edge": {
+      "t": 0.6858960878247946,
+      "p": 0.5304674790697638
+    },
+    "correct_vs_no_edge": {
+      "t": 1.0055868187826973,
+      "p": 0.37150910018082084
+    },
+    "correct_vs_flattened_mlpae": {
+      "t": 0.0,
+      "p": 1.0
+    }
+  },
+  "interpretation": {
+    "auc_delta_correct_minus_random": 0.0,
+    "auc_delta_correct_minus_noedge": 0.0,
+    "auc_delta_correct_minus_flattened": 0.0,
+    "nodewise_vs_noedge_auc_gap": 0.0
+  }
+}

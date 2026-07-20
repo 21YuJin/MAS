@@ -1,4 +1,8 @@
 """
+[LEGACY / SYNTHETIC — not the headline experiment]
+Headline results now come exclusively from experiments/real_llm/lgnn_experiment.py.
+This script uses synthetic (non-LLM) simulated data and is kept for reference only.
+
 QUAD 1차년도 예비 실험 v3 (최종)
 - 현실적 이상 분포 (정상과 2~3σ 분리 — Baseline 간 성능 차이 가시화)
 - Option A: 격리 메커니즘 (탐지 후 N턴 내 자동 격리, 전파 차단)

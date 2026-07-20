@@ -1,4 +1,8 @@
 """
+[SUPERSEDED — kept for reference only]
+Superseded by the headline experiment: experiments/real_llm/lgnn_experiment.py (v4, Core-2).
+Not used for final results.
+
 QUAD 실제 LLM 환경 실험 v2
 - 간접 프롬프트 인젝션 (현실적 공격)
 - 실제 에이전트 파이프라인 (응답 전달)

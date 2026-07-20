@@ -5,6 +5,23 @@
 
 ---
 
+## 실험 경로 (Headline vs. Legacy)
+
+> **최종 논문 결과는 Real-LLM 단일 경로로 통일한다.**
+
+| 구분 | 경로 | 상태 |
+|------|------|------|
+| **Headline (공식 최종 결과)** | `experiments/real_llm/lgnn_experiment.py` | ✅ 유지보수 대상, 결과는 `output/real_llm/results_summary.json`에 저장 |
+| Legacy / synthetic (참고용) | `experiments/synthetic_legacy/` (`lgnn/`, `simulation/`) | ⚠️ 더 이상 능동 유지보수하지 않음, 최종 수치로 인용 금지 |
+| 교차 환경 비교 (supplementary) | `experiments/synthetic_legacy/cross_env_comparison.py` | headline과 legacy 결과를 나란히 보여줄 뿐 — 하나의 벤치마크 표로 합치지 않음 |
+
+Headline 스크립트에는 더 이상 시뮬레이션 AUC가 하드코딩되어 있지 않다. 시뮬레이션 대 real-LLM
+비교가 필요하면 별도 스크립트(`cross_env_comparison.py`)가 두 개의 독립된 JSON
+(`output/real_llm/results_summary.json`, `output/synthetic_legacy/lgnn_5agent/multiseed_n20_robustness.json`)을
+읽어 `output/synthetic_legacy/cross_env_comparison/`에 참고용 그림만 별도로 생성한다.
+
+---
+
 ## 문제 상황
 
 AI 에이전트 여러 개가 서로 대화하며 일을 처리하는 시스템(MAS)이 있다.
@@ -89,8 +106,8 @@ M: 메타데이터(최종 2개) = {τ: token_count,  Δc: ctx_delta}
    (AUC −0.0038) 하지만, 실제 검증된 배포 환경(real-LLM)에서 손실이 없다는 게 더 강한 근거라고
    판단해 **Core-2를 최종 모델로 채택**했다.
 
-상세 실행 스크립트: `experiments/lgnn/feature_ablation_5agent.py`,
-`experiments/real_llm/feature_ablation.py`, `experiments/real_llm/feature_correlation_breakdown.py`.
+상세 실행 스크립트: `experiments/synthetic_legacy/lgnn/feature_ablation_5agent.py` [legacy],
+`experiments/real_llm/feature_ablation.py` [headline], `experiments/real_llm/feature_correlation_breakdown.py` [headline].
 
 ---
 
@@ -154,8 +171,8 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 
 > **[2026-07-13 최종 업데이트 — Core-2로 확정 (latency 제거), GCN 구조적 우위 재현됨]**
 > Full-5에서 Core-3(latency+token_count+ctx_delta)로, 다시 Core-2(token_count+ctx_delta)로
-> 좁히는 ablation을 수행했다(`experiments/lgnn/feature_ablation_5agent.py`,
-> `experiments/real_llm/feature_ablation.py`, `experiments/real_llm/feature_correlation_breakdown.py`).
+> 좁히는 ablation을 수행했다(`experiments/synthetic_legacy/lgnn/feature_ablation_5agent.py` [legacy],
+> `experiments/real_llm/feature_ablation.py`, `experiments/real_llm/feature_correlation_breakdown.py` [headline]).
 > **latency는 real-LLM 배포 환경에서 token_count와 r=0.95~0.99로 거의 완전히 중복**됨을
 > role·조건을 고정한 세분화 분석으로 확인했고(pooling 아티팩트 아님), 실제로 real-LLM에서
 > latency를 빼도 F1이 소수점까지 완전히 동일했다. 이를 근거로 **최종 모델을 Core-2로 확정**했다.
@@ -166,14 +183,15 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 있었는데, sentence_count·joint_deviation_flag·(중복된) latency라는 "잉여 차원"을 걷어내니
 > MLP-AE가 상대적으로 더 불리해진 것으로 보인다(MLP-AE 파라미터도 626→362 근처로 같이 줄었지만
 > 그래프 구조 없이는 여전히 GCN을 못 따라감). real-LLM 쪽은 feature set과 무관하게 여전히
-> ceiling effect(AUC 전부 1.0)라 이 우위가 보이지 않는다 — 아래 §2 참고.
+> ceiling effect(AUC 전부 1.0)라 이 우위가 보이지 않는다 — 아래 §메인 실험(Headline) 참고.
 > 이전 버전(Core-3, Full-5) 결과는 이 문서 하단 히스토리에 남겨두되, **헤드라인 수치는 전부
 > Core-2 기준으로 교체**했다.
 
 > **[2026-07-14 재현성 검증 — p=0.0326은 환경 의존적, 방향성은 재현됨]**
 > `mas_lgnn_5agent.py`에 paired t-test 계산·저장 코드가 실제로는 빠져 있었음을 발견해 추가했고
-> (`scipy.stats.ttest_rel`, 결과를 `output/lgnn_5agent/multiseed_ttest_result.json`에 저장),
-> 이 기회에 원 헤드라인 수치(t=+3.209, p=0.0326)가 그대로 재현되는지 검증했다.
+> (`scipy.stats.ttest_rel`, 결과를 `output/synthetic_legacy/lgnn_5agent/multiseed_ttest_result.json`에 저장),
+> 이 기회에 원 수치(t=+3.209, p=0.0326)가 그대로 재현되는지 검증했다(당시 이 시뮬레이션
+> 결과는 아직 headline이었으나, 2026-07-20 이후로는 legacy로 재분류됨 — 아래 §실험 경로 참고).
 > README에 명시된 정확한 버전(Python 3.11.15, PyTorch 2.3.1, NumPy 1.26.4, scikit-learn 1.6.1)으로
 > 고정한 venv에서 동일 코드·동일 seed(`[42,0,1,7,123]`)로 재실행한 결과:
 > **ΔAUC per seed = [+0.0499, +0.0105, +0.0004, +0.0177, +0.0148], mean=+0.0187±0.0187,
@@ -183,12 +201,12 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > OS/CPU 아키텍처(원 실험은 Windows로 추정, 이번 검증은 macOS ARM)에 따른 BLAS 백엔드 차이 등
 > 더 깊은 환경 의존성이 원인일 가능성이 높다. **다만 방향성(5/5 seed 전부 GCN AUC > MLP AUC)은
 > 두 환경 모두에서 100% 유지**된다. 이를 근거로 같은 pinned 환경에서 N=20 seed로 확장해
-> (`experiments/lgnn/multiseed_robustness_n20.py`, seed 목록: 원래 5개 + 15개 추가)
+> (`experiments/synthetic_legacy/lgnn/multiseed_robustness_n20.py`, seed 목록: 원래 5개 + 15개 추가)
 > mean ΔAUC, sample SD, 95% bootstrap CI, positive-seed ratio, paired t-test, sign-flip
 > permutation test를 함께 확인했다. **결과: mean ΔAUC=+0.0269, sample SD=0.0325, 95% bootstrap
 > CI=[+0.0151, +0.0422] (0을 포함하지 않음), positive-seed ratio=20/20(100%), paired t-test
 > t=+3.704 p=0.0015, sign-flip permutation p<0.0001** (전체 결과는
-> `output/lgnn_5agent/multiseed_n20_robustness.json`에 저장). N=5보다 오히려 더 강하고 안정적인
+> `output/synthetic_legacy/lgnn_5agent/multiseed_n20_robustness.json`에 저장). N=5보다 오히려 더 강하고 안정적인
 > 유의성이 나왔다 — seed=12에서 MLP-AE가 유난히 나쁜 값(AUC 0.8449)을 보인 이상치가 있지만, 이걸
 > 빼도 나머지 19개 seed 전부 양수라 결론은 바뀌지 않는다.
 > **결론: 효과 방향(GCN 구조적 우위)과 그 통계적 유의성 모두 N=20·pinned 환경에서 견고하게
@@ -196,89 +214,11 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 값이라 그대로는 재현되지 않으므로, 논문에는 N=20 pinned-환경 수치를 1차 근거로 쓰고 N=5 수치는
 > "예비 실험(다른 환경)"으로만 언급한다.**
 
-### 1. 시뮬레이션 실험 (5-agent G5) — archived
+### 메인 실험(Headline) — 실제 LLM 실험 (4-agent, Ollama llama3.2)
 
-> ⚠️ 이 절의 스크립트는 모두 `archive/experiments/lgnn/`, `archive/experiments/simulation/`으로
-> 이동했다(아래 경로 표기는 이동 전 원래 위치 기준). 현재는 참고용 기록이며 능동적으로
-> 유지보수하지 않는다 — 아래 §2 실제 LLM 실험이 현재 기준 실험이다.
-
-> **실험 규모:** N=200 세션/유형, 5-agent pipeline, 멀티시드(5 seeds)
-
-#### 공격 유형
-
-| 유형 | 방식 | 특징 |
-|------|------|------|
-| Type-I Direct | 즉시 완전 역할 탈취 | 명시적, 탐지 쉬움 |
-| Type-II Harvest | 정보 수집 + 하위 에이전트 전파 | 중간 난이도 |
-| Type-III Slow | 점진적 오염 | 탐지 가장 어려움. Core-2에서 GCN 우위가 가장 크게 나타남(아래 참고) |
-| Type-IV Flood | 다중 에이전트 동시 오염 | 광범위 피해 |
-| **Type-V Chain** | Planner 단일 진입 + cascade | **노드 수준 침해 지점 식별 + GCN 우위 둘 다 강함** |
-
-#### 탐지 성능 (전체 공격 유형 합산, 단일 실행, Core-2 기준)
-
-| Method | AUC | F1 | 비고 |
-|--------|:---:|:---:|------|
-| MLP-AE (no graph) | 0.9591 | 0.9285 | - |
-| **LightGAE (제안)** | 0.9892 | 0.9771 | ΔAUC +0.0301 (단일 실행값, 아래 멀티시드가 더 신뢰도 높음) |
-
-> 이 5-agent 실험에는 별도의 Z-score 베이스라인이 포함되어 있지 않다 (Z-score/IsoForest/SlidingZscore 비교는 3-agent 기본 실험(`mas_lgnn.py`)에서만 수행됨).
-
-#### GCN 구조적 우위 재검증 — Core-2 기준 (멀티시드, N=20 seeds, pinned 환경)
-
-> pinned 환경: Python 3.11.15 / PyTorch 2.3.1 / NumPy 1.26.4 / scikit-learn 1.6.1
-> (README 하단 §패키지 버전과 동일). 실행 스크립트: `experiments/lgnn/multiseed_robustness_n20.py`,
-> 원본 JSON: `output/lgnn_5agent/multiseed_n20_robustness.json`.
-
-| Metric | 값 (N=20 seeds, pinned) |
-|--------|:---:|
-| 전체 멀티시드 ΔAUC (5-agent) | **+0.0269 ± 0.0325** (sample SD, ddof=1) |
-| 95% bootstrap CI | **[+0.0151, +0.0422]** (0 미포함, n_boot=10,000) |
-| Positive-seed ratio | **20/20 (100%)** — 모든 seed에서 GCN AUC > MLP AUC |
-| paired t-test (AUC) | **t=+3.704, p=0.0015** (α=0.05에서 유의미) |
-| sign-flip permutation test | **p<0.0001** (n_perm=10,000) |
-| GCN vs MLP ΔAUC (Type-III Slow, Type-V Chain) | N=5, 원 실행 환경에서만 측정(+0.0552±0.0581, +0.0859±0.0547) — N=20/pinned 환경에서 공격 유형별 분해는 아직 재검증 안 됨 |
-| 3-agent(`mas_lgnn.py`) 단일 실행 ΔAUC | 여전히 단일-seed 스냅샷이라 부호가 흔들릴 수 있음 — 3-agent 스크립트는 GCN-vs-MLP 멀티시드 델타를 별도 집계하지 않음, 참고만 |
-
-> **[2026-07-14 최종 재검증, N=20·pinned 환경]** 애초 N=5(원 실행 환경) 결과는 t=+3.209, p=0.0326
-> 이었는데, 정확히 같은 버전(Python 3.11.15/PyTorch 2.3.1/NumPy 1.26.4)으로 고정한 환경에서는
-> 그대로 재현되지 않았다(t=+2.237, p=0.0889 — §2026-07-14 업데이트 참고, OS/CPU 아키텍처
-> 의존성으로 추정). 그래서 같은 pinned 환경에서 seed를 20개로 늘려 재검증한 결과가 위 표다.
-> **20개 seed 전부 GCN이 MLP를 앞섰고(positive-seed ratio 100%), paired t-test(p=0.0015)와
-> permutation test(p<0.0001) 모두 N=5보다 오히려 더 강한 유의성을 보였다.** 즉 특정 p-value
-> 하나(0.0326)는 환경에 따라 흔들렸지만, seed 수를 늘려 같은 환경에서 재검증하니 "GCN 구조적
-> 우위"라는 결론 자체는 이전보다 더 견고하게 뒷받침된다. 해석: Full-5/Core-3에는
-> sentence_count·joint_deviation_flag·(token_count와 중복된) latency라는 잉여 차원이 있었고,
-> MLP-AE는 이 잉여 차원에서도 어느 정도 판별 정보를 끌어낼 수 있어 GCN과의 격차가 가려졌던
-> 것으로 보인다. 차원을 정말 필요한 2개로 줄이자 그래프 구조 없이는
-> 포착하기 어려운 다중 노드 상관 패턴(Type-III Slow의 점진적 오염, Type-V Chain의 cascade)에서
-> GCN의 이점이 드러났다. **이전 결론("GCN 구조적 우위 미재현")은 Full-5/Core-3 feature set 한정
-> 결론으로 재한정하고, Core-2 기준으로는 우위가 재현된다고 갱신한다.**
-
-#### 노드 수준 에이전트 식별
-
-```
-Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차, seed=42 대표 실행,
-                    해당 attack의 test 세션/윈도우 전체 평균):
-  Orchestrator  1.59  ← 정상 범위
-  Planner      12.69  ← 침해됨! ★ (진원지 정확히 식별, 분리도 약 8.0배)
-  Researcher    1.24  ← 정상 범위
-  Analyst       1.36  ← 정상 범위
-  Writer        0.99  ← 정상 범위
-```
-
-> 여러 차례의 feature 수정을 거치는 동안 Planner가 유일하게 튀는 값을 보이는 패턴은 계속
-> 유지된다(분리도는 라운드마다 6.3배→8.5배→7.4배→8.0배로 다소 흔들리지만 항상 뚜렷하게 큼).
-> 이 수치는 **seed=42 단일 대표 실행에서 Type-V Chain 테스트 세션·윈도우를 평균한 값**이며
-> (단일 사례 아님, 하지만 5-seed 멀티시드 평균도 아님), 로컬라이제이션의 seed 간 안정성은 아직
-> 별도로 검증되지 않았다 — 논문에는 "representative seed" 라고 명시할 것.
-> Core-2로 확정된 지금 **GCN vs MLP-AE의 AUC 우위는 방향성 기준(N=20 seed 전부 양수, 아래 §1
-> 표 참고)으로 성립**하고, 노드 수준 침해 지점 로컬라이제이션도 대표 실행에서 뚜렷하게
-> 관측된다 — 다만 정확한 p-value·분리배수를 헤드라인으로 못박기보다 이 두 가지를 "일관된
-> 방향성 증거"로 함께 제시하는 것을 권장한다.
-
----
-
-### 2. 실제 LLM 실험 (4-agent, Ollama llama3.2)
+> ✅ **공식 최종 결과.** `experiments/real_llm/lgnn_experiment.py` 단일 스크립트로 산출하며,
+> `output/real_llm/results_summary.json`에 수치가 저장된다. 아래 수치는 이 스크립트만으로
+> 재현 가능하고, 시뮬레이션 수치는 전혀 섞여 있지 않다.
 
 > **실험 규모:** N=50 정상 + 50 공격 세션, 멀티시드(5 seeds), 4-agent pipeline
 
@@ -319,9 +259,10 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 > 결과 LightGAE vs MLPAE p=0.6363, LightGAE vs Z-score p=0.7207로 통계적으로 유의미하지 않다.**
 > **real-LLM에서는 feature set을 Full-5→Core-3→Core-2로 좁혀도 GCN 구조적 우위가 나타나지
 > 않는다** — 이건 feature 문제가 아니라 이 데이터셋의 공격 효과크기가 너무 커서(easy separation)
-> 애초에 어떤 방법으로도 변별이 안 되는 ceiling effect 문제다. **시뮬레이션(Core-2, §1)에서는
+> 애초에 어떤 방법으로도 변별이 안 되는 ceiling effect 문제다. legacy 시뮬레이션(아래 §부록)에서는
 > GCN 우위가 통계적으로 유의미하게 나타났지만, real-LLM에서는 ceiling effect 때문에 같은 효과가
-> 가려져 있다**는 게 현재 가장 정확한 설명이다.
+> 가려져 있다는 게 현재 가장 정확한 설명이다 — 다만 이는 참고 정보이며 headline 결론에는
+> 영향을 주지 않는다.
 
 #### 노드별 이상 점수 (공격 세션, seed=123, Core-2 기준)
 
@@ -336,20 +277,6 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 > (26.47→19.93/20.56→22.56/21.38→24.12/16.28), 두 후보 모두 Orchestrator/Researcher보다는
 > 항상 확실히 높아 "하류에서 이상이 커진다"는 결론 자체는 매 라운드 유지된다.
 
-#### 교차 환경 비교 (Sim-Real Gap)
-
-| 환경 | LightGAE AUC |
-|------|:---:|
-| 시뮬레이션 (5-agent, Core-2) | 0.9910 ± 0.0013 |
-| 실제 LLM v3 (shallow cascade) | 0.6656 ± 0.0946 |
-| **실제 LLM v4 (deep cascade)** | **1.0000 ± 0.0000** |
-| **Gap (v4)** | **−0.0090** (역전 유지) |
-
-> **핵심 발견:** Cascade depth가 Sim-Real Gap의 주요 원인.  
-> v4에서 컨텍스트 창 5배 확대 + 에이전트별 명시적 지시 → Gap 해소.
-> (Core-2로 확정하며 시뮬레이션 AUC가 0.9926 → 0.9910으로, Gap도 −0.0074 → −0.0090으로
-> 갱신됨. 부호·결론은 동일하게 유지.)
-
 #### v3 → v4 개선 내용
 
 | 항목 | v3 | v4 |
@@ -359,6 +286,115 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 | injection 성공률 | ~60% | **86%** (43/50) |
 | Writer ratio | 1.000 | **3.974** |
 | LightGAE AUC | 0.6656 | **1.0000** |
+
+> 교차 환경(시뮬레이션 vs. real-LLM) 비교 수치는 이 headline 절에 포함하지 않는다.
+> 필요하면 아래 §부록의 "교차 환경 비교" 절을 참고 — 별도 스크립트로 supplementary 자료만
+> 생성하며 headline 결과와는 분리되어 있다.
+
+---
+
+### 부록: Legacy Synthetic 실험 (5-agent G5) — 참고용, 최종 결과 아님
+
+> ⚠️ 이 절의 스크립트는 모두 `experiments/synthetic_legacy/lgnn/`, `experiments/synthetic_legacy/simulation/`
+> 아래에 있다. Synthetic(비-LLM) 데이터로 생성된 참고 기록이며 능동적으로 유지보수하지 않는다 —
+> 위 "메인 실험(Headline)" 절이 유일한 공식 최종 결과다. 이 절의 수치를 논문 headline으로 인용하지 말 것.
+
+> **실험 규모:** N=200 세션/유형, 5-agent pipeline, 멀티시드(5 seeds)
+
+#### 공격 유형
+
+| 유형 | 방식 | 특징 |
+|------|------|------|
+| Type-I Direct | 즉시 완전 역할 탈취 | 명시적, 탐지 쉬움 |
+| Type-II Harvest | 정보 수집 + 하위 에이전트 전파 | 중간 난이도 |
+| Type-III Slow | 점진적 오염 | 탐지 가장 어려움. Core-2에서 GCN 우위가 가장 크게 나타남(아래 참고) |
+| Type-IV Flood | 다중 에이전트 동시 오염 | 광범위 피해 |
+| **Type-V Chain** | Planner 단일 진입 + cascade | **노드 수준 침해 지점 식별 + GCN 우위 둘 다 강함** |
+
+#### 탐지 성능 (전체 공격 유형 합산, 단일 실행, Core-2 기준)
+
+| Method | AUC | F1 | 비고 |
+|--------|:---:|:---:|------|
+| MLP-AE (no graph) | 0.9591 | 0.9285 | - |
+| **LightGAE (제안)** | 0.9892 | 0.9771 | ΔAUC +0.0301 (단일 실행값, 아래 멀티시드가 더 신뢰도 높음) |
+
+> 이 5-agent 실험에는 별도의 Z-score 베이스라인이 포함되어 있지 않다 (Z-score/IsoForest/SlidingZscore 비교는 3-agent 기본 실험(`mas_lgnn.py`)에서만 수행됨).
+
+#### GCN 구조적 우위 재검증 — Core-2 기준 (멀티시드, N=20 seeds, pinned 환경)
+
+> pinned 환경: Python 3.11.15 / PyTorch 2.3.1 / NumPy 1.26.4 / scikit-learn 1.6.1
+> (README 하단 §패키지 버전과 동일). 실행 스크립트: `experiments/synthetic_legacy/lgnn/multiseed_robustness_n20.py`,
+> 원본 JSON: `output/synthetic_legacy/lgnn_5agent/multiseed_n20_robustness.json`.
+
+| Metric | 값 (N=20 seeds, pinned) |
+|--------|:---:|
+| 전체 멀티시드 ΔAUC (5-agent) | **+0.0269 ± 0.0325** (sample SD, ddof=1) |
+| 95% bootstrap CI | **[+0.0151, +0.0422]** (0 미포함, n_boot=10,000) |
+| Positive-seed ratio | **20/20 (100%)** — 모든 seed에서 GCN AUC > MLP AUC |
+| paired t-test (AUC) | **t=+3.704, p=0.0015** (α=0.05에서 유의미) |
+| sign-flip permutation test | **p<0.0001** (n_perm=10,000) |
+| GCN vs MLP ΔAUC (Type-III Slow, Type-V Chain) | N=5, 원 실행 환경에서만 측정(+0.0552±0.0581, +0.0859±0.0547) — N=20/pinned 환경에서 공격 유형별 분해는 아직 재검증 안 됨 |
+| 3-agent(`mas_lgnn.py`) 단일 실행 ΔAUC | 여전히 단일-seed 스냅샷이라 부호가 흔들릴 수 있음 — 3-agent 스크립트는 GCN-vs-MLP 멀티시드 델타를 별도 집계하지 않음, 참고만 |
+
+> **[2026-07-14 최종 재검증, N=20·pinned 환경]** 애초 N=5(원 실행 환경) 결과는 t=+3.209, p=0.0326
+> 이었는데, 정확히 같은 버전(Python 3.11.15/PyTorch 2.3.1/NumPy 1.26.4)으로 고정한 환경에서는
+> 그대로 재현되지 않았다(t=+2.237, p=0.0889 — §2026-07-14 업데이트 참고, OS/CPU 아키텍처
+> 의존성으로 추정). 그래서 같은 pinned 환경에서 seed를 20개로 늘려 재검증한 결과가 위 표다.
+> **20개 seed 전부 GCN이 MLP를 앞섰고(positive-seed ratio 100%), paired t-test(p=0.0015)와
+> permutation test(p<0.0001) 모두 N=5보다 오히려 더 강한 유의성을 보였다.** 즉 특정 p-value
+> 하나(0.0326)는 환경에 따라 흔들렸지만, seed 수를 늘려 같은 환경에서 재검증하니 "GCN 구조적
+> 우위"라는 결론 자체는 이전보다 더 견고하게 뒷받침된다. 해석: Full-5/Core-3에는
+> sentence_count·joint_deviation_flag·(token_count와 중복된) latency라는 잉여 차원이 있었고,
+> MLP-AE는 이 잉여 차원에서도 어느 정도 판별 정보를 끌어낼 수 있어 GCN과의 격차가 가려졌던
+> 것으로 보인다. 차원을 정말 필요한 2개로 줄이자 그래프 구조 없이는
+> 포착하기 어려운 다중 노드 상관 패턴(Type-III Slow의 점진적 오염, Type-V Chain의 cascade)에서
+> GCN의 이점이 드러났다. **이전 결론("GCN 구조적 우위 미재현")은 Full-5/Core-3 feature set 한정
+> 결론으로 재한정하고, Core-2 기준으로는 우위가 재현된다고 갱신한다.** (모두 legacy synthetic
+> 데이터 기준 — real-LLM headline 결론에는 영향 없음)
+
+#### 노드 수준 에이전트 식별
+
+```
+Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차, seed=42 대표 실행,
+                    해당 attack의 test 세션/윈도우 전체 평균):
+  Orchestrator  1.59  ← 정상 범위
+  Planner      12.69  ← 침해됨! ★ (진원지 정확히 식별, 분리도 약 8.0배)
+  Researcher    1.24  ← 정상 범위
+  Analyst       1.36  ← 정상 범위
+  Writer        0.99  ← 정상 범위
+```
+
+> 여러 차례의 feature 수정을 거치는 동안 Planner가 유일하게 튀는 값을 보이는 패턴은 계속
+> 유지된다(분리도는 라운드마다 6.3배→8.5배→7.4배→8.0배로 다소 흔들리지만 항상 뚜렷하게 큼).
+> 이 수치는 **seed=42 단일 대표 실행에서 Type-V Chain 테스트 세션·윈도우를 평균한 값**이며
+> (단일 사례 아님, 하지만 5-seed 멀티시드 평균도 아님), 로컬라이제이션의 seed 간 안정성은 아직
+> 별도로 검증되지 않았다 — 논문에는 "representative seed" 라고 명시할 것.
+> Core-2로 확정된 지금 **GCN vs MLP-AE의 AUC 우위는 방향성 기준(N=20 seed 전부 양수, 위 표
+> 참고)으로 성립**하고, 노드 수준 침해 지점 로컬라이제이션도 대표 실행에서 뚜렷하게
+> 관측된다 — 다만 정확한 p-value·분리배수를 헤드라인으로 못박기보다 이 두 가지를 "일관된
+> 방향성 증거"로 함께 제시하는 것을 권장한다.
+
+#### 교차 환경 비교 (Sim-Real Gap) — supplementary, headline과 별도 산출
+
+> ⚠️ 아래 표는 **headline 결과 집계 코드에 포함되어 있지 않다.** 서로 다른 환경(synthetic
+> simulation vs. 실제 Ollama 호출)·다른 실행에서 나온 수치를 나란히 보여주는 참고 자료일 뿐,
+> "하나의 최종 벤치마크"로 합쳐서 인용하지 말 것. 재생성하려면
+> `python experiments/synthetic_legacy/cross_env_comparison.py`
+> (사전 조건: `output/real_llm/results_summary.json`과
+> `output/synthetic_legacy/lgnn_5agent/multiseed_n20_robustness.json`이 이미 존재해야 함) →
+> 결과는 `output/synthetic_legacy/cross_env_comparison/`에 별도로 저장된다.
+
+| 환경 | LightGAE AUC |
+|------|:---:|
+| Legacy 시뮬레이션 (5-agent, Core-2) | 0.9910 ± 0.0013 |
+| 실제 LLM v3 (shallow cascade) | 0.6656 ± 0.0946 |
+| **실제 LLM v4 (deep cascade, headline)** | **1.0000 ± 0.0000** |
+| **Gap (v4)** | **−0.0090** (역전 유지) |
+
+> **참고 발견 (headline 결론 아님):** Cascade depth가 Sim-Real Gap의 주요 원인으로 보인다.
+> v4에서 컨텍스트 창 5배 확대 + 에이전트별 명시적 지시 → Gap 해소.
+> (Core-2로 확정하며 시뮬레이션 AUC가 0.9926 → 0.9910으로, Gap도 −0.0074 → −0.0090으로
+> 갱신됨. 부호·결론은 동일하게 유지.)
 
 ---
 
@@ -371,45 +407,49 @@ Researcher/Analyst/Writer 전체에 token cascade 전파.
 | **Sim-Real Gap (0.333)** | ✅ **v4에서 해소** — Gap = −0.0090 (실LLM이 시뮬 소폭 상회) |
 | **Shallow Cascade** | ✅ **v4에서 해소** — Writer ratio 1.000 → 3.974 |
 | **단일 모델** | llama3.2만 검증. 다른 LLM 일반화는 향후 과제 |
-| **AUC 포화 (1.0)** | real-LLM에서 세 방법 모두 AUC 1.0 → Writer ratio 3.97x로 효과크기가 매우 커서(easy separation) 발생. 시뮬레이션(§1)에서는 공격이 더 어렵게 설계돼 있어 saturate되지 않고 GCN 우위가 드러남 |
+| **AUC 포화 (1.0)** | real-LLM에서 세 방법 모두 AUC 1.0 → Writer ratio 3.97x로 효과크기가 매우 커서(easy separation) 발생. legacy 시뮬레이션(§부록)에서는 공격이 더 어렵게 설계돼 있어 saturate되지 않고 GCN 우위가 드러남(참고 정보, headline 결론과 무관) |
 | **latency-token_count 상관관계 (real-LLM, r=0.95~0.99)** | ℹ️ Core-2 채택의 직접 근거. Ollama의 decode-bound 추론 특성상 latency가 사실상 token_count의 파생값이었음. 다른 backend(배치 서빙, 원격 API 등 non-decode-bound)에서는 이 상관관계가 깨질 수 있어, latency를 완전히 폐기하기보다 "이 배포 환경에서는 불필요했다"는 환경-특정적 결론으로 서술함 |
 
 ---
 
 ## 프로젝트 구조
 
-> **2026-07-20 업데이트 — 시뮬레이션 실험 archive 이동.** 이제 real-LLM 실험만 능동적으로
-> 사용한다. 시뮬레이션 기반 코드(`experiments/simulation/`, `experiments/lgnn/`)와 그 결과물
-> (`output/simulation/`, `output/lgnn/`, `output/lgnn_5agent/`)은 삭제하지 않고 `archive/` 아래로
-> 옮겨 보관했다. 아래 "1. 시뮬레이션 실험" 절의 수치·경로는 archive 이동 이전 기준이며, 참고용
-> 기록으로 남겨둔다(스크립트를 다시 돌리려면 `archive/experiments/...` 경로 사용).
+> **2026-07-20 업데이트 — Real-LLM 단일 경로로 통일.** `experiments/real_llm/lgnn_experiment.py`가
+> 유일한 공식 headline 실험이다. 시뮬레이션 기반 코드는 `experiments/synthetic_legacy/`로,
+> 그 결과물은 `output/synthetic_legacy/`로 분리했다(삭제하지 않고 legacy 영역으로 보관 —
+> 위 "부록: Legacy Synthetic 실험" 절 참고). headline 스크립트에는 더 이상 시뮬레이션 수치가
+> 하드코딩되어 있지 않으며, 두 환경을 나란히 보고 싶을 때만
+> `experiments/synthetic_legacy/cross_env_comparison.py`가 별도로 supplementary 자료를 만든다.
 
 ```
 MAS/
 ├── experiments/
-│   └── real_llm/
-│       ├── lgnn_experiment.py         # ★ LightGAE + 실제 LLM (v4 완료, Core-2 헤드라인)
-│       ├── experiment.py              # QUAD 실제 LLM 실험 v2 (초기 버전)
-│       ├── feature_ablation.py        # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)
-│       ├── feature_correlation_breakdown.py  # latency-token_count 상관관계 role/조건별 분해
-│       ├── patch_call_seq.py          # (완료된 1회성 마이그레이션) call_seq 재계산 — 캐시에 이미 반영됨
-│       ├── patch_drop_refusal.py      # (완료된 1회성 마이그레이션) refusal_flag 컬럼 제거 — 캐시에 이미 반영됨
-│       └── patch_reorder_columns.py   # (완료된 1회성 마이그레이션) feature 컬럼 순서 재정렬 — 캐시에 이미 반영됨
+│   ├── real_llm/                          # ★ Headline — 공식 최종 실험
+│   │   ├── lgnn_experiment.py             # ★★★ LightGAE + 실제 LLM (v4, Core-2) — 유일한 headline 진입점
+│   │   ├── experiment.py                  # [superseded] QUAD 실제 LLM 실험 v2 (초기 버전, 참고용)
+│   │   ├── feature_ablation.py            # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)
+│   │   ├── feature_correlation_breakdown.py  # latency-token_count 상관관계 role/조건별 분해
+│   │   ├── patch_call_seq.py              # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨
+│   │   ├── patch_drop_refusal.py          # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨
+│   │   └── patch_reorder_columns.py       # (완료된 1회성 마이그레이션) — 캐시에 이미 반영됨
+│   └── synthetic_legacy/                  # ⚠️ Legacy — 참고용, 최종 결과 아님
+│       ├── simulation/mas_experiment.py       # 4 Baseline + Adaptive Threshold 비교 (Core-2, synthetic)
+│       ├── lgnn/
+│       │   ├── mas_lgnn.py                    # LightGAE 핵심 실험 (3-agent synthetic, Core-2)
+│       │   ├── mas_lgnn_5agent.py             # 5-Agent G5 확장 실험 (Core-2, N=5 seed 멀티시드 + paired t-test)
+│       │   ├── feature_ablation_5agent.py     # Core-2/Core-3/Full-5/leave-one-out ablation (synthetic)
+│       │   └── multiseed_robustness_n20.py    # N=20 seed 견고성 재검증 (bootstrap CI, permutation test)
+│       └── cross_env_comparison.py        # supplementary: headline(real-LLM) vs legacy(synthetic) 비교만 생성
 ├── output/
-│   └── real_llm/                      # Figure 5종 (실제 LLM)
-└── archive/                            # 시뮬레이션 실험 보관 (더 이상 능동 사용 안 함)
-    ├── experiments/
-    │   ├── simulation/mas_experiment.py       # 4 Baseline + Adaptive Threshold 비교 (Core-2)
-    │   └── lgnn/
-    │       ├── mas_lgnn.py                    # LightGAE 핵심 실험 (3-agent 시뮬레이션, Core-2)
-    │       ├── mas_lgnn_5agent.py             # 5-Agent G5 확장 실험 (Core-2, N=5 seed 멀티시드 + paired t-test)
-    │       ├── feature_ablation_5agent.py     # Core-2/Core-3/Full-5/leave-one-out ablation (시뮬레이션)
-    │       └── multiseed_robustness_n20.py    # N=20 seed 견고성 재검증 (bootstrap CI, permutation test)
-    └── output/
-        ├── simulation/
-        ├── lgnn/                       # Figure 8종 (3-agent 시뮬레이션)
-        ├── lgnn_5agent/                 # Figure 5종 (5-agent G5)
-        └── lgnn_root_old/               # 구버전 중복 출력 (2026-06-29)
+│   ├── real_llm/                          # ★ Headline 결과물
+│   │   ├── results_summary.json           # 헤드라인 AUC/F1 (method별 mean/std) — 시뮬레이션 수치 없음
+│   │   └── lgnn_fig*.png                  # Figure 1~4 (feature_dist, roc, node_score, ablation)
+│   └── synthetic_legacy/                  # ⚠️ Legacy 결과물
+│       ├── simulation/
+│       ├── lgnn/                          # Figure 8종 (3-agent synthetic)
+│       ├── lgnn_5agent/                   # Figure 5종 (5-agent G5)
+│       ├── lgnn_root_old/                 # 구버전 중복 출력 (2026-06-29)
+│       └── cross_env_comparison/          # cross_env_comparison.py 산출물 (supplementary)
 ```
 
 ---
@@ -420,17 +460,24 @@ MAS/
 # 환경 설정
 pip install numpy scikit-learn matplotlib torch requests networkx scipy
 
-# 실제 LLM 실험 (Ollama 필요, 약 1.5~2시간)
+# ★ Headline 실험 (Ollama 필요, 약 1.5~2시간)
 # Ollama 앱 실행 후:
 .\.venv\Scripts\python.exe -u experiments/real_llm/lgnn_experiment.py
 ```
 
-> 시뮬레이션 스크립트(`mas_lgnn.py`, `mas_lgnn_5agent.py`, `multiseed_robustness_n20.py` 등)는
-> `archive/experiments/lgnn/`, `archive/experiments/simulation/`으로 이동했다. 필요 시
-> `python archive/experiments/lgnn/mas_lgnn.py` 형태로 실행 가능하지만 현재는 유지보수 대상이 아니다.
-
 > 실제 LLM 실험은 crash recovery를 지원합니다.
 > 중단 후 재실행 시 수집된 세션은 `output/real_llm/cache_*.json`에서 자동 복원됩니다.
+> 완료되면 `output/real_llm/results_summary.json`에 headline 수치가 저장됩니다.
+
+```bash
+# (선택, legacy) synthetic 시뮬레이션 스크립트 — 참고용, 최종 결과에는 쓰지 않음
+python experiments/synthetic_legacy/lgnn/mas_lgnn.py
+python experiments/synthetic_legacy/lgnn/mas_lgnn_5agent.py
+python experiments/synthetic_legacy/lgnn/multiseed_robustness_n20.py
+
+# (선택, supplementary) headline vs legacy 교차 환경 비교 — 위 두 실험이 모두 끝난 뒤 실행
+python experiments/synthetic_legacy/cross_env_comparison.py
+```
 
 ---
 

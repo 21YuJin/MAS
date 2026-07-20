@@ -1,4 +1,9 @@
 """
+[HEADLINE EXPERIMENT — official final-paper results]
+This is the single canonical entry point for reported results. Synthetic/simulation
+scripts under experiments/synthetic_legacy/ are reference-only and must not be quoted
+as final numbers (see README §실험 경로).
+
 Real LLM + LightGAE Experiment  (v3)
 - 4-agent pipeline: Orchestrator -> Researcher -> Analyst -> Writer
 - N=50 normal + 50 attack sessions
@@ -540,16 +545,31 @@ print(f"  LightGAE vs MLPAE  : t={t_gm:+.3f}  p={p_gm:.4f}")
 print(f"  LightGAE vs Z-score: t={t_gz:+.3f}  p={p_gz:.4f}")
 print("  " + "-" * 54)
 
-# 교차 환경 비교 (5-agent 시뮬레이션 멀티시드 평균, mas_lgnn_5agent.py 최신 재실행 결과)
-SIM_AUC  = 0.9910
 gae_aucs = [r['AUC'] for r in seed_records['LightGAE']]
 real_auc = np.mean(gae_aucs)
-gap      = SIM_AUC - real_auc
-print("\n  [교차 환경 비교]")
-print(f"  시뮬레이션 AUC : {SIM_AUC:.4f}")
-print(f"  실제 LLM AUC   : {real_auc:.4f} +/- {np.std(gae_aucs):.4f}")
-print(f"  Gap            : {gap:+.4f}  "
-      f"({'재현 성공' if gap < 0.05 else '재현 부분 성공' if gap < 0.15 else '갭 존재'})")
+
+# 헤드라인 결과 저장 (real-LLM 단독 결과만; 시뮬레이션 수치와는 절대 이 파일에서 합치지 않는다.
+# 시뮬레이션과의 교차 환경 비교가 필요하면 experiments/synthetic_legacy/cross_env_comparison.py
+# 가 이 JSON을 읽어 별도 output/synthetic_legacy/에 산출한다.)
+results_summary = {
+    "env": "real_llm",
+    "model": MODEL,
+    "n_normal": N_NORMAL,
+    "n_attack": N_ATTACK,
+    "seeds": SEEDS,
+    "methods": {
+        name: {
+            "auc_mean": float(np.mean([r['AUC'] for r in records])),
+            "auc_std":  float(np.std([r['AUC'] for r in records])),
+            "f1_mean":  float(np.mean([r['F1'] for r in records])),
+            "f1_std":   float(np.std([r['F1'] for r in records])),
+        }
+        for name, records in seed_records.items()
+    },
+}
+with open(f"{OUT}/results_summary.json", "w") as f:
+    json.dump(results_summary, f, indent=2)
+print(f"\n  [headline] results_summary.json 저장 -> {OUT}/results_summary.json")
 
 # 노드 수준 점수
 atk_node = last['node_sc'][len(last['X_val']):]
@@ -644,55 +664,34 @@ plt.savefig(f"{OUT}/lgnn_fig3_node_score.png", dpi=150, bbox_inches="tight")
 plt.close()
 print("  Fig 3 saved.")
 
-# ── Fig 4: 교차 환경 비교 ────────────────────────────────────────────────
+# ── Fig 4: Ablation — 멀티시드 AUC 비교 ─────────────────────────────────
+# (구 Fig 5. 시뮬레이션과 합치던 구 Fig 4 "교차 환경 비교"는 제거했다 — 시뮬레이션 AUC를
+#  하드코딩해 real-LLM 헤드라인 결과와 같은 그래프에 섞었던 부분. 필요하면
+#  experiments/synthetic_legacy/cross_env_comparison.py 에서 별도로 생성한다.)
 fig4, ax4 = plt.subplots(figsize=(8, 5))
-envs = ["Simulation\n(N=200, 5-agent)", f"Real LLM\n(N={N_ATTACK}, 4-agent)"]
-real_f1_mean = np.mean([r['F1'] for r in seed_records['LightGAE']])
-aucs4 = [SIM_AUC, real_auc]
-f1s4  = [0.9794, real_f1_mean]
-x4    = np.arange(2)
-w4    = 0.3
-b_auc = ax4.bar(x4 - w4/2, aucs4, w4, color=[BLUE, RED],   alpha=0.85, label="AUC")
-b_f1  = ax4.bar(x4 + w4/2, f1s4,  w4, color=[GREEN, GRAY], alpha=0.85, label="F1")
-ax4.errorbar([1 - w4/2], [real_auc], yerr=[np.std(gae_aucs)],
-             fmt='none', color='black', capsize=5, lw=2)
-ax4.set_xticks(x4); ax4.set_xticklabels(envs, fontsize=11)
-ax4.set_ylim(0, 1.15); ax4.grid(axis='y', alpha=0.3); ax4.legend(fontsize=10)
-ax4.set_title("Figure 4. Cross-Environment Validation (LightGAE)",
-              fontsize=12, fontweight="bold")
-for bar, v in zip(list(b_auc) + list(b_f1), aucs4 + f1s4):
-    ax4.text(bar.get_x() + bar.get_width()/2, v + 0.01,
-             f"{v:.4f}", ha='center', fontsize=9, fontweight='bold')
-plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig4_cross_env.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("  Fig 4 saved.")
-
-# ── Fig 5: Ablation — 멀티시드 AUC 비교 ─────────────────────────────────
-fig5, ax5 = plt.subplots(figsize=(8, 5))
-methods5   = ["Z-score\n(baseline)", "MLPAE\n(no graph)", "LightGAE\n(proposed)"]
-auc_means5 = [np.mean([r['AUC'] for r in seed_records[k]])
+methods4   = ["Z-score\n(baseline)", "MLPAE\n(no graph)", "LightGAE\n(proposed)"]
+auc_means4 = [np.mean([r['AUC'] for r in seed_records[k]])
               for k in ["Z-score", "MLPAE", "LightGAE"]]
-auc_stds5  = [np.std([r['AUC'] for r in seed_records[k]])
+auc_stds4  = [np.std([r['AUC'] for r in seed_records[k]])
               for k in ["Z-score", "MLPAE", "LightGAE"]]
-best_idx   = int(np.argmax(auc_means5))
-colors5    = [GRAY, GREEN, RED]
-colors5[best_idx] = TEAL   # best 방법 강조
-bars5 = ax5.bar(methods5, auc_means5, color=colors5, alpha=0.85, width=0.5)
-ax5.errorbar(methods5, auc_means5, yerr=auc_stds5,
+best_idx   = int(np.argmax(auc_means4))
+colors4    = [GRAY, GREEN, RED]
+colors4[best_idx] = TEAL   # best 방법 강조
+bars4 = ax4.bar(methods4, auc_means4, color=colors4, alpha=0.85, width=0.5)
+ax4.errorbar(methods4, auc_means4, yerr=auc_stds4,
              fmt='none', color='black', capsize=6, lw=2)
-ax5.set_ylim(0, 1.15); ax5.grid(axis='y', alpha=0.3)
-ax5.set_ylabel("AUC (mean ± std across 5 seeds)", fontsize=11)
-ax5.set_title(f"Figure 5. Ablation: Graph Structure vs. Flat Baseline\n"
+ax4.set_ylim(0, 1.15); ax4.grid(axis='y', alpha=0.3)
+ax4.set_ylabel("AUC (mean ± std across 5 seeds)", fontsize=11)
+ax4.set_title(f"Figure 4. Ablation: Graph Structure vs. Flat Baseline\n"
               f"Real LLM Environment ({len(SEEDS)} seeds, N={N_ATTACK} attack)",
               fontsize=12, fontweight="bold")
-for bar, v, s in zip(bars5, auc_means5, auc_stds5):
-    ax5.text(bar.get_x() + bar.get_width()/2, v + s + 0.02,
+for bar, v, s in zip(bars4, auc_means4, auc_stds4):
+    ax4.text(bar.get_x() + bar.get_width()/2, v + s + 0.02,
              f"{v:.4f}", ha='center', fontsize=10, fontweight='bold')
 plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig5_ablation.png", dpi=150, bbox_inches="tight")
+plt.savefig(f"{OUT}/lgnn_fig4_ablation.png", dpi=150, bbox_inches="tight")
 plt.close()
-print("  Fig 5 saved.")
+print("  Fig 4 saved.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §7.  최종 요약
@@ -711,8 +710,8 @@ for name, records in seed_records.items():
     print(f"  {name:<22} {np.mean(aucs_):>10.4f} {np.std(aucs_):>9.4f} "
           f"{np.mean(f1s_):>9.4f}{best}")
 print("  " + "-" * 54)
-print(f"\n  교차 환경 AUC Gap: {gap:+.4f}  (sim {SIM_AUC:.4f} -> real {real_auc:.4f})")
 print(f"\n  Figure 저장 위치:")
-for i, fn in enumerate(["feature_dist", "roc", "node_score", "cross_env", "ablation"], 1):
+for i, fn in enumerate(["feature_dist", "roc", "node_score", "ablation"], 1):
     print(f"    output/real_llm/lgnn_fig{i}_{fn}.png")
+print(f"    output/real_llm/results_summary.json")
 print("\n실험 완료.")

@@ -1,4 +1,8 @@
 """
+[LEGACY / SYNTHETIC — not the headline experiment]
+Headline results now come exclusively from experiments/real_llm/lgnn_experiment.py.
+This script uses synthetic (non-LLM) simulated data and is kept for reference only.
+
 5-Agent Extended LightGAE: Demonstrating GCN Structural Advantage
 in Complex Multi-Agent AI System Security
 

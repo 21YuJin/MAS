@@ -1,4 +1,8 @@
 """
+[LEGACY / SYNTHETIC — not the headline experiment]
+Headline results now come exclusively from experiments/real_llm/lgnn_experiment.py.
+This script uses synthetic (non-LLM) simulated data and is kept for reference only.
+
 Feature-set ablation on the 5-agent MAS (same data-generation process as
 mas_lgnn_5agent.py, reused here to keep results directly comparable).
 

@@ -1,4 +1,8 @@
 """
+[LEGACY / SYNTHETIC — not the headline experiment]
+Headline results now come exclusively from experiments/real_llm/lgnn_experiment.py.
+This script uses synthetic (non-LLM) simulated data and is kept for reference only.
+
 N=20-seed robustness check for the GCN (LightGAE) vs MLP-AE structural
 advantage claim on the 5-agent MAS simulation, Core-2 features
 (token_count, ctx_delta).

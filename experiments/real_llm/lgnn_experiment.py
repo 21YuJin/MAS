@@ -58,12 +58,93 @@ TEAL   = "#3AAFA9"
 PURPLE = "#9B59B6"
 GRAY   = "#AAAAAA"
 
-N_AGENTS    = 4
+TOPOLOGY_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config", "topology_4agent_v1.json")
+
+
+def load_topology(path):
+    """
+    Loads and validates a topology config (nodes/edges/primary_predecessor).
+    This is the ONLY place graph structure is defined -- model code (adjacency
+    matrix, ctx_delta predecessor lookup, AGENT_NAMES) is derived from this, so
+    nothing downstream depends on a specific role name or hardcoded node count.
+
+    Validates, in order:
+      - no duplicate node names
+      - every edge endpoint is a known node ("unknown node" check)
+      - no duplicate edges and no self-loops (edges are treated as undirected,
+        matching the symmetric GCN adjacency built from them)
+      - no disconnected node (every node reachable from every other via edges)
+      - primary_predecessor has exactly one entry per node (null allowed)
+      - every non-null predecessor is a real node AND is actually connected to
+        that node by an edge in the topology (predecessor-not-in-edges check)
+      - at least one entry node (primary_predecessor == null) exists
+    Raises AssertionError with a specific message on the first violation found.
+    """
+    with open(path, encoding="utf-8") as f:
+        cfg = json.load(f)
+
+    nodes = cfg["nodes"]
+    edges = [tuple(e) for e in cfg["edges"]]
+    primary_predecessor = cfg["primary_predecessor"]
+
+    node_set = set(nodes)
+    assert len(nodes) == len(node_set), f"duplicate node in topology: {nodes}"
+
+    for a, b in edges:
+        assert a in node_set, f"unknown node in edge: {a!r}"
+        assert b in node_set, f"unknown node in edge: {b!r}"
+
+    seen_edges = set()
+    for a, b in edges:
+        assert a != b, f"self-loop edge not allowed: {(a, b)}"
+        key = frozenset((a, b))
+        assert key not in seen_edges, f"duplicate edge: {(a, b)}"
+        seen_edges.add(key)
+
+    adj = {n: set() for n in nodes}
+    for a, b in edges:
+        adj[a].add(b); adj[b].add(a)
+    visited, frontier = {nodes[0]}, [nodes[0]]
+    while frontier:
+        cur = frontier.pop()
+        for nxt in adj[cur]:
+            if nxt not in visited:
+                visited.add(nxt)
+                frontier.append(nxt)
+    disconnected = node_set - visited
+    assert not disconnected, f"disconnected node(s) in topology: {disconnected}"
+
+    assert set(primary_predecessor.keys()) == node_set, \
+        "primary_predecessor must have exactly one entry (possibly null) per node"
+    for node, pred in primary_predecessor.items():
+        if pred is None:
+            continue
+        assert pred in node_set, f"unknown predecessor node: {pred!r}"
+        assert frozenset((node, pred)) in seen_edges, \
+            f"primary_predecessor {pred!r} -> {node!r} has no corresponding edge in the topology"
+    entry_nodes = [n for n, p in primary_predecessor.items() if p is None]
+    assert len(entry_nodes) >= 1, "topology must have at least one entry node (primary_predecessor == null)"
+
+    return {"topology_id": cfg["topology_id"], "nodes": nodes, "edges": edges,
+            "primary_predecessor": primary_predecessor}
+
+
+_TOPOLOGY    = load_topology(TOPOLOGY_CONFIG_PATH)
+TOPOLOGY_ID  = _TOPOLOGY["topology_id"]
 # Generic IDs only -- graph nodes, model I/O, figures, and printed results all key off
 # AGENT_NAMES so nothing here presupposes a specific workflow. The example prompt roles
 # actually used in run_session() below are recorded separately in AGENT_ROLES and never
 # feed into the model, the adjacency graph, or any result label.
-AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]
+AGENT_NAMES = _TOPOLOGY["nodes"]
+N_AGENTS    = len(AGENT_NAMES)
+# EDGES as integer index pairs (into AGENT_NAMES) -- what build_adj() consumes.
+EDGES       = [(AGENT_NAMES.index(a), AGENT_NAMES.index(b)) for a, b in _TOPOLOGY["edges"]]
+# ctx_delta's single predecessor per node (§ctx_delta below), by node name. A node
+# with two incoming edges (e.g. Agent_2 <- Agent_1 and Agent_0 -> Agent_2) still
+# has exactly one PRIMARY predecessor for ctx_delta -- which one is an explicit
+# topology-config decision, not an implicit code default. See config/topology_4agent_v1.json.
+PRIMARY_PREDECESSOR = _TOPOLOGY["primary_predecessor"]
+
 AGENT_ROLES = {
     "Agent_0": "orchestration",
     "Agent_1": "research",
@@ -71,24 +152,27 @@ AGENT_ROLES = {
     "Agent_3": "writing",
 }
 FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
-N_FEATS     = 5
+N_FEATS     = len(FEAT_NAMES)
 
+# CORE_FEATURES: the only features that reach the model (LightGAE/MLPAE input).
+# DIAGNOSTIC_FEATURES: still collected/cached/plotted (feature-distribution
+# stats, Fig1) but never enter CORE_COLS -- they cannot influence training,
+# threshold estimation, or any AUC/F1 number.
+#
 # Headline model uses the empirically-selected Core-2 subset (see
 # experiments/real_llm/feature_ablation.py): dropping latency here cost
 # exactly 0 F1 (identical to Core-3 across all 5 seeds) because latency is
 # near-perfectly redundant with token_count in this decode-bound Ollama
 # deployment (r=0.95-0.99, verified with role/condition held fixed --
 # see feature_correlation_breakdown.py). sentence_count / joint_deviation_flag
-# also added no measurable value in the simulation ablation. All 5 raw
-# features are still collected/cached/plotted for feature-distribution stats.
-CORE_COLS   = [1, 2]   # token_count, ctx_delta
+# also added no measurable value in the simulation ablation.
+CORE_FEATURES       = ["token_count", "ctx_delta"]
+DIAGNOSTIC_FEATURES = ["latency", "sentence_count", "joint_deviation_flag"]
+assert set(CORE_FEATURES) | set(DIAGNOSTIC_FEATURES) == set(FEAT_NAMES)
+assert not (set(CORE_FEATURES) & set(DIAGNOSTIC_FEATURES))
+CORE_COLS   = [FEAT_NAMES.index(f) for f in CORE_FEATURES]
 CORE_NAMES  = [FEAT_NAMES[i] for i in CORE_COLS]
 N_CORE      = len(CORE_COLS)
-# 4-node pipeline + cross-link(Orchestrator->Analyst): 2-hop 집계 가능
-EDGES       = [(0, 1), (1, 2), (2, 3), (0, 2)]
-# Identifies this exact graph topology (N_AGENTS + EDGES) for dataset provenance
-# (§4/§dataset summary). Bump the version suffix if EDGES/N_AGENTS ever change.
-TOPOLOGY_ID = "topology_4agent_v1"
 
 SEEDS = [42, 0, 1, 7, 123]
 
@@ -352,16 +436,21 @@ def ask_ollama(prompt, seed=None):
         return "", 1.0, 30
 
 
-def extract_features(text, latency, tokens, prev_tokens):
+def extract_features(text, latency, tokens, predecessor_tokens):
     """
-    5 metadata features per agent.
+    5 raw metadata features per agent (§CORE_FEATURES/DIAGNOSTIC_FEATURES above
+    -- only token_count/ctx_delta reach the model; the rest are diagnostic-only).
+
+    predecessor_tokens: token_count of this node's PRIMARY_PREDECESSOR (per the
+    topology config), or None for an entry node (no incoming primary predecessor).
+        ctx_delta = token_count / max(predecessor_tokens, 1)   if predecessor_tokens is not None
+        ctx_delta = 1.0  ("ctx_delta_entry")                    if predecessor_tokens is None
     sentence_count: proxied by sentence-ending punctuation count (surface-text access).
-    ctx_delta: token ratio relative to previous agent (upstream context size).
     joint_deviation_flag: joint token+ctx_delta deviation flag (not a bare token_count
     threshold, to avoid redundancy with the token_count feature itself).
     """
     sent_count = len(re.findall(r'[.!?]', text))
-    ctx_delta  = tokens / max(prev_tokens, 1)
+    ctx_delta  = 1.0 if predecessor_tokens is None else tokens / max(predecessor_tokens, 1)
     joint_deviation_flag = 1 if (tokens > 280 and ctx_delta > 1.3) else 0
     return [latency, float(tokens), ctx_delta, float(sent_count), float(joint_deviation_flag)]
 
@@ -432,11 +521,24 @@ def run_session(task, injection=None, session_seed=None):
           f"including all required sections."
     r4, l4, t4 = ask_ollama(p4, seed=session_seed)
 
+    # AGENT_NAMES[0..3] corresponds positionally to (r1,l1,t1)..(r4,l4,t4) -- this
+    # pipeline's conversational order is fixed by the prompt chain above (each
+    # prompt literally embeds the previous agent's response text), independent of
+    # the topology config. What IS topology-driven is which predecessor's
+    # token_count feeds ctx_delta for each node: looked up from
+    # PRIMARY_PREDECESSOR by name, never hardcoded here, so this loop makes no
+    # assumption about which role a given node plays.
+    texts, latencies, tokens = [r1, r2, r3, r4], [l1, l2, l3, l4], [t1, t2, t3, t4]
+    token_by_node = dict(zip(AGENT_NAMES, tokens))
     X = np.array([
-        extract_features(r1, l1, t1, t1),   # Orchestrator (injection 진입점)
-        extract_features(r2, l2, t2, t1),   # Researcher   (1차 cascade)
-        extract_features(r3, l3, t3, t2),   # Analyst      (2차 cascade)
-        extract_features(r4, l4, t4, t3),   # Writer        (3차 cascade)
+        extract_features(
+            texts[i], latencies[i], tokens[i],
+            predecessor_tokens=(
+                None if PRIMARY_PREDECESSOR[AGENT_NAMES[i]] is None
+                else token_by_node[PRIMARY_PREDECESSOR[AGENT_NAMES[i]]]
+            ),
+        )
+        for i in range(N_AGENTS)
     ], dtype=np.float32)
     attack_success_observed = detect_injection_pattern(r1)
     return X, attack_success_observed

@@ -24,10 +24,61 @@ from scipy import stats
 
 warnings.filterwarnings('ignore')
 
-N_AGENTS    = 4
+TOPOLOGY_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config", "topology_4agent_v1.json")
+
+
+def load_topology(path):
+    """Same validated loader as lgnn_experiment.py -- see that file's docstring
+    for the full check list (unknown/duplicate/disconnected node, predecessor-
+    in-edges, etc.). Duplicated here (not imported) so this script keeps
+    running standalone, consistent with the rest of this codebase's style."""
+    with open(path, encoding="utf-8") as f:
+        cfg = json.load(f)
+    nodes = cfg["nodes"]
+    edges = [tuple(e) for e in cfg["edges"]]
+    primary_predecessor = cfg["primary_predecessor"]
+
+    node_set = set(nodes)
+    assert len(nodes) == len(node_set), f"duplicate node in topology: {nodes}"
+    for a, b in edges:
+        assert a in node_set and b in node_set, f"unknown node in edge: {(a, b)}"
+    seen_edges = set()
+    for a, b in edges:
+        assert a != b, f"self-loop edge not allowed: {(a, b)}"
+        key = frozenset((a, b))
+        assert key not in seen_edges, f"duplicate edge: {(a, b)}"
+        seen_edges.add(key)
+    adj = {n: set() for n in nodes}
+    for a, b in edges:
+        adj[a].add(b); adj[b].add(a)
+    visited, frontier = {nodes[0]}, [nodes[0]]
+    while frontier:
+        cur = frontier.pop()
+        for nxt in adj[cur]:
+            if nxt not in visited:
+                visited.add(nxt); frontier.append(nxt)
+    assert not (node_set - visited), f"disconnected node(s) in topology: {node_set - visited}"
+    assert set(primary_predecessor.keys()) == node_set, \
+        "primary_predecessor must have exactly one entry (possibly null) per node"
+    for node, pred in primary_predecessor.items():
+        if pred is None:
+            continue
+        assert pred in node_set, f"unknown predecessor node: {pred!r}"
+        assert frozenset((node, pred)) in seen_edges, \
+            f"primary_predecessor {pred!r} -> {node!r} has no corresponding edge"
+    assert any(p is None for p in primary_predecessor.values()), \
+        "topology must have at least one entry node (primary_predecessor == null)"
+    return {"topology_id": cfg["topology_id"], "nodes": nodes, "edges": edges,
+            "primary_predecessor": primary_predecessor}
+
+
+_TOPOLOGY   = load_topology(TOPOLOGY_CONFIG_PATH)
+TOPOLOGY_ID = _TOPOLOGY["topology_id"]
 # Generic IDs only, consistent with lgnn_experiment.py -- see AGENT_ROLES there for the
 # example prompt roles actually used to collect these cached sessions.
-AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]
+AGENT_NAMES = _TOPOLOGY["nodes"]
+N_AGENTS    = len(AGENT_NAMES)
+EDGES       = [(AGENT_NAMES.index(a), AGENT_NAMES.index(b)) for a, b in _TOPOLOGY["edges"]]
 AGENT_ROLES = {
     "Agent_0": "orchestration",
     "Agent_1": "research",
@@ -36,7 +87,10 @@ AGENT_ROLES = {
 }
 FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 N_FEATS     = len(FEAT_NAMES)
-EDGES       = [(0, 1), (1, 2), (2, 3), (0, 2)]
+# Headline Core-2 subset (see lgnn_experiment.py CORE_FEATURES) -- the "Core-2"
+# entry in FEATURE_SETS below is derived from this, not a separately hardcoded
+# index list, so the two files can't silently drift apart on what "Core-2" means.
+CORE_FEATURES = ["token_count", "ctx_delta"]
 
 def build_adj(n_agents=N_AGENTS, edges=EDGES):
     A = np.zeros((n_agents, n_agents), dtype=np.float32)
@@ -172,7 +226,7 @@ def group_split_3way(group_ids, seed, n_train, n_val, n_test):
 FEATURE_SETS = {
     "Full-5 (all)":                    [0,1,2,3,4],
     "Core-3 (latency,token,ctx_delta)": [0,1,2],
-    "Core-2 (token,ctx_delta)":        [1,2],
+    "Core-2 (token,ctx_delta)":        [FEAT_NAMES.index(f) for f in CORE_FEATURES],
     "Full-5 minus latency":            [1,2,3,4],
     "Full-5 minus token_count":        [0,2,3,4],
     "Full-5 minus ctx_delta":          [0,1,3,4],

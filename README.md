@@ -94,12 +94,45 @@ M: 메타데이터(최종 2개) = {τ: token_count,  Δc: ctx_delta}
 > Agent_2: analysis, Agent_3: writing}`이며, 코드 상으로도 `AGENT_NAMES`(generic ID, 그래프·
 > 결과 출력용)와 `AGENT_ROLES`(예시 role, 실험 설정 기록용)를 분리해뒀다.
 
+> **[2026-07-20] Topology를 별도 config로 분리.** 위 그래프 구조(`A`, `E`)의 유일한 정의처는
+> `experiments/real_llm/config/topology_4agent_v1.json`이다. `N_AGENTS`/`AGENT_NAMES`/`EDGES`는
+> 모두 이 파일을 읽어 `load_topology()`가 파싱·검증한 뒤 파생시킨 값이고, 코드에 하드코딩된
+> 별도 정의는 없다(headline 3개 스크립트 모두 동일 파일을 로드). `load_topology()`는 매 실행마다
+> 다음을 assert로 강제 검증하며, 하나라도 위반하면 즉시 `AssertionError`로 멈춘다: unknown node
+> (edge가 모르는 노드를 참조), duplicate edge(방향 반대여도 같은 edge로 간주), self-loop,
+> disconnected node(모든 node가 서로 연결돼 있는지 BFS로 확인), `primary_predecessor`가
+> nodes와 정확히 1:1 대응하는지, 그리고 non-null predecessor가 실제로 그 node와 edge로
+> 연결돼 있는지. (본 파일 상단 §학습 방식/§Threshold 옆의 재실행 검증에서 이 assertion들이
+> 그대로 통과함을 확인함.)
+>
+> **ctx_delta의 predecessor 문제.** Agent_2는 들어오는 edge가 두 개다(Agent_1→Agent_2,
+> Agent_0→Agent_2). ctx_delta는 predecessor 하나를 전제로 하는 수식이라 어느 쪽을 쓸지 명시적
+> 결정이 필요했다 — topology config의 `primary_predecessor`로 고정했다:
+> ```json
+> "primary_predecessor": {
+>   "Agent_0": null,
+>   "Agent_1": "Agent_0",
+>   "Agent_2": "Agent_1",
+>   "Agent_3": "Agent_2"
+> }
+> ```
+> 즉 Agent_2는 실행 순서상의 직접 predecessor인 Agent_1을 기준으로 ctx_delta를 계산한다(Agent_0→Agent_2
+> cross-edge는 GCN 인접행렬 구조에는 반영되지만 ctx_delta 계산에는 쓰이지 않음). 이 결정은 새로
+> 데이터를 수집하기 전에 고정해야 한다 — 나중에 바꾸면 이미 수집된 데이터의 feature를 다시
+> 계산하거나 실험을 전체 재검증해야 하기 때문. 공식(코드는 `extract_features()`):
+> ```
+> ctx_delta_i = token_count_i / max(token_count_{primary_predecessor(i)}, 1)
+> ctx_delta_entry = 1.0   # predecessor가 없는 진입 노드(Agent_0)
+> ```
+
 > **최종 모델 입력: Core-2 (token_count, ctx_delta).** 원래는 5개(core 3 + extension 2)로
 > 시작했으나, 직접 ablation을 수행한 결과([아래 §Feature 선택 근거](#feature-선택-근거-ablation-기반-확정) 참고)
 > latency는 real-LLM 배포 환경에서 token_count와 사실상 동일한 값(r=0.95~0.99)이라 빼도
 > 손실이 전혀 없었고, sentence_count/joint_deviation_flag도 시뮬레이션에서 추가 이득이
-> 없거나 오히려 방해가 됐다. 5개 raw feature는 여전히 수집·기록되지만(feature 분포 통계,
-> ablation 비교군), 모델에 실제로 들어가는 건 이 2개뿐이다.
+> 없거나 오히려 방해가 됐다. 코드에서도 `CORE_FEATURES = ["token_count", "ctx_delta"]`(모델
+> 입력)와 `DIAGNOSTIC_FEATURES = ["latency", "sentence_count", "joint_deviation_flag"]`
+> (수집·기록·분포 통계용이지만 학습/threshold/평가 어디에도 안 들어감)로 코드 상에서도
+> 명시적으로 분리해뒀다 — `CORE_COLS`는 이 리스트에서 파생되며 더 이상 매직넘버 인덱스가 아니다.
 
 ### Feature 선택 근거 (ablation 기반 확정)
 
@@ -551,6 +584,8 @@ Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차, seed=42 대표 실
 MAS/
 ├── experiments/
 │   ├── real_llm/                          # ★ Headline — 공식 최종 실험
+│   │   ├── config/
+│   │   │   └── topology_4agent_v1.json    # ★ 그래프 구조(nodes/edges/primary_predecessor)의 유일한 정의처
 │   │   ├── lgnn_experiment.py             # ★★★ LightGAE + 실제 LLM (v4, Core-2) — 유일한 headline 진입점
 │   │   ├── experiment.py                  # [superseded] QUAD 실제 LLM 실험 v2 (초기 버전, 참고용)
 │   │   ├── feature_ablation.py            # Core-2/Core-3/Full-5 ablation (real-LLM 캐시 재사용)

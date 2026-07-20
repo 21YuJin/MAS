@@ -1,0 +1,16 @@
+{
+  "topology_id": "topology_4agent_v1",
+  "nodes": ["Agent_0", "Agent_1", "Agent_2", "Agent_3"],
+  "edges": [
+    ["Agent_0", "Agent_1"],
+    ["Agent_1", "Agent_2"],
+    ["Agent_2", "Agent_3"],
+    ["Agent_0", "Agent_2"]
+  ],
+  "primary_predecessor": {
+    "Agent_0": null,
+    "Agent_1": "Agent_0",
+    "Agent_2": "Agent_1",
+    "Agent_3": "Agent_2"
+  }
+}

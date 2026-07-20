@@ -17,10 +17,35 @@ import json
 import os
 import numpy as np
 
+TOPOLOGY_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config", "topology_4agent_v1.json")
+
+
+def load_topology(path):
+    """Same validated loader as lgnn_experiment.py (see that file's docstring
+    for the full check list). This script only needs `nodes`, but loads through
+    the same validated path as the other headline scripts for consistency."""
+    with open(path, encoding="utf-8") as f:
+        cfg = json.load(f)
+    nodes = cfg["nodes"]
+    edges = [tuple(e) for e in cfg["edges"]]
+    node_set = set(nodes)
+    assert len(nodes) == len(node_set), f"duplicate node in topology: {nodes}"
+    for a, b in edges:
+        assert a in node_set and b in node_set, f"unknown node in edge: {(a, b)}"
+    seen_edges = set()
+    for a, b in edges:
+        assert a != b, f"self-loop edge not allowed: {(a, b)}"
+        key = frozenset((a, b))
+        assert key not in seen_edges, f"duplicate edge: {(a, b)}"
+        seen_edges.add(key)
+    return {"topology_id": cfg["topology_id"], "nodes": nodes, "edges": edges}
+
+
+_TOPOLOGY   = load_topology(TOPOLOGY_CONFIG_PATH)
 FEAT_NAMES  = ["latency", "token_count", "ctx_delta", "sentence_count", "joint_deviation_flag"]
 # Generic IDs only, consistent with lgnn_experiment.py -- see AGENT_ROLES there for the
 # example prompt roles actually used to collect these cached sessions.
-AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]
+AGENT_NAMES = _TOPOLOGY["nodes"]
 AGENT_ROLES = {
     "Agent_0": "orchestration",
     "Agent_1": "research",

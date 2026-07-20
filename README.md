@@ -112,10 +112,13 @@ M: 메타데이터(최종 2개) = {τ: token_count,  Δc: ctx_delta}
    agent role과 정상/공격 조건을 모두 고정해도 0.95~0.99 유지 — pooling 아티팩트가 아니라
    진짜 within-group 관계. Ollama의 decode-bound 추론 특성상 latency가 사실상 token_count의
    파생값이기 때문으로 해석.
-3. **Core-2 vs Core-3 (양쪽 환경):** real-LLM에서는 latency를 빼도 F1이 소수점까지 완전히
-   동일(0.9883=0.9883) — 손실 0. 시뮬레이션에서는 Core-2가 Core-3보다 근소하게 낮음
-   (AUC −0.0038) 하지만, 실제 검증된 배포 환경(real-LLM)에서 손실이 없다는 게 더 강한 근거라고
-   판단해 **Core-2를 최종 모델로 채택**했다.
+3. **Core-2 vs Core-3 (양쪽 환경):** real-LLM에서는 latency를 빼도 F1 손실이 거의 없다
+   (Core-3 0.9941±0.0079 → Core-2 0.9921±0.0073, ΔF1 ≈ −0.002; normal 3-way split 적용 후
+   재검증한 수치 — 2026-07-13 최초 검증 당시엔 val=test 재사용 구조에서 두 값이 소수점까지
+   완전히 동일했으나, 이는 그 split 구조의 산물이었고 지금은 미세한 차이가 관측된다). 시뮬레이션에서도
+   Core-2가 Core-3보다 근소하게 낮음(AUC −0.0038) — 양쪽 환경 모두 "손실이 있어도 무시할 수준"이라는
+   같은 결론이라, latency-token_count 중복(§Latency 상관관계 검증)을 근거로 **Core-2를 최종
+   모델로 채택**했다.
 
 상세 실행 스크립트: `experiments/synthetic_legacy/lgnn/feature_ablation_5agent.py` [legacy],
 `experiments/real_llm/feature_ablation.py` [headline], `experiments/real_llm/feature_correlation_breakdown.py` [headline].
@@ -252,28 +255,42 @@ Input  X ∈ R^{B × |V| × 2}   (batch × agents × features)
 > 잘못된 방식이었다 — 이번에 headline과 동일한 `int(injection_enabled)` 기준으로 수정했다
 > (수정 내역은 파일 상단 주석 참고).
 
-> **학습 방식: Normal-only novelty detection.** LightGAE/MLPAE는 분류기가 아니라 정상 세션만으로
-> 학습하는 novelty detector다 — 공격 세션·공격 라벨은 학습, scaler fitting, threshold 추정
-> 어디에도 들어가지 않는다. 매 seed마다:
+> **학습 방식: Normal-only novelty detection, 3-way split.** LightGAE/MLPAE는 분류기가 아니라
+> 정상 세션만으로 학습하는 novelty detector다 — 공격 세션·공격 라벨은 학습, scaler fitting,
+> threshold 추정 어디에도 들어가지 않는다. 정상 데이터를 train/validation/test 세 구간으로 나누고,
+> 공격 데이터는 test 전용이다(매 seed마다):
 >
 > | Split | Normal | Attack | 용도 |
 > |-------|:---:|:---:|------|
-> | Train | 40 | 0 | `model.fit`(비지도 학습) — `train_lgae`/`train_mlpae`에 attack 데이터는 인자로도 전달되지 않음 |
-> | Validation | 10 | 0 | held-out 정상 세션. scaler/threshold 추정에 attack 데이터가 섞이지 않았는지 확인하는 용도 |
-> | Test | 10 | 50 | val-normal + attack. 이 지점에서만 attack 데이터·라벨이 등장(AUC/F1 평가용) |
+> | Normal Train | ~30 (60%) | 0 | `model.fit`(비지도 학습) — `train_lgae`/`train_mlpae`에 attack 데이터는 인자로도 전달되지 않음 |
+> | Normal Validation | ~10 (20%) | 0 | held-out 정상 세션. **threshold(θ, 95th percentile)를 여기서 산정** — train도 test도 아님 |
+> | Normal Test | ~10 (20%) | — | 최종 metric에만 사용 |
+> | Attack Test | — | 50 | test 전용. train/validation/threshold 어디에도 등장하지 않음 |
 >
-> `StandardScaler`는 train(40)에만 `fit`되고(`scaler.n_samples_seen_ == 40` 런타임 assert로 검증),
-> 이상 탐지 threshold(θ, 95th percentile)도 train 세션의 재구성 오차에서만 계산한다(`len(tr_sc) == 40`
-> assert). 코드에는 세션 인덱스 permutation이 정상 세션 풀(`N_NORMAL`)만 포함하는지, split 크기가
-> 어긋나지 않는지도 매 seed마다 assert로 검증한다 — 위반 시 즉시 `AssertionError`로 실행이 멈춘다.
-> 실행 로그에는 `Learning setup: Normal-only novelty detection`과 위 표와 동일한 train/val/test
-> normal·attack 개수가 매 실행마다 출력된다(2026-07-20, 아래 예시로 실행 검증 완료).
+> N=50(현재 캐시된 정상 세션 수) 기준 목표 비율은 60/20/20 → 30/10/10이며, 데이터가 늘어나도
+> (예: N=150 → 90/30/30) 같은 비율로 확장된다(`NORMAL_SPLIT_FRACTIONS`). **split은 세션을
+> 무작위로 섞는 게 아니라 원본 task_id 단위 group split이다** — `TASKS` 리스트의 같은 항목을
+> 반복 실행한 세션들은 항상 같은 split에 통째로 들어간다(`group_split_3way()`). 그렇지 않으면
+> 동일 task의 반복 실행이 train과 test에 나뉘어 들어가 최적화된 성능처럼 보일 수 있다. task
+> 그룹 크기(20개 task에 50세션 → 그룹당 2~3개)가 고르지 않아 실제 달성되는 개수는 seed마다
+> 30/10/10 근처에서 ±1~2 정도 흔들릴 수 있으며, 실행 로그에 매 seed 실제 달성 크기가
+> `split(train/val/test_normal)=30/9/11`처럼 그대로 출력된다.
+>
+> `StandardScaler`는 normal train에만 `fit`되고(`scaler.n_samples_seen_ == len(train)` 런타임
+> assert로 검증), threshold도 normal validation의 재구성 오차에서만 계산한다(`len(val_sc) ==
+> len(validation)` assert). 매 seed마다 세 split의 task_id 집합이 서로 겹치지 않는지도
+> assert로 검증한다 — 위반 시 즉시 `AssertionError`로 실행이 멈춘다. 실행 로그에는
+> `Learning setup: Normal-only novelty detection`과 목표 split 크기가 매 실행마다 출력된다
+> (2026-07-20, 아래 예시로 실행 검증 완료 — 캐시된 50+50 세션 재사용, 신규 Ollama 호출 없음).
 >
 > ```
 > Learning setup: Normal-only novelty detection
->   Train:      normal= 40  attack=0    (model.fit on normal-only, unsupervised)
->   Validation: normal= 10  attack=0    (held-out normal, threshold/scaler untouched by attack)
->   Test:       normal= 10  attack= 50  (val-normal + attack -- only place attack data/labels appear)
+>   Normal train:       30   (model.fit / scaler.fit -- unsupervised, no attack data)
+>   Normal validation:  10   (held-out normal -- threshold estimated here, never from train)
+>   Normal test:        10   (held-out normal -- final metric only)
+>   Attack test:        50   (test-only; never used in train/validation/threshold)
+>   Split unit: original task_id (0..19), group split -- repeated/paraphrase runs of the same
+>   underlying task always land in the same split, never spanning train/val/test.
 > ```
 
 #### 파이프라인 구조
@@ -302,16 +319,24 @@ Agent_1/Agent_2/Agent_3 전체에 token cascade 전파.
 
 #### 탐지 성능 비교 (v3 → v4, call_seq 수정 후 재검증)
 
+> **[2026-07-20 업데이트 — normal train/validation/test 3-way split 적용 후 재실행]** 이전 표는
+> validation=test로 재사용하고 threshold를 train 점수에서 추정하던 구조의 결과였다. 아래는
+> normal 3-way split(§학습 방식) + threshold-from-validation으로 다시 실행한 수치다.
+
 | Method | v3 AUC | v4 AUC | v4 F1 mean ± std |
 |--------|:---:|:---:|:---:|
-| Z-score (baseline) | 0.6316 | **1.0000 ± 0.0000** | 0.9865 ± 0.0176 |
-| MLPAE (no graph) | 0.6824 | **1.0000 ± 0.0000** | 0.9901 ± 0.0062 |
-| **LightGAE (제안)** | 0.6656 | **1.0000 ± 0.0000** | 0.9883 ± 0.0113 |
+| Z-score (baseline) | 0.6316 | **1.0000 ± 0.0000** | 0.9902 ± 0.0088 |
+| MLPAE (no graph) | 0.6824 | 0.9991 ± 0.0018 | 0.9921 ± 0.0097 |
+| **LightGAE (제안)** | 0.6656 | **1.0000 ± 0.0000** | **0.9941 ± 0.0048** |
 
-> AUC는 v4에서 세 방법 모두 saturate(1.0)됨 — Agent_3 token ratio가 3.97배까지 벌어져 효과크기가
-> 매우 커서(easy separation) 생기는 현상. Core-2로 바꾼 뒤에도 이 ceiling effect는 그대로다.
-> F1은 오히려 MLPAE(0.9901)가 LightGAE(0.9883)보다 근소하게 높지만, **paired t-test(N=5 seeds)
-> 결과 LightGAE vs MLPAE p=0.6363, LightGAE vs Z-score p=0.7207로 통계적으로 유의미하지 않다.**
+> AUC는 v4에서 Z-score/LightGAE는 여전히 saturate(1.0)되지만, 3-way split 이후 **MLPAE는
+> 0.9991로 완전한 saturation에서 살짝 벗어났다** — Agent_3 token ratio가 3.97배까지 벌어져
+> 효과크기가 워낙 커서(easy separation) 여전히 거의 포화 상태지만, 이전의 "세 방법 모두 정확히
+> 1.0" 결과가 일부는 val=test 재사용 구조의 산물이었음을 보여준다. F1은 이번 재실행에서
+> **LightGAE(0.9941)가 MLPAE(0.9921)보다 근소하게 높게 뒤집혔지만**, **paired t-test(N=5 seeds)
+> 결과 LightGAE vs MLPAE p=0.7496, LightGAE vs Z-score p=0.1778로 여전히 통계적으로 유의미하지
+> 않다** — 두 순위 모두 노이즈 범위 안에 있다는 뜻이므로 "어느 쪽이 F1이 높은가"는 헤드라인
+> 결론으로 쓰지 않는다.
 > **real-LLM에서는 feature set을 Full-5→Core-3→Core-2로 좁혀도 GCN 구조적 우위가 나타나지
 > 않는다** — 이건 feature 문제가 아니라 이 데이터셋의 공격 효과크기가 너무 커서(easy separation)
 > 애초에 어떤 방법으로도 변별이 안 되는 ceiling effect 문제다. legacy 시뮬레이션(아래 §부록)에서는
@@ -321,16 +346,21 @@ Agent_1/Agent_2/Agent_3 전체에 token cascade 전파.
 
 #### 노드별 이상 점수 (공격 세션, seed=123, Core-2 기준)
 
+> **[2026-07-20 업데이트]** normal 3-way split 적용 후 재실행한 수치로 갱신(이전 표는 val=test
+> 재사용 구조 기준). test-normal 구성이 split마다 달라지므로 절대값은 라운드마다 흔들리지만,
+> 아래 근거 참고.
+
 | Agent | Mean Score | Max Score | 역할 |
 |-------|:---:|:---:|------|
-| Agent_0 | 5.58 | 142.41 | injection 진입점 |
-| Agent_1 | 7.80 | 268.58 | 1차 cascade |
-| **Agent_2** | **24.12** | 170.76 | **★ 최고 평균 이상 점수** |
-| Agent_3 | 16.28 | 52.12 | 3차 cascade (토큰 3.97x) |
+| Agent_0 | 7.15 | 162.14 | injection 진입점 |
+| Agent_1 | 10.31 | 324.79 | 1차 cascade |
+| **Agent_2** | **29.48** | 358.16 | **★ 최고 평균 이상 점수** |
+| Agent_3 | 18.25 | 55.71 | 3차 cascade (토큰 3.97x) |
 
-> Agent_2와 Agent_3 중 어느 쪽이 "1위"인지는 feature set이 바뀔 때마다 근소하게 흔들렸지만
-> (26.47→19.93/20.56→22.56/21.38→24.12/16.28), 두 후보 모두 Agent_0/Agent_1보다는
-> 항상 확실히 높아 "하류에서 이상이 커진다"는 결론 자체는 매 라운드 유지된다.
+> Agent_2와 Agent_3 중 어느 쪽이 "1위"인지는 feature set/split이 바뀔 때마다 근소하게
+> 흔들렸지만(26.47→19.93/20.56→22.56/21.38→24.12/16.28→29.48/18.25), 두 후보 모두
+> Agent_0/Agent_1보다는 항상 확실히 높아 "하류에서 이상이 커진다"는 결론 자체는 매 라운드
+> 유지된다.
 
 #### v3 → v4 개선 내용
 
@@ -458,7 +488,7 @@ Type-V Chain 공격 (Planner 침해, Core-2 재구성 오차, seed=42 대표 실
 | 한계 | 상태 |
 |------|------|
 | **GCN 구조적 우위는 시뮬레이션에서만 유의미, real-LLM에선 ceiling effect로 안 보임** | ✅ **2026-07-14, N=20 seed·pinned 환경(Python 3.11.15/PyTorch 2.3.1/NumPy 1.26.4)에서 재검증** — Full-5/Core-3에서는 3차례 독립 검증 모두 ΔAUC가 노이즈 수준이었으나(−0.0005±0.0017 → −0.0001±0.0013 → +0.0007±0.0025), latency를 제거해 Core-2로 좁히자 5-agent 멀티시드에서 GCN 우위가 나타남. N=5(원 실행 환경) 결과(t=3.209, p=0.0326)는 정확히 같은 라이브러리 버전으로 고정한 환경에서도 그대로 재현되지 않았지만(t=2.237, p=0.089 — OS/CPU 아키텍처 의존 추정), 같은 pinned 환경에서 seed를 20개로 늘리자 **positive-seed ratio 20/20(100%), paired t-test p=0.0015, permutation test p<0.0001, 95% bootstrap CI [+0.0151, +0.0422]**로 오히려 더 강한 유의성이 확인됨. real-LLM에서는 feature set과 무관하게 AUC가 항상 1.0로 saturate돼 이 우위가 관측되지 않음(ceiling effect, 아래 항목과 동일 원인) |
-| **Real-LLM F1 우위 통계적으로 미검증** | ⚠️ **2026-07-13** — Core-2 기준 LightGAE F1(0.9883)이 MLPAE(0.9901)보다 오히려 근소하게 낮고, paired t-test로 어느 쪽도 유의미하지 않음(p=0.64, 0.72, N=5 seeds) |
+| **Real-LLM F1 우위 통계적으로 미검증** | ⚠️ **2026-07-20 (normal 3-way split 적용 후 재검증)** — Core-2 기준 LightGAE F1(0.9941)이 MLPAE(0.9921)보다 근소하게 높지만, paired t-test로 어느 쪽도 유의미하지 않음(p=0.75, 0.18, N=5 seeds). split 방식이 바뀌기 전(2026-07-13)에는 순위가 반대(LightGAE 0.9883 < MLPAE 0.9901)였는데, 두 결과 모두 유의미하지 않다는 점에서 결론은 동일 — "어느 쪽이 F1이 높은가"는 노이즈 안에 있다 |
 | **Sim-Real Gap (0.333)** | ✅ **v4에서 해소** — Gap = −0.0090 (실LLM이 시뮬 소폭 상회) |
 | **Shallow Cascade** | ✅ **v4에서 해소** — Agent_3 token ratio 1.000 → 3.974 |
 | **단일 모델** | llama3.2만 검증. 다른 LLM 일반화는 향후 과제 |

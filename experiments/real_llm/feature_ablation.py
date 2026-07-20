@@ -66,6 +66,13 @@ N_NORMAL = len(X_normal)
 N_ATTACK = len(X_attack)
 print(f"Loaded cache: normal={N_NORMAL}  attack={N_ATTACK}")
 
+# Original task_id per normal session. lgnn_experiment.py's collection loop
+# assigns task = TASKS[i % N_TASKS] in session order, and cache_normal.json
+# preserves that order, so position i always corresponds to task_id
+# (i % N_TASKS) regardless of when the cache was written.
+N_TASKS = 20  # must match len(TASKS) in lgnn_experiment.py
+task_id_normal = np.array([i % N_TASKS for i in range(N_NORMAL)])
+
 # ══════════════════════════════════════════════════════════════
 # Models (feature-dim agnostic)
 # ══════════════════════════════════════════════════════════════
@@ -126,6 +133,34 @@ def metrics(y, sc, pred):
         AUC=roc_auc_score(y, sc),
     )
 
+
+def group_split_3way(group_ids, seed, n_train, n_val, n_test):
+    """Same policy as lgnn_experiment.py's group_split_3way: split by whole
+    task_id group (never by individual session) so repeated/paraphrase runs
+    of the same task can't span train/val/test. See that file for the full
+    docstring."""
+    group_ids = np.asarray(group_ids)
+    members = {}
+    for i, g in enumerate(group_ids):
+        members.setdefault(int(g), []).append(i)
+    order = list(members.keys())
+    np.random.RandomState(seed).shuffle(order)
+
+    targets = {"train": n_train, "val": n_val, "test": n_test}
+    counts  = {"train": 0, "val": 0, "test": 0}
+    bucket  = {"train": [], "val": [], "test": []}
+    for g in order:
+        idxs = members[g]
+        deficit = {k: targets[k] - counts[k] for k in targets}
+        dest = max(deficit, key=deficit.get)
+        bucket[dest].extend(idxs)
+        counts[dest] += len(idxs)
+
+    idx_tr  = np.array(sorted(bucket["train"]))
+    idx_val = np.array(sorted(bucket["val"]))
+    idx_te  = np.array(sorted(bucket["test"]))
+    return idx_tr, idx_val, idx_te
+
 # ══════════════════════════════════════════════════════════════
 # Ablation driver
 # ══════════════════════════════════════════════════════════════
@@ -142,50 +177,62 @@ FEATURE_SETS = {
 }
 
 SEEDS = [42, 0, 1, 7, 123]
-n_tr  = int(N_NORMAL * 0.80)   # 40
-n_val = N_NORMAL - n_tr         # 10
+NORMAL_SPLIT_FRACTIONS = {"train": 0.60, "val": 0.20, "test": 0.20}
+N_TR        = int(round(N_NORMAL * NORMAL_SPLIT_FRACTIONS["train"]))
+N_VAL       = int(round(N_NORMAL * NORMAL_SPLIT_FRACTIONS["val"]))
+N_TE_NORMAL = N_NORMAL - N_TR - N_VAL
 
 print("="*70)
 print("  Feature-Set Ablation -- Real-LLM 4-Agent MAS (Ollama llama3.2)")
 print("="*70)
 print("\n  Learning setup: Normal-only novelty detection")
-print(f"    Train:      normal={n_tr:3d}  attack=0    (model.fit on normal-only, unsupervised)")
-print(f"    Validation: normal={n_val:3d}  attack=0    (held-out normal, threshold/scaler untouched by attack)")
-print(f"    Test:       normal={n_val:3d}  attack={N_ATTACK:3d}  (val-normal + attack -- only place attack data/labels appear)")
+print(f"    Normal train:      {N_TR:3d}   (model.fit / scaler.fit -- unsupervised, no attack data)")
+print(f"    Normal validation: {N_VAL:3d}   (held-out normal -- threshold estimated here, never from train)")
+print(f"    Normal test:       {N_TE_NORMAL:3d}   (held-out normal -- final metric only)")
+print(f"    Attack test:       {N_ATTACK:3d}   (test-only; never used in train/validation/threshold)")
+print(f"    Split unit: original task_id (0..{N_TASKS-1}), group split -- repeated/paraphrase runs of "
+      f"the same underlying task always land in the same split.")
 
 results = {name: {"AUC": [], "F1": []} for name in FEATURE_SETS}
 
 for s in SEEDS:
     torch.manual_seed(s); np.random.seed(s)
 
-    idx_n     = np.random.permutation(N_NORMAL)
-    assert set(idx_n.tolist()) == set(range(N_NORMAL))
-    Xn_sh_raw = X_normal[idx_n]
-    X_tr_raw  = Xn_sh_raw[:n_tr]
-    X_val_raw = Xn_sh_raw[n_tr:]
-    assert X_tr_raw.shape[0] == n_tr and X_val_raw.shape[0] == n_val
+    idx_tr, idx_val, idx_ten = group_split_3way(task_id_normal, s, N_TR, N_VAL, N_TE_NORMAL)
+    assert len(idx_tr) + len(idx_val) + len(idx_ten) == N_NORMAL
+    tids_tr, tids_val, tids_ten = (set(task_id_normal[idx_tr].tolist()),
+                                    set(task_id_normal[idx_val].tolist()),
+                                    set(task_id_normal[idx_ten].tolist()))
+    assert not (tids_tr & tids_val) and not (tids_tr & tids_ten) and not (tids_val & tids_ten), \
+        "group split leaked a task_id across train/val/test"
 
-    scaler   = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
-    assert scaler.n_samples_seen_ == n_tr, "scaler must be fit on training-normal sessions only"
-    X_tr_all = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
-    X_val_all= scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
-    Xa_all   = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
-    X_te_all = np.concatenate([X_val_all, Xa_all])
-    y_te     = np.array([0]*len(X_val_all) + [1]*N_ATTACK)
+    X_tr_raw  = X_normal[idx_tr]
+    X_val_raw = X_normal[idx_val]
+    X_ten_raw = X_normal[idx_ten]
 
-    print(f"\n  seed={s}")
+    scaler = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
+    assert scaler.n_samples_seen_ == len(idx_tr), "scaler must be fit on training-normal sessions only"
+    X_tr_all  = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    X_val_all = scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    X_ten_all = scaler.transform(X_ten_raw.reshape(len(X_ten_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+    Xa_all    = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
+    X_te_all  = np.concatenate([X_ten_all, Xa_all])
+    y_te      = np.array([0]*len(X_ten_all) + [1]*N_ATTACK)
+
+    print(f"\n  seed={s}  split(train/val/test_normal)={len(idx_tr)}/{len(idx_val)}/{len(idx_ten)}")
     for name, cols in FEATURE_SETS.items():
-        X_tr = X_tr_all[:, :, cols]
-        X_te = X_te_all[:, :, cols]
-        assert X_tr.shape[0] == n_tr, "model.fit input (X_tr) must be normal-only training sessions"
+        X_tr  = X_tr_all[:, :, cols]
+        X_val = X_val_all[:, :, cols]
+        X_te  = X_te_all[:, :, cols]
+        assert X_tr.shape[0] == len(idx_tr), "model.fit input (X_tr) must be normal-only training sessions"
 
         model = LightGAE(in_dim=len(cols), hid=16, emb=8)
         train_gae(model, X_tr, ADJ, epochs=160, lr=1e-3, bs=16)
 
         sc_test = model.score(torch.FloatTensor(X_te), ADJ)
-        sc_tr   = model.score(torch.FloatTensor(X_tr), ADJ)
-        assert len(sc_tr) == n_tr, "threshold percentile must be computed over training-normal scores only"
-        theta   = float(np.percentile(sc_tr, 95))
+        sc_val  = model.score(torch.FloatTensor(X_val), ADJ)
+        assert len(sc_val) == len(X_val), "threshold must be estimated from validation-normal scores only"
+        theta   = float(np.percentile(sc_val, 95))
         pred    = (sc_test > theta).astype(int)
 
         m = metrics(y_te, sc_test, pred)

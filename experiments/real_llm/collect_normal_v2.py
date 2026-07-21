@@ -163,6 +163,35 @@ def pilot_task_ids(tasks, n_per_category=2):
     return out
 
 
+def _load_existing(cache_path, meta_path):
+    """Loads whatever this (out_prefix)'s cache/meta already has on disk, so a
+    killed/disconnected run (Colab timeout, local Ctrl-C, power loss) can pick
+    up where it left off instead of losing every session collected so far.
+    Returns ([] , []) if no prior file exists -- first run of this prefix."""
+    if os.path.exists(cache_path) and os.path.exists(meta_path):
+        with open(cache_path) as f:
+            X_all = json.load(f)
+        with open(meta_path, encoding="utf-8") as f:
+            meta_all = json.load(f)
+        assert len(X_all) == len(meta_all), \
+            f"{cache_path} and {meta_path} have mismatched lengths -- inspect before resuming"
+        return X_all, meta_all
+    return [], []
+
+
+def _checkpoint(cache_path, meta_path, failed_path, X_all, meta_all, failed):
+    """Overwrites the 3 output files with the current in-memory state. Called
+    after every session (not just at the end) so progress already paid for in
+    Ollama wall-clock time is never lost to a later crash/disconnect."""
+    with open(cache_path, "w") as f:
+        json.dump(X_all, f)
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta_all, f, indent=2)
+    if failed:
+        with open(failed_path, "w", encoding="utf-8") as f:
+            json.dump(failed, f, indent=2)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pilot", action="store_true",
@@ -195,20 +224,32 @@ def main():
         n_repeats = args.repeats or 3
         out_prefix = "v2"
 
+    cache_path = os.path.join(OUT, f"cache_normal_{out_prefix}.json")
+    meta_path  = os.path.join(OUT, f"session_metadata_normal_{out_prefix}.json")
+    failed_path = os.path.join(OUT, f"failed_sessions_normal_{out_prefix}.json")
+
+    X_all, meta_all = _load_existing(cache_path, meta_path)
+    failed = []
+    done_session_ids = {m["session_id"] for m in meta_all}
+
     print("=" * 64)
     print(f"  Normal Real-LLM Collection ({DATASET_VERSION}) -- {out_prefix} run")
     print(f"  {len(task_ids)} tasks x {n_repeats} repeats = {len(task_ids) * n_repeats} sessions")
+    if done_session_ids:
+        print(f"  [resume] {cache_path} already has {len(done_session_ids)} session(s) -- "
+              f"skipping those, collecting only what's missing")
     print("=" * 64)
     print(f"  categories: {category_counts([by_id[tid] for tid in task_ids])}")
 
-    X_all, meta_all, failed = [], [], []
     t0 = time.time()
     n_total = len(task_ids) * n_repeats
-    n_done = 0
+    n_done = len(done_session_ids)
     for task_id in task_ids:
         task = by_id[task_id]
         for run_idx in range(n_repeats):
             session_id = f"normal_{task_id}_run{run_idx+1}"
+            if session_id in done_session_ids:
+                continue
             # deterministic, collision-free across (task_id, run_idx): stable hash
             # of task_id folded into a small int, offset by run_idx, kept well
             # clear of lgnn_experiment.py's v1 seed ranges (i and 100000+i).
@@ -239,25 +280,19 @@ def main():
                 "prompt_template_version": PROMPT_TEMPLATE_VERSION,
                 "task_source": task["source_type"],
             })
+            # Checkpoint after every session (not just at the end) -- each session
+            # costs ~170-200s of real Ollama wall-clock time, so a crash/Colab
+            # disconnect right before the last session must not lose the rest.
+            _checkpoint(cache_path, meta_path, failed_path, X_all, meta_all, failed)
             elapsed = time.time() - t0
-            eta = elapsed / n_done * (n_total - n_done)
+            eta = elapsed / (n_done - len(done_session_ids)) * (n_total - n_done) if n_done > len(done_session_ids) else 0
             print(f"  {n_done}/{n_total}  {session_id:<28} elapsed={elapsed:.0f}s  eta={eta:.0f}s",
                   end="\r", flush=True)
 
     print(f"\n  완료: {n_done}/{n_total}  총 {time.time()-t0:.0f}s  실패 {len(failed)}건")
-
-    cache_path = os.path.join(OUT, f"cache_normal_{out_prefix}.json")
-    meta_path  = os.path.join(OUT, f"session_metadata_normal_{out_prefix}.json")
-    failed_path = os.path.join(OUT, f"failed_sessions_normal_{out_prefix}.json")
-    with open(cache_path, "w") as f:
-        json.dump(X_all, f)
-    with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(meta_all, f, indent=2)
     print(f"  [saved] {cache_path}  ({len(X_all)} sessions)")
     print(f"  [saved] {meta_path}")
     if failed:
-        with open(failed_path, "w", encoding="utf-8") as f:
-            json.dump(failed, f, indent=2)
         print(f"  [WARNING] {len(failed)} failed session(s) -> {failed_path}")
 
     # quick schema/seed/split sanity check

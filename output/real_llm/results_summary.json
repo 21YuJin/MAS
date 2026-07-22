@@ -1,9 +1,9 @@
 {
   "experiment": {
-    "experiment_id": "exp_20260720_051526",
+    "experiment_id": "exp_20260722_051344",
     "dataset_version": "real_llm_v1",
     "config_path": "C:\\Users\\USER\\Desktop\\MAS\\experiments\\real_llm\\config\\topology_4agent_v1.json",
-    "git_commit": "343b49213b5e5f93d93c782fd7124924377a8c43"
+    "git_commit": "ca951b6e8e160aff25c613811f8da1803a6b50b5"
   },
   "dataset": {
     "normal_train": 30,
@@ -129,7 +129,7 @@
     "scikit_learn": "1.9.0",
     "os": "Windows-10-10.0.26200-SP0",
     "cpu_architecture": "AMD64",
-    "ollama_version": "0.31.2",
+    "ollama_version": "0.32.1",
     "model_identifier": "llama3.2",
     "generation_seed_policy": "per-session deterministic: normal_i -> seed=i, attack_i -> seed=100000+i (see session_metadata_*.json for the exact seed used per session)",
     "model_init_seed": 42,
@@ -141,7 +141,7 @@
       123
     ],
     "split_seed_policy": "group_split_3way() reuses each multiseed_eval_seeds value as its own split seed -- one split per (seed) iteration, not a single global split seed",
-    "git_commit": "343b49213b5e5f93d93c782fd7124924377a8c43",
+    "git_commit": "ca951b6e8e160aff25c613811f8da1803a6b50b5",
     "prompt_template_version": "prompt_v1",
     "topology_version": "topology_4agent_v1",
     "task_dataset_version": "real_llm_v1"
@@ -5193,9 +5193,9 @@
       }
     }
   ],
-  "ground_truth_label_definition": "int(injection_enabled) -- fixed by which pool (normal vs. attack) a session was collected into; never derived from response content or keyword matching. See attack_success_observed_* for the (unused-as-label) keyword-based diagnostic.",
-  "attack_success_observed_rate": null,
-  "attack_success_observed_false_positive_rate": null,
+  "ground_truth_label_definition": "int(injection_enabled) -- fixed by which pool (normal vs. attack) a session was collected into; never derived from response content or keyword matching. See indicator_observed_* for the (unused-as-label) keyword-based diagnostic.",
+  "indicator_observed_rate": null,
+  "indicator_observed_false_positive_rate": null,
   "methods": {
     "LightGAE": {
       "auc_mean": 1.0,

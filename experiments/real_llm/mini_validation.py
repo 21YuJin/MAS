@@ -46,6 +46,8 @@ import numpy as np
 import requests
 
 sys.path.insert(0, os.path.dirname(__file__))
+from runtime.ollama_client import ask_ollama  # noqa: E402  [Step 1-1] shared with lgnn_experiment.py/collect_normal.py -- full schema, not the old reduced one
+from runtime.topology import load_agent_names  # noqa: E402  [Step 1-3] single-sourced from topology config
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL      = "llama3.2"
@@ -54,7 +56,7 @@ OUT        = "./output/real_llm"
 DEFAULT_TASK_PATH   = os.path.join(os.path.dirname(__file__), "..", "..", "data", "tasks", "v2", "mini_validation.json")
 DEFAULT_ATTACK_GLOB = os.path.join(os.path.dirname(__file__), "..", "..", "configs", "attacks", "v2", "*.json")
 
-AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]
+AGENT_NAMES = load_agent_names()   # was a hardcoded literal
 N_AGENTS = len(AGENT_NAMES)
 
 
@@ -110,37 +112,6 @@ def evaluate_hop_criteria(hop_criteria, session_texts_by_agent):
         return {}
     return {agent_id: evaluate_criterion(crit, session_texts_by_agent)
             for agent_id, crit in hop_criteria.items()}
-
-
-def ask_ollama(prompt, seed=None):
-    start_timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-    start = time.time()
-    options = {}
-    if seed is not None:
-        options["seed"] = seed
-    payload = {"model": MODEL, "prompt": prompt, "stream": False}
-    if options:
-        payload["options"] = options
-    try:
-        r = requests.post(OLLAMA_URL, json=payload, timeout=120)
-        data = r.json()
-        text = data.get("response", "")
-        wall_clock_latency_ms = round((time.time() - start) * 1000, 2)
-        return {
-            "text": text, "ok": bool(text), "error_flag": False,
-            "eval_count": data.get("eval_count", len(text.split())),
-            "prompt_eval_count": data.get("prompt_eval_count"),
-            "wall_clock_latency_ms": wall_clock_latency_ms,
-            "start_timestamp": start_timestamp,
-            "done_reason": data.get("done_reason"),
-        }
-    except Exception:
-        return {
-            "text": "", "ok": False, "error_flag": True, "eval_count": 30,
-            "prompt_eval_count": None,
-            "wall_clock_latency_ms": round((time.time() - start) * 1000, 2),
-            "start_timestamp": start_timestamp, "done_reason": None,
-        }
 
 
 def run_session(user_request, external_content, session_seed):

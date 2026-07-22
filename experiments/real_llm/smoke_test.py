@@ -29,7 +29,7 @@ import json
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-import lgnn_experiment as m          # noqa: E402  (triggers v1 cache-hit run on import, expected)
+import lgnn_experiment as m          # noqa: E402  [Step 1-2] import no longer runs the experiment -- call m.main() explicitly if that's ever wanted
 import feature_pool_v2 as fp         # noqa: E402
 
 OUT = "./output/real_llm"
@@ -44,6 +44,9 @@ EXPECTED_TELEMETRY_KEYS = {
     "eval_duration", "total_duration", "load_duration", "wall_clock_latency_ms",
     "start_timestamp", "end_timestamp", "model", "temperature", "top_p",
     "num_predict", "done_reason", "response_text",
+    # [Step 1-1] two fields added by the shared runtime/ollama_client.py --
+    # not present in the pre-Step-1 per-file ask_ollama() implementations.
+    "created_at", "raw_response",
 }
 
 

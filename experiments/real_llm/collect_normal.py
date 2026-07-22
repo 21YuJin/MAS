@@ -41,6 +41,8 @@ import time
 import numpy as np
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from runtime.ollama_client import ask_ollama  # noqa: E402  [Step 1-1] shared with lgnn_experiment.py/mini_validation.py
 from task_loader import load_all_tasks, tasks_by_id, category_counts
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -119,53 +121,6 @@ def topology_neighbors(agent_name):
     telemetry records."""
     idx = AGENT_NAMES.index(agent_name)
     return sorted(AGENT_NAMES[j] for s, d in EDGES for j in ((d,) if s == idx else (s,) if d == idx else ()))
-
-
-def ask_ollama(prompt, seed=None):
-    """[P3/4순위] Same raw-telemetry-dict contract as lgnn_experiment.py's
-    ask_ollama() -- see that function's docstring for the raw-first rationale."""
-    start_timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-    start = time.time()
-    options = {}
-    if seed is not None:
-        options["seed"] = seed
-    payload = {"model": MODEL, "prompt": prompt, "stream": False}
-    if options:
-        payload["options"] = options
-    try:
-        r    = requests.post(OLLAMA_URL, json=payload, timeout=120)
-        data = r.json()
-        text = data.get("response", "")
-        wall_clock_latency_ms = round((time.time() - start) * 1000, 2)
-        end_timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-        return {
-            "text": text, "ok": bool(text), "error_flag": False, "retry_count": 0,
-            "prompt_eval_count": data.get("prompt_eval_count"),
-            "eval_count": data.get("eval_count", len(text.split())),
-            "prompt_eval_duration": data.get("prompt_eval_duration"),
-            "eval_duration": data.get("eval_duration"),
-            "total_duration": data.get("total_duration"),
-            "load_duration": data.get("load_duration"),
-            "wall_clock_latency_ms": wall_clock_latency_ms,
-            "start_timestamp": start_timestamp, "end_timestamp": end_timestamp,
-            "model": data.get("model", MODEL),
-            "temperature": options.get("temperature"), "top_p": options.get("top_p"),
-            "num_predict": options.get("num_predict"), "done_reason": data.get("done_reason"),
-        }
-    except Exception:
-        wall_clock_latency_ms = round((time.time() - start) * 1000, 2)
-        end_timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-        return {
-            "text": "", "ok": False, "error_flag": True, "retry_count": 0,
-            "prompt_eval_count": None, "eval_count": 30,
-            "prompt_eval_duration": None, "eval_duration": None,
-            "total_duration": None, "load_duration": None,
-            "wall_clock_latency_ms": wall_clock_latency_ms,
-            "start_timestamp": start_timestamp, "end_timestamp": end_timestamp,
-            "model": MODEL, "temperature": options.get("temperature"),
-            "top_p": options.get("top_p"), "num_predict": options.get("num_predict"),
-            "done_reason": None,
-        }
 
 
 def detect_hardware_backend(model=MODEL):

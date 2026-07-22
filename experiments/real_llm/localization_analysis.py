@@ -34,15 +34,19 @@ Two things this script CANNOT do, and does not pretend to:
 """
 import json
 import os
+import sys
 
 import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from runtime.topology import load_agent_names  # noqa: E402  [Step 1-3] single-sourced from topology config
 
 OUT = "./output/real_llm"
 CHAIN_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "configs", "attacks", "chain.json")
 META_ATTACK_PATH  = os.path.join(OUT, "session_metadata_attack.json")
 RESULTS_PATH      = os.path.join(OUT, "results_summary.json")
 
-AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]   # topology_4agent_v1 node order
+AGENT_NAMES = load_agent_names()   # topology_4agent_v1 node order (was a hardcoded literal)
 
 
 def load_chain_templates():

@@ -45,6 +45,9 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, f1_score, confusion_matrix, roc_curve, average_precision_score
 from sklearn.preprocessing import StandardScaler
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from runtime.ollama_client import ask_ollama  # noqa: E402  [Step 1-1] shared across lgnn_experiment/collect_normal/mini_validation
+
 warnings.filterwarnings('ignore')
 torch.manual_seed(42)
 np.random.seed(42)
@@ -455,75 +458,10 @@ def train_lgae(model, X_normal, A, epochs=160, lr=1e-3, bs=16):
 # ══════════════════════════════════════════════════════════════════════════════
 # §2.  OLLAMA 호출 + 피처 추출
 # ══════════════════════════════════════════════════════════════════════════════
-
-def ask_ollama(prompt, seed=None):
-    """
-    [P3/4순위, analysis_plan.md §4] Returns a RAW telemetry dict -- everything
-    Ollama's /api/generate reports plus our own wrapper metadata -- rather than
-    a pre-reduced (text, latency, tokens, ok) tuple. Principle: store raw first,
-    derive features later (extract_features() below reads from this dict), so a
-    future feature-definition change never requires recollecting data that's
-    already been paid for in Ollama wall-clock time.
-
-    error_flag=True / ok=False on request exception or an empty response --
-    callers record such calls separately (§7 failed_sessions) instead of
-    silently treating the fallback values as real model output. retry_count is
-    always 0 -- no retry loop is implemented yet (single attempt only); the
-    field exists in the schema so a future retry policy doesn't need a schema
-    migration.
-    """
-    start_timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-    start = time.time()
-    options = {}
-    if seed is not None:
-        # Ollama's per-request generation seed -- makes the sampled response
-        # reproducible for a fixed (model, prompt, seed). Recorded as
-        # generation_seed in session provenance metadata (§4), separately from
-        # this dict's own model/temperature/top_p/num_predict fields.
-        options["seed"] = seed
-    payload = {"model": MODEL, "prompt": prompt, "stream": False}
-    if options:
-        payload["options"] = options
-    try:
-        r    = requests.post(OLLAMA_URL, json=payload, timeout=120)
-        data = r.json()
-        text = data.get("response", "")
-        wall_clock_latency_ms = round((time.time() - start) * 1000, 2)
-        end_timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-        return {
-            "text": text,
-            "ok": bool(text),
-            "error_flag": False,
-            "retry_count": 0,
-            "prompt_eval_count": data.get("prompt_eval_count"),
-            "eval_count": data.get("eval_count", len(text.split())),
-            "prompt_eval_duration": data.get("prompt_eval_duration"),
-            "eval_duration": data.get("eval_duration"),
-            "total_duration": data.get("total_duration"),
-            "load_duration": data.get("load_duration"),
-            "wall_clock_latency_ms": wall_clock_latency_ms,
-            "start_timestamp": start_timestamp,
-            "end_timestamp": end_timestamp,
-            "model": data.get("model", MODEL),
-            "temperature": options.get("temperature"),
-            "top_p": options.get("top_p"),
-            "num_predict": options.get("num_predict"),
-            "done_reason": data.get("done_reason"),
-        }
-    except Exception:
-        wall_clock_latency_ms = round((time.time() - start) * 1000, 2)
-        end_timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-        return {
-            "text": "", "ok": False, "error_flag": True, "retry_count": 0,
-            "prompt_eval_count": None, "eval_count": 30,
-            "prompt_eval_duration": None, "eval_duration": None,
-            "total_duration": None, "load_duration": None,
-            "wall_clock_latency_ms": wall_clock_latency_ms,
-            "start_timestamp": start_timestamp, "end_timestamp": end_timestamp,
-            "model": MODEL, "temperature": options.get("temperature"),
-            "top_p": options.get("top_p"), "num_predict": options.get("num_predict"),
-            "done_reason": None,
-        }
+# [Step 1-1] ask_ollama() now lives in runtime/ollama_client.py (imported at
+# top of file) -- shared verbatim with collect_normal.py and mini_validation.py
+# so all three scripts produce telemetry-schema-identical records. See that
+# module's docstring for the raw-first rationale (unchanged from here).
 
 
 def detect_hardware_backend(model=MODEL):
@@ -632,6 +570,34 @@ def goal_success(attack_type, session_texts):
 # §3.  세션 실행 (4-agent 파이프라인)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def extract_session_features(session_telemetry):
+    """
+    [Step 1-5, shared runtime foundation] Pure function: session_telemetry
+    (this file's raw per-agent record schema, analysis_plan.md §4) -> Core-5
+    feature array X (N_AGENTS x N_FEATS). Factored out of run_session() below
+    so a future execution engine can treat "run a session" and "extract
+    features from already-collected raw telemetry" as two separately callable
+    steps (raw records -> raw cache -> feature extraction -> graph
+    construction -> model dataset). run_session() still calls this internally
+    and returns the exact same X it always has -- this doesn't change what
+    gets computed, only where the computation lives / whether it can be
+    invoked on its own against telemetry collected earlier (no new Ollama
+    calls needed).
+    """
+    ordered = sorted(session_telemetry, key=lambda r: r["execution_order"])
+    token_by_node = {r["agent_id"]: r["eval_count"] for r in ordered}
+    return np.array([
+        extract_features(
+            r["response_text"], r["wall_clock_latency_ms"] / 1000.0, r["eval_count"],
+            predecessor_tokens=(
+                None if PRIMARY_PREDECESSOR[r["agent_id"]] is None
+                else token_by_node[PRIMARY_PREDECESSOR[r["agent_id"]]]
+            ),
+        )
+        for r in ordered
+    ], dtype=np.float32)
+
+
 def topology_neighbors(agent_name):
     """Undirected topology neighbors of agent_name (§EDGES) -- this is what the
     GCN model actually sees as connected, which can differ from the strict
@@ -729,23 +695,6 @@ def run_session(task, injection=None, session_seed=None, session_id=None,
     # PRIMARY_PREDECESSOR by name, never hardcoded here, so this loop makes no
     # assumption about which role a given node plays.
     raws = [raw1, raw2, raw3, raw4]
-    texts   = [r["text"] for r in raws]
-    tokens  = [r["eval_count"] for r in raws]
-    # wall_clock_latency_ms is the raw-telemetry field; extract_features() still
-    # takes latency in seconds (unchanged Core-5-vs-Core-2 feature contract).
-    latencies_s = [r["wall_clock_latency_ms"] / 1000.0 for r in raws]
-    token_by_node = dict(zip(AGENT_NAMES, tokens))
-
-    X = np.array([
-        extract_features(
-            texts[i], latencies_s[i], tokens[i],
-            predecessor_tokens=(
-                None if PRIMARY_PREDECESSOR[AGENT_NAMES[i]] is None
-                else token_by_node[PRIMARY_PREDECESSOR[AGENT_NAMES[i]]]
-            ),
-        )
-        for i in range(N_AGENTS)
-    ], dtype=np.float32)
 
     # [P3/4순위] raw telemetry records -- one per agent call, analysis_plan.md §4
     # schema. sender_ids/receiver_ids = actual prompt-chain message flow (linear);
@@ -773,6 +722,11 @@ def run_session(task, injection=None, session_seed=None, session_id=None,
             "response_text": raws[i]["text"],
         })
 
+    # [Step 1-5] X is derived FROM session_telemetry via extract_session_features()
+    # (raw execution and feature extraction are two separately callable steps),
+    # not computed inline here anymore -- same values as before, different call site.
+    X = extract_session_features(session_telemetry)
+
     indicator_observed = detect_indicator_pattern(raw1["text"])
     session_ok = all(r["ok"] for r in raws)
     return X, indicator_observed, session_ok, session_telemetry
@@ -782,920 +736,925 @@ def run_session(task, injection=None, session_seed=None, session_id=None,
 # §4.  데이터 수집
 # ══════════════════════════════════════════════════════════════════════════════
 
-print("=" * 64)
-print("  Real LLM + LightGAE Experiment  (v2 - 4-agent cascade)")
-print(f"  {N_NORMAL} normal sessions  |  {N_ATTACK} attack sessions")
-print("=" * 64)
+def main():
+    print("=" * 64)
+    print("  Real LLM + LightGAE Experiment  (v2 - 4-agent cascade)")
+    print(f"  {N_NORMAL} normal sessions  |  {N_ATTACK} attack sessions")
+    print("=" * 64)
 
-try:
-    requests.get("http://localhost:11434", timeout=5)
-    print("\n[OK] Ollama 연결 성공\n")
-except Exception:
-    print("\n[ERROR] Ollama 연결 실패 - ollama serve 먼저 실행하세요")
-    exit()
+    try:
+        requests.get("http://localhost:11434", timeout=5)
+        print("\n[OK] Ollama 연결 성공\n")
+    except Exception:
+        print("\n[ERROR] Ollama 연결 실패 - ollama serve 먼저 실행하세요")
+        exit()
 
-# [Session provenance addendum] Warm-up call to force-load the model, then
-# detect_hardware_backend() -- must come AFTER a real request, see that
-# function's docstring. Computed once per run (hardware doesn't change
-# mid-collection) and passed through to every session_telemetry record below,
-# so CPU-collected runs are self-identifying and can never be silently
-# mistaken for GPU-collected formal data.
-_ = ask_ollama("Say OK.")
-_HW = detect_hardware_backend()
-print(f"  hardware_backend={_HW['hardware_backend']}  gpu_name={_HW['gpu_name']}  "
-      f"ollama_version={_HW['ollama_version']}")
-if _HW["hardware_backend"] != "gpu":
-    print(f"  [WARNING] running on {_HW['hardware_backend']} -- formal/screening collection "
-          f"should wait for GPU (see analysis_plan.md); this run's data will be "
-          f"self-labeled hardware_backend='{_HW['hardware_backend']}' in every session_telemetry record.")
+    # [Session provenance addendum] Warm-up call to force-load the model, then
+    # detect_hardware_backend() -- must come AFTER a real request, see that
+    # function's docstring. Computed once per run (hardware doesn't change
+    # mid-collection) and passed through to every session_telemetry record below,
+    # so CPU-collected runs are self-identifying and can never be silently
+    # mistaken for GPU-collected formal data.
+    _ = ask_ollama("Say OK.")
+    _HW = detect_hardware_backend()
+    print(f"  hardware_backend={_HW['hardware_backend']}  gpu_name={_HW['gpu_name']}  "
+          f"ollama_version={_HW['ollama_version']}")
+    if _HW["hardware_backend"] != "gpu":
+        print(f"  [WARNING] running on {_HW['hardware_backend']} -- formal/screening collection "
+              f"should wait for GPU (see analysis_plan.md); this run's data will be "
+              f"self-labeled hardware_backend='{_HW['hardware_backend']}' in every session_telemetry record.")
 
-CACHE_NORMAL = os.path.join(OUT, "cache_normal.json")
-CACHE_ATTACK = os.path.join(OUT, "cache_attack.json")
-# indicator_observed diagnostic cache -- NEVER read back as a label, only as
-# an informational rate (see §5/§7). Older cache_*.json predate this field and
-# don't retain raw response text, so sessions loaded from that older cache have
-# no indicator_observed value (reported as "unavailable", not imputed).
-INDICATOR_NORMAL = os.path.join(OUT, "indicator_observed_normal.json")
-INDICATOR_ATTACK = os.path.join(OUT, "indicator_observed_attack.json")
-# Session-level provenance metadata (task, category, injection, generation seed,
-# model, topology, timestamp) -- position-aligned with cache_normal.json/
-# cache_attack.json (record i describes cache list index i), kept in separate
-# files rather than folded into the cache format so cache_*.json stays the plain
-# feature-array shape that feature_ablation.py / feature_correlation_breakdown.py
-# already depend on. See §dataset summary below for the CSV export.
-META_NORMAL = os.path.join(OUT, "session_metadata_normal.json")
-META_ATTACK = os.path.join(OUT, "session_metadata_attack.json")
-# [P3/4순위] Raw per-agent telemetry (analysis_plan.md §4 schema) -- only ever
-# populated for sessions collected fresh in THIS run (same cache-hit caveat as
-# INDICATOR_NORMAL/INDICATOR_ATTACK above: pre-existing cache_*.json predates
-# this and has no raw telemetry to backfill).
-RAW_TELEMETRY_NORMAL = os.path.join(OUT, "raw_telemetry_normal.json")
-RAW_TELEMETRY_ATTACK = os.path.join(OUT, "raw_telemetry_attack.json")
+    CACHE_NORMAL = os.path.join(OUT, "cache_normal.json")
+    CACHE_ATTACK = os.path.join(OUT, "cache_attack.json")
+    # indicator_observed diagnostic cache -- NEVER read back as a label, only as
+    # an informational rate (see §5/§7). Older cache_*.json predate this field and
+    # don't retain raw response text, so sessions loaded from that older cache have
+    # no indicator_observed value (reported as "unavailable", not imputed).
+    INDICATOR_NORMAL = os.path.join(OUT, "indicator_observed_normal.json")
+    INDICATOR_ATTACK = os.path.join(OUT, "indicator_observed_attack.json")
+    # Session-level provenance metadata (task, category, injection, generation seed,
+    # model, topology, timestamp) -- position-aligned with cache_normal.json/
+    # cache_attack.json (record i describes cache list index i), kept in separate
+    # files rather than folded into the cache format so cache_*.json stays the plain
+    # feature-array shape that feature_ablation.py / feature_correlation_breakdown.py
+    # already depend on. See §dataset summary below for the CSV export.
+    META_NORMAL = os.path.join(OUT, "session_metadata_normal.json")
+    META_ATTACK = os.path.join(OUT, "session_metadata_attack.json")
+    # [P3/4순위] Raw per-agent telemetry (analysis_plan.md §4 schema) -- only ever
+    # populated for sessions collected fresh in THIS run (same cache-hit caveat as
+    # INDICATOR_NORMAL/INDICATOR_ATTACK above: pre-existing cache_*.json predates
+    # this and has no raw telemetry to backfill).
+    RAW_TELEMETRY_NORMAL = os.path.join(OUT, "raw_telemetry_normal.json")
+    RAW_TELEMETRY_ATTACK = os.path.join(OUT, "raw_telemetry_attack.json")
 
-def load_cache(path):
-    if os.path.exists(path):
-        with open(path) as f:
-            data = json.load(f)
-        print(f"  [cache] {path} 로드 ({len(data)}개)")
-        return [np.array(x, dtype=np.float32) for x in data]
-    return None
+    def load_cache(path):
+        if os.path.exists(path):
+            with open(path) as f:
+                data = json.load(f)
+            print(f"  [cache] {path} 로드 ({len(data)}개)")
+            return [np.array(x, dtype=np.float32) for x in data]
+        return None
 
-def save_cache(path, data):
-    with open(path, "w") as f:
-        json.dump([x.tolist() for x in data], f)
+    def save_cache(path, data):
+        with open(path, "w") as f:
+            json.dump([x.tolist() for x in data], f)
 
-def load_json_list(path):
-    if os.path.exists(path):
-        with open(path) as f:
-            return json.load(f)
-    return None
+    def load_json_list(path):
+        if os.path.exists(path):
+            with open(path) as f:
+                return json.load(f)
+        return None
 
-def save_json_list(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f)
-
-
-def build_session_meta(session_id, task_idx, injection_idx, generation_seed,
-                        timestamp, metadata_source):
-    """
-    Minimal dataset-provenance record for one session -- lets a reader
-    reconstruct exactly which task/attack template/model/topology produced a
-    given cached feature vector, per session_id, without re-running anything.
-    """
-    task      = TASKS[task_idx]
-    injection = INJECTIONS[injection_idx] if injection_idx is not None else None
-    return {
-        "session_id": session_id,
-        "task_id": f"task_{task_idx:03d}",
-        "task_category": TASK_CATEGORIES[task_idx],
-        "input_length": len(task) + (len(injection) if injection else 0),
-        "injection_enabled": injection is not None,
-        "attack_type": (ATTACK_TYPES[injection_idx] if injection_idx is not None else None),
-        "generation_seed": generation_seed,
-        "model_name": MODEL,
-        "topology_id": TOPOLOGY_ID,
-        "timestamp": timestamp,
-        # extra, beyond the minimum-required fields: distinguishes sessions whose
-        # generation_seed/timestamp were actually recorded at collection time from
-        # ones reconstructed after the fact from pre-existing cache (that older
-        # cache never stored a seed/timestamp, so those two fields are null there).
-        "metadata_source": metadata_source,
-    }
+    def save_json_list(path, data):
+        with open(path, "w") as f:
+            json.dump(data, f)
 
 
-def reconstruct_session_meta(n, is_attack):
-    """Best-effort provenance for sessions loaded from cache written before this
-    metadata existed. task_id/category/input_length/injection_enabled/attack_type/
-    model/topology are all deterministically recoverable from position i (the
-    collection loops always assign task = TASKS[i % len(TASKS)] and, for attack,
-    injection = INJECTIONS[i % len(INJECTIONS)], in order). generation_seed and
-    timestamp are genuinely unknown for these sessions -- left null, not guessed.
-    """
-    out = []
-    prefix = "attack" if is_attack else "normal"
-    for i in range(n):
-        task_idx = i % len(TASKS)
-        inj_idx  = (i % len(INJECTIONS)) if is_attack else None
-        out.append(build_session_meta(
-            session_id=f"{prefix}_{i+1:03d}", task_idx=task_idx, injection_idx=inj_idx,
-            generation_seed=None, timestamp=None, metadata_source="reconstructed_from_cache_position"))
-    return out
-
-
-# Sessions where at least one agent call failed/returned empty (session_ok=False
-# from run_session) -- recorded separately here rather than silently folded into
-# X_normal/X_attack as if they were normal successful responses. Only ever
-# populated for THIS run's freshly-collected sessions (cache hits skip
-# run_session entirely, so failures in previously-collected data -- if any --
-# aren't retroactively knowable and aren't claimed here).
-failed_sessions = []
-
-# 정상 세션
-cached = load_cache(CACHE_NORMAL)
-normal_from_cache = bool(cached and len(cached) == N_NORMAL)
-if normal_from_cache:
-    X_normal = cached
-    indicator_normal = load_json_list(INDICATOR_NORMAL)
-    if indicator_normal is not None and len(indicator_normal) != N_NORMAL:
-        indicator_normal = None
-    meta_normal = load_json_list(META_NORMAL)
-    if meta_normal is None or len(meta_normal) != N_NORMAL:
-        meta_normal = reconstruct_session_meta(N_NORMAL, is_attack=False)
-        save_json_list(META_NORMAL, meta_normal)
-    print(f"[1/3] 정상 세션 캐시 사용 ({N_NORMAL}회 skip)")
-else:
-    print(f"[1/3] 정상 세션 수집 ({N_NORMAL}회)...")
-    X_normal, indicator_normal, meta_normal, telemetry_normal = [], [], [], []
-    t0 = time.time()
-    for i in range(N_NORMAL):
-        task_idx = i % len(TASKS)
-        task     = TASKS[task_idx]
-        session_seed = i   # deterministic per-session Ollama generation seed
-        ts = dt.datetime.now(dt.timezone.utc).isoformat()
-        session_id = f"normal_{i+1:03d}"
-        task_id_str = f"task_{task_idx:03d}"
-        X_i, success_i, ok_i, telemetry_i = run_session(
-            task, injection=None, session_seed=session_seed, session_id=session_id,
-            task_id=task_id_str, task_category=TASK_CATEGORIES[task_idx],
-            task_source="internal_TASKS_list", execution_repeat=i // len(TASKS),
-            hardware_backend=_HW["hardware_backend"], gpu_name=_HW["gpu_name"],
-            ollama_version=_HW["ollama_version"])
-        if not ok_i:
-            failed_sessions.append({"session_id": session_id, "task_id": task_id_str,
-                                     "injection_enabled": False,
-                                     "reason": "one or more agent calls failed or returned an empty response"})
-        X_normal.append(X_i)
-        indicator_normal.append(success_i)
-        meta_normal.append(build_session_meta(
-            session_id=session_id, task_idx=task_idx, injection_idx=None,
-            generation_seed=session_seed, timestamp=ts, metadata_source="collected_at_runtime"))
-        telemetry_normal.extend(telemetry_i)
-        elapsed = time.time() - t0
-        eta = elapsed / (i + 1) * (N_NORMAL - i - 1)
-        print(f"  {i+1}/{N_NORMAL}  elapsed={elapsed:.0f}s  eta={eta:.0f}s", end="\r", flush=True)
-    save_cache(CACHE_NORMAL, X_normal)
-    save_json_list(INDICATOR_NORMAL, indicator_normal)
-    save_json_list(META_NORMAL, meta_normal)
-    save_json_list(RAW_TELEMETRY_NORMAL, telemetry_normal)
-    print(f"  정상 세션 완료 ({N_NORMAL}회)  총 {time.time()-t0:.0f}s          ")
-
-# 공격 세션
-cached_atk = load_cache(CACHE_ATTACK)
-attack_from_cache = bool(cached_atk and len(cached_atk) == N_ATTACK)
-if attack_from_cache:
-    X_attack = cached_atk
-    indicator_attack = load_json_list(INDICATOR_ATTACK)
-    if indicator_attack is not None and len(indicator_attack) != N_ATTACK:
-        indicator_attack = None
-    meta_attack = load_json_list(META_ATTACK)
-    if meta_attack is None or len(meta_attack) != N_ATTACK:
-        meta_attack = reconstruct_session_meta(N_ATTACK, is_attack=True)
-        save_json_list(META_ATTACK, meta_attack)
-    print(f"[2/3] 공격 세션 캐시 사용 ({N_ATTACK}회 skip)")
-else:
-    print(f"\n[2/3] 공격 세션 수집 ({N_ATTACK}회)...")
-    X_attack, indicator_attack, meta_attack, telemetry_attack = [], [], [], []
-    t0 = time.time()
-    for i in range(N_ATTACK):
-        task_idx = i % len(TASKS)
-        task     = TASKS[task_idx]
-        inj_idx  = i % len(INJECTIONS)
-        injection = INJECTIONS[inj_idx]
-        session_seed = 100000 + i   # disjoint range from normal-session seeds
-        ts = dt.datetime.now(dt.timezone.utc).isoformat()
-        session_id = f"attack_{i+1:03d}"
-        task_id_str = f"task_{task_idx:03d}"
-        # attack_goal is still a placeholder (analysis_plan.md §4 remainder /
-        # 8~9순위): the current INJECTIONS templates predate the goal-based
-        # redesign, so every one of them gets the same honest label rather than
-        # a fabricated specific goal.
-        X_i, success_i, ok_i, telemetry_i = run_session(
-            task, injection=injection, session_seed=session_seed, session_id=session_id,
-            task_id=task_id_str, task_category=TASK_CATEGORIES[task_idx],
-            task_source="internal_TASKS_list", attack_type=ATTACK_TYPES[inj_idx],
-            attack_goal="verbosity_inflation_v1_pending_redesign", execution_repeat=i // len(TASKS),
-            hardware_backend=_HW["hardware_backend"], gpu_name=_HW["gpu_name"],
-            ollama_version=_HW["ollama_version"])
-        if not ok_i:
-            failed_sessions.append({"session_id": session_id, "task_id": task_id_str,
-                                     "injection_enabled": True,
-                                     "reason": "one or more agent calls failed or returned an empty response"})
-        X_attack.append(X_i)
-        indicator_attack.append(success_i)
-        meta_attack.append(build_session_meta(
-            session_id=session_id, task_idx=task_idx, injection_idx=inj_idx,
-            generation_seed=session_seed, timestamp=ts, metadata_source="collected_at_runtime"))
-        telemetry_attack.extend(telemetry_i)
-        elapsed = time.time() - t0
-        eta = elapsed / (i + 1) * (N_ATTACK - i - 1)
-        print(f"  {i+1}/{N_ATTACK}  elapsed={elapsed:.0f}s  eta={eta:.0f}s", end="\r", flush=True)
-    save_cache(CACHE_ATTACK, X_attack)
-    save_json_list(INDICATOR_ATTACK, indicator_attack)
-    save_json_list(META_ATTACK, meta_attack)
-    save_json_list(RAW_TELEMETRY_ATTACK, telemetry_attack)
-    print(f"  공격 세션 완료 ({N_ATTACK}회)  총 {time.time()-t0:.0f}s          ")
-
-if failed_sessions:
-    FAILED_SESSIONS_PATH = os.path.join(OUT, "failed_sessions.json")
-    with open(FAILED_SESSIONS_PATH, "w", encoding="utf-8") as f:
-        json.dump(failed_sessions, f, indent=2)
-    print(f"  [WARNING] {len(failed_sessions)} session(s) had a failed/empty agent call "
-          f"-> {FAILED_SESSIONS_PATH}")
-
-X_normal = np.array(X_normal)   # (N_NORMAL, 4, 5)
-X_attack = np.array(X_attack)   # (N_ATTACK, 4, 5)
-
-# ── Dataset summary CSV ─────────────────────────────────────────────────────
-# One row per session (normal + attack), reproducible straight from this
-# script's TASKS/INJECTIONS/TASK_CATEGORIES/ATTACK_TYPES constants -- the
-# reference for "what exactly is in the normal/attack dataset" (paper
-# reviewers asking "what is your baseline dataset" can be pointed at this file).
-DATASET_SUMMARY_CSV = os.path.join(OUT, "dataset_summary.csv")
-ALL_SESSION_META = meta_normal + meta_attack
-with open(DATASET_SUMMARY_CSV, "w", newline="", encoding="utf-8") as f:
-    fieldnames = ["session_id", "task_id", "task_category", "input_length",
-                  "injection_enabled", "attack_type", "generation_seed",
-                  "model_name", "topology_id", "timestamp", "metadata_source"]
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
-    writer.writeheader()
-    for rec in ALL_SESSION_META:
-        writer.writerow(rec)
-print(f"  [dataset] {DATASET_SUMMARY_CSV} 저장 ({len(ALL_SESSION_META)}행)")
-
-# Original task_id per normal session -- both collection loops assign
-# task = TASKS[i % len(TASKS)] in order, so position i always corresponds to
-# task_id (i % len(TASKS)), whether the session came from cache or a fresh
-# call. Used below for group-based (not purely random) train/val/test split
-# so that repeated/paraphrase runs of the same underlying task can't end up
-# split across train and test.
-task_id_normal = np.array([i % len(TASKS) for i in range(N_NORMAL)])
-
-# indicator_observed: diagnostic rate only, computed from response-text keyword
-# matching (detect_injection_pattern). Ground truth labels below are NEVER derived
-# from this -- they come purely from which pool (X_normal vs X_attack) a session is
-# in, i.e. int(injection_enabled).
-if indicator_attack is not None:
-    indicator_rate = float(np.mean(indicator_attack))
-    print(f"  indicator_observed rate (attack sessions): "
-          f"{sum(indicator_attack)}/{N_ATTACK} ({indicator_rate*100:.0f}%)  [diagnostic only, not a label]")
-else:
-    print("  indicator_observed: unavailable (sessions loaded from pre-existing cache "
-          "that predates this diagnostic)")
-if indicator_normal is not None:
-    indicator_fp_rate = float(np.mean(indicator_normal))
-    print(f"  indicator_observed false-positive rate (normal sessions): "
-          f"{sum(indicator_normal)}/{N_NORMAL} ({indicator_fp_rate*100:.0f}%)")
-
-# Cascade 검증: 정상 vs 공격에서 에이전트별 토큰 평균
-print("\n  [Cascade 검증] 에이전트별 평균 토큰 수:")
-print(f"  {'Agent':<14} {'Normal':>10} {'Attack':>10} {'Ratio':>8}")
-for i, nm in enumerate(AGENT_NAMES):
-    n_tok = X_normal[:, i, 1].mean()
-    a_tok = X_attack[:, i, 1].mean()
-    print(f"  {nm:<14} {n_tok:>10.1f} {a_tok:>10.1f} {a_tok/n_tok:>8.3f}")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# §5.  멀티시드 평가 (LightGAE + MLPAE + Z-score)
-# ══════════════════════════════════════════════════════════════════════════════
-print(f"\n[3/3] 멀티시드 학습 + 평가 (seeds={SEEDS})...")
-
-# Normal data gets a 3-way split (train / validation / test); attack data is
-# test-only and never split. Fractions below reproduce the target ratio at
-# any scale: N_NORMAL=50 (current) -> 30/10/10; a future N_NORMAL=150 dataset
-# -> 90/30/30, matching the project's planned scale-up.
-NORMAL_SPLIT_FRACTIONS = {"train": 0.60, "val": 0.20, "test": 0.20}
-N_TR        = int(round(N_NORMAL * NORMAL_SPLIT_FRACTIONS["train"]))
-N_VAL       = int(round(N_NORMAL * NORMAL_SPLIT_FRACTIONS["val"]))
-N_TE_NORMAL = N_NORMAL - N_TR - N_VAL   # remainder absorbs rounding
-
-# LightGAE/MLPAE are normal-only novelty detectors, not classifiers: they fit
-# purely on normal-train sessions and flag anything that reconstructs poorly.
-# Attack sessions/labels must never reach training, scaler fitting, or
-# threshold estimation -- they only appear at test time as held-out positives,
-# alongside a held-out slice of normal-test sessions (never seen in train/val).
-print("\n  Learning setup: Normal-only novelty detection")
-print(f"    Normal train:      {N_TR:3d}   (model.fit / scaler.fit -- unsupervised, no attack data)")
-print(f"    Normal validation: {N_VAL:3d}   (held-out normal -- threshold estimated here, never from train)")
-print(f"    Normal test:       {N_TE_NORMAL:3d}   (held-out normal -- final metric only)")
-print(f"    Attack test:       {N_ATTACK:3d}   (test-only; never used in train/validation/threshold)")
-print(f"    Split unit: original task_id (0..{len(TASKS)-1}), group split -- repeated/paraphrase runs of "
-      f"the same underlying task always land in the same split, never spanning train/val/test.")
-
-
-def recall_at_fpr(y, sc, target_fpr=0.05):
-    """Security-operations-relevant operating point: the best recall achievable
-    while keeping FPR at or below target_fpr, read directly off the ROC curve
-    (independent of the percentile-based threshold used for TPR/FPR/F1 above --
-    this is a separate diagnostic curve point, not the deployed threshold)."""
-    if len(np.unique(y)) < 2:
-        return 0.0
-    fpr_r, tpr_r, _ = roc_curve(y, sc)
-    feasible = tpr_r[fpr_r <= target_fpr]
-    return round(float(feasible.max()) if len(feasible) else 0.0, 4)
-
-
-def metrics(y, sc, pd):
-    if len(np.unique(y)) < 2:
-        return dict(TPR=0, FPR=0, precision=0, F1=0, AUC=0.5, AUPRC=0.5, recall_at_5fpr=0)
-    tn, fp, fn, tp = confusion_matrix(y, pd, labels=[0, 1]).ravel()
-    return dict(
-        TPR=round(tp / (tp + fn + 1e-8), 4),          # == recall
-        FPR=round(fp / (fp + tn + 1e-8), 4),
-        precision=round(tp / (tp + fp + 1e-8), 4),
-        F1 =round(f1_score(y, pd, zero_division=0), 4),
-        AUC=round(roc_auc_score(y, sc), 4),
-        AUPRC=round(average_precision_score(y, sc), 4),
-        recall_at_5fpr=recall_at_fpr(y, sc, target_fpr=0.05),
-    )
-
-
-def group_split_3way(group_ids, seed, n_train, n_val, n_test):
-    """
-    Splits session indices into train/val/test by whole task_id GROUP, never
-    by individual session -- so if a task was run multiple times (repeat or
-    paraphrase), all of its sessions land in the same split. Greedy: shuffle
-    group order by `seed`, then drop each group into whichever bucket is
-    currently furthest below its target count. Group granularity means the
-    realized counts can differ slightly from (n_train, n_val, n_test); callers
-    should log the actual sizes rather than assume the targets were hit exactly.
-    Returns sorted index arrays (idx_train, idx_val, idx_test).
-    """
-    group_ids = np.asarray(group_ids)
-    members = {}
-    for i, g in enumerate(group_ids):
-        members.setdefault(int(g), []).append(i)
-    order = list(members.keys())
-    np.random.RandomState(seed).shuffle(order)
-
-    targets = {"train": n_train, "val": n_val, "test": n_test}
-    counts  = {"train": 0, "val": 0, "test": 0}
-    bucket  = {"train": [], "val": [], "test": []}
-    for g in order:
-        idxs = members[g]
-        deficit = {k: targets[k] - counts[k] for k in targets}
-        dest = max(deficit, key=deficit.get)
-        bucket[dest].extend(idxs)
-        counts[dest] += len(idxs)
-
-    idx_tr  = np.array(sorted(bucket["train"]))
-    idx_val = np.array(sorted(bucket["val"]))
-    idx_te  = np.array(sorted(bucket["test"]))
-    return idx_tr, idx_val, idx_te
-
-
-seed_records = {"LightGAE": [], "MLPAE": [], "Z-score": []}
-seed_details = []   # per-seed threshold / val-score distribution / test predictions
-last = {}
-
-for seed in SEEDS:
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-
-    # Group split on task_id (never on raw session index) -- see group_split_3way
-    # docstring. This guarantees repeated/paraphrase runs of the same original
-    # task never span a split boundary. X_attack is never part of task_id_normal,
-    # so it structurally cannot land in idx_tr/idx_val/idx_ten below.
-    idx_tr, idx_val, idx_ten = group_split_3way(task_id_normal, seed, N_TR, N_VAL, N_TE_NORMAL)
-    assert len(idx_tr) + len(idx_val) + len(idx_ten) == N_NORMAL, \
-        "group split must partition every normal session into exactly one bucket"
-
-    tids_tr, tids_val, tids_ten = (set(task_id_normal[idx_tr].tolist()),
-                                    set(task_id_normal[idx_val].tolist()),
-                                    set(task_id_normal[idx_ten].tolist()))
-    assert not (tids_tr & tids_val),  "train/validation share a task_id -- group split leaked"
-    assert not (tids_tr & tids_ten),  "train/test share a task_id -- group split leaked"
-    assert not (tids_val & tids_ten), "validation/test share a task_id -- group split leaked"
-
-    X_tr_raw  = X_normal[idx_tr]
-    X_val_raw = X_normal[idx_val]
-    X_ten_raw = X_normal[idx_ten]
-
-    scaler = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
-    assert scaler.n_samples_seen_ == len(idx_tr), \
-        f"scaler must be fit on exactly the {len(idx_tr)} training-normal sessions, saw {scaler.n_samples_seen_}"
-    X_tr_all  = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
-    X_val_all = scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
-    X_ten_all = scaler.transform(X_ten_raw.reshape(len(X_ten_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
-    Xa_s_all  = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
-
-    # Headline model input: Core-2 only (see CORE_COLS above)
-    X_tr  = X_tr_all[:, :, CORE_COLS]
-    X_val = X_val_all[:, :, CORE_COLS]
-    X_ten = X_ten_all[:, :, CORE_COLS]
-    Xa_s  = Xa_s_all[:, :, CORE_COLS]
-    X_te  = np.concatenate([X_ten, Xa_s])
-    assert X_tr.shape[0] == len(idx_tr), "X_tr (model.fit input) must contain exactly the training-normal sessions"
-    # ground_truth_label = int(injection_enabled): X_ten is drawn purely from the
-    # no-injection pool and Xa_s purely from the injection-enabled pool (§4), so the
-    # label below is fixed by pool membership -- never by inspecting response content
-    # (that's what indicator_observed above is for, and it plays no role here).
-    y_te  = np.array([0]*len(X_ten) + [1]*N_ATTACK)
-
-    # ── LightGAE ──────────────────────────────────────────────
-    # model.fit(X_normal_train): X_tr is normal-train-only (asserted above); attack
-    # data/labels never appear on the left of train_lgae/train_mlpae below, and
-    # theta_* thresholds are percentile(normal_val_scores, THRESHOLD_PERCENTILE)
-    # (val_sc_*/zval), never train or test scores. Attack data only enters via X_te.
-    # prediction = int(session_score > threshold), applied elementwise below.
-    gae = LightGAE(in_dim=N_CORE, hid=16, emb=8)
-    train_lgae(gae, X_tr, ADJ, epochs=160, lr=1e-3, bs=16)
-    sc_gae, node_sc = gae.score(torch.FloatTensor(X_te), ADJ)
-    val_sc_gae, _   = gae.score(torch.FloatTensor(X_val), ADJ)
-    assert len(val_sc_gae) == len(X_val), "threshold must be estimated from validation-normal scores only"
-    theta_gae       = float(np.percentile(val_sc_gae, THRESHOLD_PERCENTILE))
-    pred_gae        = (sc_gae > theta_gae).astype(int)
-    r_gae = metrics(y_te, sc_gae, pred_gae)
-
-    # ── MLPAE (ablation) ──────────────────────────────────────
-    mlp_m = MLPAE(in_dim=N_AGENTS*N_CORE, n_feats=N_CORE, hid=16, emb=8)
-    train_mlpae(mlp_m, X_tr, epochs=160, lr=1e-3, bs=16)
-    sc_mlp, _     = mlp_m.score(torch.FloatTensor(X_te))
-    val_sc_mlp, _ = mlp_m.score(torch.FloatTensor(X_val))
-    assert len(val_sc_mlp) == len(X_val), "threshold must be estimated from validation-normal scores only"
-    theta_mlp     = float(np.percentile(val_sc_mlp, THRESHOLD_PERCENTILE))
-    pred_mlp      = (sc_mlp > theta_mlp).astype(int)
-    r_mlp = metrics(y_te, sc_mlp, pred_mlp)
-
-    # ── Z-score baseline ──────────────────────────────────────
-    flat_tr  = X_tr.reshape(len(X_tr), -1)
-    flat_val = X_val.reshape(len(X_val), -1)
-    flat_te  = X_te.reshape(len(X_te), -1)
-    zsc      = StandardScaler().fit(flat_tr)
-    assert zsc.n_samples_seen_ == len(idx_tr), "Z-score scaler must be fit on training-normal sessions only"
-    zte      = np.linalg.norm(zsc.transform(flat_te), axis=1)
-    zval     = np.linalg.norm(zsc.transform(flat_val), axis=1)
-    assert len(zval) == len(X_val), "threshold must be estimated from validation-normal scores only"
-    z_th     = float(np.percentile(zval, THRESHOLD_PERCENTILE))
-    pred_z   = (zte > z_th).astype(int)
-    r_z      = metrics(y_te, zte, pred_z)
-
-    seed_records["LightGAE"].append(r_gae)
-    seed_records["MLPAE"].append(r_mlp)
-    seed_records["Z-score"].append(r_z)
-
-    # threshold/validation-distribution/test-prediction detail for results_summary.json
-    # -- kept per seed so the JSON is a complete, re-auditable record of what each
-    # seed's model actually saw and decided, not just the aggregated AUC/F1.
-    def _score_summary(values):
-        values = np.asarray(values, dtype=float)
+    def build_session_meta(session_id, task_idx, injection_idx, generation_seed,
+                            timestamp, metadata_source):
+        """
+        Minimal dataset-provenance record for one session -- lets a reader
+        reconstruct exactly which task/attack template/model/topology produced a
+        given cached feature vector, per session_id, without re-running anything.
+        """
+        task      = TASKS[task_idx]
+        injection = INJECTIONS[injection_idx] if injection_idx is not None else None
         return {
-            "n": int(len(values)),
-            "mean": float(values.mean()),
-            "std": float(values.std()),
-            "min": float(values.min()),
-            "max": float(values.max()),
-            f"p{THRESHOLD_PERCENTILE}": float(np.percentile(values, THRESHOLD_PERCENTILE)),
-            "values": values.tolist(),
+            "session_id": session_id,
+            "task_id": f"task_{task_idx:03d}",
+            "task_category": TASK_CATEGORIES[task_idx],
+            "input_length": len(task) + (len(injection) if injection else 0),
+            "injection_enabled": injection is not None,
+            "attack_type": (ATTACK_TYPES[injection_idx] if injection_idx is not None else None),
+            "generation_seed": generation_seed,
+            "model_name": MODEL,
+            "topology_id": TOPOLOGY_ID,
+            "timestamp": timestamp,
+            # extra, beyond the minimum-required fields: distinguishes sessions whose
+            # generation_seed/timestamp were actually recorded at collection time from
+            # ones reconstructed after the fact from pre-existing cache (that older
+            # cache never stored a seed/timestamp, so those two fields are null there).
+            "metadata_source": metadata_source,
         }
 
-    seed_details.append({
-        "seed": seed,
-        "split_sizes": {
-            "normal_train": len(idx_tr), "normal_val": len(idx_val),
-            "normal_test": len(idx_ten), "attack_test": N_ATTACK,
+
+    def reconstruct_session_meta(n, is_attack):
+        """Best-effort provenance for sessions loaded from cache written before this
+        metadata existed. task_id/category/input_length/injection_enabled/attack_type/
+        model/topology are all deterministically recoverable from position i (the
+        collection loops always assign task = TASKS[i % len(TASKS)] and, for attack,
+        injection = INJECTIONS[i % len(INJECTIONS)], in order). generation_seed and
+        timestamp are genuinely unknown for these sessions -- left null, not guessed.
+        """
+        out = []
+        prefix = "attack" if is_attack else "normal"
+        for i in range(n):
+            task_idx = i % len(TASKS)
+            inj_idx  = (i % len(INJECTIONS)) if is_attack else None
+            out.append(build_session_meta(
+                session_id=f"{prefix}_{i+1:03d}", task_idx=task_idx, injection_idx=inj_idx,
+                generation_seed=None, timestamp=None, metadata_source="reconstructed_from_cache_position"))
+        return out
+
+
+    # Sessions where at least one agent call failed/returned empty (session_ok=False
+    # from run_session) -- recorded separately here rather than silently folded into
+    # X_normal/X_attack as if they were normal successful responses. Only ever
+    # populated for THIS run's freshly-collected sessions (cache hits skip
+    # run_session entirely, so failures in previously-collected data -- if any --
+    # aren't retroactively knowable and aren't claimed here).
+    failed_sessions = []
+
+    # 정상 세션
+    cached = load_cache(CACHE_NORMAL)
+    normal_from_cache = bool(cached and len(cached) == N_NORMAL)
+    if normal_from_cache:
+        X_normal = cached
+        indicator_normal = load_json_list(INDICATOR_NORMAL)
+        if indicator_normal is not None and len(indicator_normal) != N_NORMAL:
+            indicator_normal = None
+        meta_normal = load_json_list(META_NORMAL)
+        if meta_normal is None or len(meta_normal) != N_NORMAL:
+            meta_normal = reconstruct_session_meta(N_NORMAL, is_attack=False)
+            save_json_list(META_NORMAL, meta_normal)
+        print(f"[1/3] 정상 세션 캐시 사용 ({N_NORMAL}회 skip)")
+    else:
+        print(f"[1/3] 정상 세션 수집 ({N_NORMAL}회)...")
+        X_normal, indicator_normal, meta_normal, telemetry_normal = [], [], [], []
+        t0 = time.time()
+        for i in range(N_NORMAL):
+            task_idx = i % len(TASKS)
+            task     = TASKS[task_idx]
+            session_seed = i   # deterministic per-session Ollama generation seed
+            ts = dt.datetime.now(dt.timezone.utc).isoformat()
+            session_id = f"normal_{i+1:03d}"
+            task_id_str = f"task_{task_idx:03d}"
+            X_i, success_i, ok_i, telemetry_i = run_session(
+                task, injection=None, session_seed=session_seed, session_id=session_id,
+                task_id=task_id_str, task_category=TASK_CATEGORIES[task_idx],
+                task_source="internal_TASKS_list", execution_repeat=i // len(TASKS),
+                hardware_backend=_HW["hardware_backend"], gpu_name=_HW["gpu_name"],
+                ollama_version=_HW["ollama_version"])
+            if not ok_i:
+                failed_sessions.append({"session_id": session_id, "task_id": task_id_str,
+                                         "injection_enabled": False,
+                                         "reason": "one or more agent calls failed or returned an empty response"})
+            X_normal.append(X_i)
+            indicator_normal.append(success_i)
+            meta_normal.append(build_session_meta(
+                session_id=session_id, task_idx=task_idx, injection_idx=None,
+                generation_seed=session_seed, timestamp=ts, metadata_source="collected_at_runtime"))
+            telemetry_normal.extend(telemetry_i)
+            elapsed = time.time() - t0
+            eta = elapsed / (i + 1) * (N_NORMAL - i - 1)
+            print(f"  {i+1}/{N_NORMAL}  elapsed={elapsed:.0f}s  eta={eta:.0f}s", end="\r", flush=True)
+        save_cache(CACHE_NORMAL, X_normal)
+        save_json_list(INDICATOR_NORMAL, indicator_normal)
+        save_json_list(META_NORMAL, meta_normal)
+        save_json_list(RAW_TELEMETRY_NORMAL, telemetry_normal)
+        print(f"  정상 세션 완료 ({N_NORMAL}회)  총 {time.time()-t0:.0f}s          ")
+
+    # 공격 세션
+    cached_atk = load_cache(CACHE_ATTACK)
+    attack_from_cache = bool(cached_atk and len(cached_atk) == N_ATTACK)
+    if attack_from_cache:
+        X_attack = cached_atk
+        indicator_attack = load_json_list(INDICATOR_ATTACK)
+        if indicator_attack is not None and len(indicator_attack) != N_ATTACK:
+            indicator_attack = None
+        meta_attack = load_json_list(META_ATTACK)
+        if meta_attack is None or len(meta_attack) != N_ATTACK:
+            meta_attack = reconstruct_session_meta(N_ATTACK, is_attack=True)
+            save_json_list(META_ATTACK, meta_attack)
+        print(f"[2/3] 공격 세션 캐시 사용 ({N_ATTACK}회 skip)")
+    else:
+        print(f"\n[2/3] 공격 세션 수집 ({N_ATTACK}회)...")
+        X_attack, indicator_attack, meta_attack, telemetry_attack = [], [], [], []
+        t0 = time.time()
+        for i in range(N_ATTACK):
+            task_idx = i % len(TASKS)
+            task     = TASKS[task_idx]
+            inj_idx  = i % len(INJECTIONS)
+            injection = INJECTIONS[inj_idx]
+            session_seed = 100000 + i   # disjoint range from normal-session seeds
+            ts = dt.datetime.now(dt.timezone.utc).isoformat()
+            session_id = f"attack_{i+1:03d}"
+            task_id_str = f"task_{task_idx:03d}"
+            # attack_goal is still a placeholder (analysis_plan.md §4 remainder /
+            # 8~9순위): the current INJECTIONS templates predate the goal-based
+            # redesign, so every one of them gets the same honest label rather than
+            # a fabricated specific goal.
+            X_i, success_i, ok_i, telemetry_i = run_session(
+                task, injection=injection, session_seed=session_seed, session_id=session_id,
+                task_id=task_id_str, task_category=TASK_CATEGORIES[task_idx],
+                task_source="internal_TASKS_list", attack_type=ATTACK_TYPES[inj_idx],
+                attack_goal="verbosity_inflation_v1_pending_redesign", execution_repeat=i // len(TASKS),
+                hardware_backend=_HW["hardware_backend"], gpu_name=_HW["gpu_name"],
+                ollama_version=_HW["ollama_version"])
+            if not ok_i:
+                failed_sessions.append({"session_id": session_id, "task_id": task_id_str,
+                                         "injection_enabled": True,
+                                         "reason": "one or more agent calls failed or returned an empty response"})
+            X_attack.append(X_i)
+            indicator_attack.append(success_i)
+            meta_attack.append(build_session_meta(
+                session_id=session_id, task_idx=task_idx, injection_idx=inj_idx,
+                generation_seed=session_seed, timestamp=ts, metadata_source="collected_at_runtime"))
+            telemetry_attack.extend(telemetry_i)
+            elapsed = time.time() - t0
+            eta = elapsed / (i + 1) * (N_ATTACK - i - 1)
+            print(f"  {i+1}/{N_ATTACK}  elapsed={elapsed:.0f}s  eta={eta:.0f}s", end="\r", flush=True)
+        save_cache(CACHE_ATTACK, X_attack)
+        save_json_list(INDICATOR_ATTACK, indicator_attack)
+        save_json_list(META_ATTACK, meta_attack)
+        save_json_list(RAW_TELEMETRY_ATTACK, telemetry_attack)
+        print(f"  공격 세션 완료 ({N_ATTACK}회)  총 {time.time()-t0:.0f}s          ")
+
+    if failed_sessions:
+        FAILED_SESSIONS_PATH = os.path.join(OUT, "failed_sessions.json")
+        with open(FAILED_SESSIONS_PATH, "w", encoding="utf-8") as f:
+            json.dump(failed_sessions, f, indent=2)
+        print(f"  [WARNING] {len(failed_sessions)} session(s) had a failed/empty agent call "
+              f"-> {FAILED_SESSIONS_PATH}")
+
+    X_normal = np.array(X_normal)   # (N_NORMAL, 4, 5)
+    X_attack = np.array(X_attack)   # (N_ATTACK, 4, 5)
+
+    # ── Dataset summary CSV ─────────────────────────────────────────────────────
+    # One row per session (normal + attack), reproducible straight from this
+    # script's TASKS/INJECTIONS/TASK_CATEGORIES/ATTACK_TYPES constants -- the
+    # reference for "what exactly is in the normal/attack dataset" (paper
+    # reviewers asking "what is your baseline dataset" can be pointed at this file).
+    DATASET_SUMMARY_CSV = os.path.join(OUT, "dataset_summary.csv")
+    ALL_SESSION_META = meta_normal + meta_attack
+    with open(DATASET_SUMMARY_CSV, "w", newline="", encoding="utf-8") as f:
+        fieldnames = ["session_id", "task_id", "task_category", "input_length",
+                      "injection_enabled", "attack_type", "generation_seed",
+                      "model_name", "topology_id", "timestamp", "metadata_source"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for rec in ALL_SESSION_META:
+            writer.writerow(rec)
+    print(f"  [dataset] {DATASET_SUMMARY_CSV} 저장 ({len(ALL_SESSION_META)}행)")
+
+    # Original task_id per normal session -- both collection loops assign
+    # task = TASKS[i % len(TASKS)] in order, so position i always corresponds to
+    # task_id (i % len(TASKS)), whether the session came from cache or a fresh
+    # call. Used below for group-based (not purely random) train/val/test split
+    # so that repeated/paraphrase runs of the same underlying task can't end up
+    # split across train and test.
+    task_id_normal = np.array([i % len(TASKS) for i in range(N_NORMAL)])
+
+    # indicator_observed: diagnostic rate only, computed from response-text keyword
+    # matching (detect_injection_pattern). Ground truth labels below are NEVER derived
+    # from this -- they come purely from which pool (X_normal vs X_attack) a session is
+    # in, i.e. int(injection_enabled).
+    if indicator_attack is not None:
+        indicator_rate = float(np.mean(indicator_attack))
+        print(f"  indicator_observed rate (attack sessions): "
+              f"{sum(indicator_attack)}/{N_ATTACK} ({indicator_rate*100:.0f}%)  [diagnostic only, not a label]")
+    else:
+        print("  indicator_observed: unavailable (sessions loaded from pre-existing cache "
+              "that predates this diagnostic)")
+    if indicator_normal is not None:
+        indicator_fp_rate = float(np.mean(indicator_normal))
+        print(f"  indicator_observed false-positive rate (normal sessions): "
+              f"{sum(indicator_normal)}/{N_NORMAL} ({indicator_fp_rate*100:.0f}%)")
+
+    # Cascade 검증: 정상 vs 공격에서 에이전트별 토큰 평균
+    print("\n  [Cascade 검증] 에이전트별 평균 토큰 수:")
+    print(f"  {'Agent':<14} {'Normal':>10} {'Attack':>10} {'Ratio':>8}")
+    for i, nm in enumerate(AGENT_NAMES):
+        n_tok = X_normal[:, i, 1].mean()
+        a_tok = X_attack[:, i, 1].mean()
+        print(f"  {nm:<14} {n_tok:>10.1f} {a_tok:>10.1f} {a_tok/n_tok:>8.3f}")
+
+    # ══════════════════════════════════════════════════════════════════════════════
+    # §5.  멀티시드 평가 (LightGAE + MLPAE + Z-score)
+    # ══════════════════════════════════════════════════════════════════════════════
+    print(f"\n[3/3] 멀티시드 학습 + 평가 (seeds={SEEDS})...")
+
+    # Normal data gets a 3-way split (train / validation / test); attack data is
+    # test-only and never split. Fractions below reproduce the target ratio at
+    # any scale: N_NORMAL=50 (current) -> 30/10/10; a future N_NORMAL=150 dataset
+    # -> 90/30/30, matching the project's planned scale-up.
+    NORMAL_SPLIT_FRACTIONS = {"train": 0.60, "val": 0.20, "test": 0.20}
+    N_TR        = int(round(N_NORMAL * NORMAL_SPLIT_FRACTIONS["train"]))
+    N_VAL       = int(round(N_NORMAL * NORMAL_SPLIT_FRACTIONS["val"]))
+    N_TE_NORMAL = N_NORMAL - N_TR - N_VAL   # remainder absorbs rounding
+
+    # LightGAE/MLPAE are normal-only novelty detectors, not classifiers: they fit
+    # purely on normal-train sessions and flag anything that reconstructs poorly.
+    # Attack sessions/labels must never reach training, scaler fitting, or
+    # threshold estimation -- they only appear at test time as held-out positives,
+    # alongside a held-out slice of normal-test sessions (never seen in train/val).
+    print("\n  Learning setup: Normal-only novelty detection")
+    print(f"    Normal train:      {N_TR:3d}   (model.fit / scaler.fit -- unsupervised, no attack data)")
+    print(f"    Normal validation: {N_VAL:3d}   (held-out normal -- threshold estimated here, never from train)")
+    print(f"    Normal test:       {N_TE_NORMAL:3d}   (held-out normal -- final metric only)")
+    print(f"    Attack test:       {N_ATTACK:3d}   (test-only; never used in train/validation/threshold)")
+    print(f"    Split unit: original task_id (0..{len(TASKS)-1}), group split -- repeated/paraphrase runs of "
+          f"the same underlying task always land in the same split, never spanning train/val/test.")
+
+
+    def recall_at_fpr(y, sc, target_fpr=0.05):
+        """Security-operations-relevant operating point: the best recall achievable
+        while keeping FPR at or below target_fpr, read directly off the ROC curve
+        (independent of the percentile-based threshold used for TPR/FPR/F1 above --
+        this is a separate diagnostic curve point, not the deployed threshold)."""
+        if len(np.unique(y)) < 2:
+            return 0.0
+        fpr_r, tpr_r, _ = roc_curve(y, sc)
+        feasible = tpr_r[fpr_r <= target_fpr]
+        return round(float(feasible.max()) if len(feasible) else 0.0, 4)
+
+
+    def metrics(y, sc, pd):
+        if len(np.unique(y)) < 2:
+            return dict(TPR=0, FPR=0, precision=0, F1=0, AUC=0.5, AUPRC=0.5, recall_at_5fpr=0)
+        tn, fp, fn, tp = confusion_matrix(y, pd, labels=[0, 1]).ravel()
+        return dict(
+            TPR=round(tp / (tp + fn + 1e-8), 4),          # == recall
+            FPR=round(fp / (fp + tn + 1e-8), 4),
+            precision=round(tp / (tp + fp + 1e-8), 4),
+            F1 =round(f1_score(y, pd, zero_division=0), 4),
+            AUC=round(roc_auc_score(y, sc), 4),
+            AUPRC=round(average_precision_score(y, sc), 4),
+            recall_at_5fpr=recall_at_fpr(y, sc, target_fpr=0.05),
+        )
+
+
+    def group_split_3way(group_ids, seed, n_train, n_val, n_test):
+        """
+        Splits session indices into train/val/test by whole task_id GROUP, never
+        by individual session -- so if a task was run multiple times (repeat or
+        paraphrase), all of its sessions land in the same split. Greedy: shuffle
+        group order by `seed`, then drop each group into whichever bucket is
+        currently furthest below its target count. Group granularity means the
+        realized counts can differ slightly from (n_train, n_val, n_test); callers
+        should log the actual sizes rather than assume the targets were hit exactly.
+        Returns sorted index arrays (idx_train, idx_val, idx_test).
+        """
+        group_ids = np.asarray(group_ids)
+        members = {}
+        for i, g in enumerate(group_ids):
+            members.setdefault(int(g), []).append(i)
+        order = list(members.keys())
+        np.random.RandomState(seed).shuffle(order)
+
+        targets = {"train": n_train, "val": n_val, "test": n_test}
+        counts  = {"train": 0, "val": 0, "test": 0}
+        bucket  = {"train": [], "val": [], "test": []}
+        for g in order:
+            idxs = members[g]
+            deficit = {k: targets[k] - counts[k] for k in targets}
+            dest = max(deficit, key=deficit.get)
+            bucket[dest].extend(idxs)
+            counts[dest] += len(idxs)
+
+        idx_tr  = np.array(sorted(bucket["train"]))
+        idx_val = np.array(sorted(bucket["val"]))
+        idx_te  = np.array(sorted(bucket["test"]))
+        return idx_tr, idx_val, idx_te
+
+
+    seed_records = {"LightGAE": [], "MLPAE": [], "Z-score": []}
+    seed_details = []   # per-seed threshold / val-score distribution / test predictions
+    last = {}
+
+    for seed in SEEDS:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+
+        # Group split on task_id (never on raw session index) -- see group_split_3way
+        # docstring. This guarantees repeated/paraphrase runs of the same original
+        # task never span a split boundary. X_attack is never part of task_id_normal,
+        # so it structurally cannot land in idx_tr/idx_val/idx_ten below.
+        idx_tr, idx_val, idx_ten = group_split_3way(task_id_normal, seed, N_TR, N_VAL, N_TE_NORMAL)
+        assert len(idx_tr) + len(idx_val) + len(idx_ten) == N_NORMAL, \
+            "group split must partition every normal session into exactly one bucket"
+
+        tids_tr, tids_val, tids_ten = (set(task_id_normal[idx_tr].tolist()),
+                                        set(task_id_normal[idx_val].tolist()),
+                                        set(task_id_normal[idx_ten].tolist()))
+        assert not (tids_tr & tids_val),  "train/validation share a task_id -- group split leaked"
+        assert not (tids_tr & tids_ten),  "train/test share a task_id -- group split leaked"
+        assert not (tids_val & tids_ten), "validation/test share a task_id -- group split leaked"
+
+        X_tr_raw  = X_normal[idx_tr]
+        X_val_raw = X_normal[idx_val]
+        X_ten_raw = X_normal[idx_ten]
+
+        scaler = StandardScaler().fit(X_tr_raw.reshape(len(X_tr_raw), -1))
+        assert scaler.n_samples_seen_ == len(idx_tr), \
+            f"scaler must be fit on exactly the {len(idx_tr)} training-normal sessions, saw {scaler.n_samples_seen_}"
+        X_tr_all  = scaler.transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+        X_val_all = scaler.transform(X_val_raw.reshape(len(X_val_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+        X_ten_all = scaler.transform(X_ten_raw.reshape(len(X_ten_raw), -1)).reshape(-1, N_AGENTS, N_FEATS).astype(np.float32)
+        Xa_s_all  = scaler.transform(X_attack.reshape(N_ATTACK, -1)).reshape(N_ATTACK, N_AGENTS, N_FEATS).astype(np.float32)
+
+        # Headline model input: Core-2 only (see CORE_COLS above)
+        X_tr  = X_tr_all[:, :, CORE_COLS]
+        X_val = X_val_all[:, :, CORE_COLS]
+        X_ten = X_ten_all[:, :, CORE_COLS]
+        Xa_s  = Xa_s_all[:, :, CORE_COLS]
+        X_te  = np.concatenate([X_ten, Xa_s])
+        assert X_tr.shape[0] == len(idx_tr), "X_tr (model.fit input) must contain exactly the training-normal sessions"
+        # ground_truth_label = int(injection_enabled): X_ten is drawn purely from the
+        # no-injection pool and Xa_s purely from the injection-enabled pool (§4), so the
+        # label below is fixed by pool membership -- never by inspecting response content
+        # (that's what indicator_observed above is for, and it plays no role here).
+        y_te  = np.array([0]*len(X_ten) + [1]*N_ATTACK)
+
+        # ── LightGAE ──────────────────────────────────────────────
+        # model.fit(X_normal_train): X_tr is normal-train-only (asserted above); attack
+        # data/labels never appear on the left of train_lgae/train_mlpae below, and
+        # theta_* thresholds are percentile(normal_val_scores, THRESHOLD_PERCENTILE)
+        # (val_sc_*/zval), never train or test scores. Attack data only enters via X_te.
+        # prediction = int(session_score > threshold), applied elementwise below.
+        gae = LightGAE(in_dim=N_CORE, hid=16, emb=8)
+        train_lgae(gae, X_tr, ADJ, epochs=160, lr=1e-3, bs=16)
+        sc_gae, node_sc = gae.score(torch.FloatTensor(X_te), ADJ)
+        val_sc_gae, _   = gae.score(torch.FloatTensor(X_val), ADJ)
+        assert len(val_sc_gae) == len(X_val), "threshold must be estimated from validation-normal scores only"
+        theta_gae       = float(np.percentile(val_sc_gae, THRESHOLD_PERCENTILE))
+        pred_gae        = (sc_gae > theta_gae).astype(int)
+        r_gae = metrics(y_te, sc_gae, pred_gae)
+
+        # ── MLPAE (ablation) ──────────────────────────────────────
+        mlp_m = MLPAE(in_dim=N_AGENTS*N_CORE, n_feats=N_CORE, hid=16, emb=8)
+        train_mlpae(mlp_m, X_tr, epochs=160, lr=1e-3, bs=16)
+        sc_mlp, _     = mlp_m.score(torch.FloatTensor(X_te))
+        val_sc_mlp, _ = mlp_m.score(torch.FloatTensor(X_val))
+        assert len(val_sc_mlp) == len(X_val), "threshold must be estimated from validation-normal scores only"
+        theta_mlp     = float(np.percentile(val_sc_mlp, THRESHOLD_PERCENTILE))
+        pred_mlp      = (sc_mlp > theta_mlp).astype(int)
+        r_mlp = metrics(y_te, sc_mlp, pred_mlp)
+
+        # ── Z-score baseline ──────────────────────────────────────
+        flat_tr  = X_tr.reshape(len(X_tr), -1)
+        flat_val = X_val.reshape(len(X_val), -1)
+        flat_te  = X_te.reshape(len(X_te), -1)
+        zsc      = StandardScaler().fit(flat_tr)
+        assert zsc.n_samples_seen_ == len(idx_tr), "Z-score scaler must be fit on training-normal sessions only"
+        zte      = np.linalg.norm(zsc.transform(flat_te), axis=1)
+        zval     = np.linalg.norm(zsc.transform(flat_val), axis=1)
+        assert len(zval) == len(X_val), "threshold must be estimated from validation-normal scores only"
+        z_th     = float(np.percentile(zval, THRESHOLD_PERCENTILE))
+        pred_z   = (zte > z_th).astype(int)
+        r_z      = metrics(y_te, zte, pred_z)
+
+        seed_records["LightGAE"].append(r_gae)
+        seed_records["MLPAE"].append(r_mlp)
+        seed_records["Z-score"].append(r_z)
+
+        # threshold/validation-distribution/test-prediction detail for results_summary.json
+        # -- kept per seed so the JSON is a complete, re-auditable record of what each
+        # seed's model actually saw and decided, not just the aggregated AUC/F1.
+        def _score_summary(values):
+            values = np.asarray(values, dtype=float)
+            return {
+                "n": int(len(values)),
+                "mean": float(values.mean()),
+                "std": float(values.std()),
+                "min": float(values.min()),
+                "max": float(values.max()),
+                f"p{THRESHOLD_PERCENTILE}": float(np.percentile(values, THRESHOLD_PERCENTILE)),
+                "values": values.tolist(),
+            }
+
+        seed_details.append({
+            "seed": seed,
+            "split_sizes": {
+                "normal_train": len(idx_tr), "normal_val": len(idx_val),
+                "normal_test": len(idx_ten), "attack_test": N_ATTACK,
+            },
+            "methods": {
+                "LightGAE": {
+                    "threshold": theta_gae,
+                    "val_score_distribution": _score_summary(val_sc_gae),
+                    "test_scores": sc_gae.tolist(),
+                    "test_predictions": pred_gae.tolist(),
+                    "test_ground_truth": y_te.tolist(),
+                    # per-agent reconstruction error, row-aligned with test_scores/
+                    "test_node_scores": node_sc.tolist(),
+                    # test_ground_truth (normal_test rows first, then attack_test, in
+                    # AGENT_NAMES column order) -- feeds node-level localization
+                    # metrics (entry-node top-1/MRR/Hit@1) without retraining.
+                },
+                "MLPAE": {
+                    "threshold": theta_mlp,
+                    "val_score_distribution": _score_summary(val_sc_mlp),
+                    "test_scores": sc_mlp.tolist(),
+                    "test_predictions": pred_mlp.tolist(),
+                    "test_ground_truth": y_te.tolist(),
+                },
+                "Z-score": {
+                    "threshold": z_th,
+                    "val_score_distribution": _score_summary(zval),
+                    "test_scores": zte.tolist(),
+                    "test_predictions": pred_z.tolist(),
+                    "test_ground_truth": y_te.tolist(),
+                },
+            },
+        })
+
+        dg = r_gae['AUC'] - r_z['AUC']
+        print(f"  seed={seed:3d}  split(train/val/test_normal)={len(idx_tr)}/{len(idx_val)}/{len(idx_ten)}  "
+              f"GAE={r_gae['AUC']:.4f}  MLP={r_mlp['AUC']:.4f}  Z={r_z['AUC']:.4f}  ΔAUC(GAE-Z)={dg:+.4f}")
+
+        if seed == SEEDS[-1]:
+            last = dict(sc_gae=sc_gae, sc_mlp=sc_mlp, node_sc=node_sc, zte=zte,
+                        X_ten=X_ten, y_te=y_te, r_gae=r_gae, r_z=r_z, r_mlp=r_mlp,
+                        theta_gae=theta_gae)
+
+    print(f"\n  {'Method':<22} {'AUC mean':>10} {'AUC std':>9} {'F1 mean':>9} {'F1 std':>9}")
+    print("  " + "-" * 64)
+    for name, records in seed_records.items():
+        aucs  = [r['AUC'] for r in records]
+        f1s   = [r['F1']  for r in records]
+        win   = " <<< best" if np.mean(aucs) == max(
+            np.mean([r['AUC'] for r in v]) for v in seed_records.values()) else ""
+        print(f"  {name:<22} {np.mean(aucs):>10.4f} {np.std(aucs):>9.4f} "
+              f"{np.mean(f1s):>9.4f} {np.std(f1s):>9.4f}{win}")
+
+    from scipy import stats as _stats
+    gae_f1 = [r['F1'] for r in seed_records['LightGAE']]
+    mlp_f1 = [r['F1'] for r in seed_records['MLPAE']]
+    z_f1   = [r['F1'] for r in seed_records['Z-score']]
+    t_gm, p_gm = _stats.ttest_rel(gae_f1, mlp_f1)
+    t_gz, p_gz = _stats.ttest_rel(gae_f1, z_f1)
+    print(f"\n  [paired t-test, F1, N=5 seeds]")
+    print(f"  LightGAE vs MLPAE  : t={t_gm:+.3f}  p={p_gm:.4f}")
+    print(f"  LightGAE vs Z-score: t={t_gz:+.3f}  p={p_gz:.4f}")
+    print("  " + "-" * 54)
+
+    gae_aucs = [r['AUC'] for r in seed_records['LightGAE']]
+    real_auc = np.mean(gae_aucs)
+
+    # 노드 수준 점수 (localization -- results_summary.json에도 포함되므로 그 전에 계산)
+    atk_node = last['node_sc'][len(last['X_ten']):]
+    print(f"\n  에이전트별 이상 점수 (attack sessions, seed={SEEDS[-1]}):")
+    print(f"  {'Agent':<16} {'Mean Score':>12} {'Max Score':>12}")
+    for i, name in enumerate(AGENT_NAMES):
+        print(f"  {name:<16} {atk_node[:, i].mean():>12.4f} {atk_node[:, i].max():>12.4f}")
+
+
+    def get_git_commit():
+        try:
+            return subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=os.path.dirname(os.path.abspath(__file__)),
+                text=True, stderr=subprocess.DEVNULL).strip()
+        except Exception:
+            return None
+
+
+    def get_ollama_version():
+        try:
+            r = requests.get("http://localhost:11434/api/version", timeout=5)
+            return r.json().get("version")
+        except Exception:
+            return None
+
+
+    def collect_environment_info():
+        """Everything needed to reproduce this exact run's numeric environment,
+        independent of the dataset/model-config info already captured elsewhere
+        in results_summary.json."""
+        return {
+            "python": sys.version.split()[0],
+            "pytorch": torch.__version__,
+            "numpy": np.__version__,
+            "scipy": scipy.__version__,
+            "scikit_learn": sklearn.__version__,
+            "os": platform.platform(),
+            "cpu_architecture": platform.machine(),
+            "ollama_version": get_ollama_version(),
+            "model_identifier": MODEL,
+            "generation_seed_policy": "per-session deterministic: normal_i -> seed=i, "
+                                       "attack_i -> seed=100000+i (see session_metadata_*.json "
+                                       "for the exact seed used per session)",
+            "model_init_seed": MODEL_INIT_SEED,
+            "multiseed_eval_seeds": SEEDS,
+            "split_seed_policy": "group_split_3way() reuses each multiseed_eval_seeds value "
+                                  "as its own split seed -- one split per (seed) iteration, not "
+                                  "a single global split seed",
+            "git_commit": get_git_commit(),
+            "prompt_template_version": PROMPT_TEMPLATE_VERSION,
+            "topology_version": TOPOLOGY_ID,
+            "task_dataset_version": DATASET_VERSION,
+        }
+
+
+    def compute_per_attack_type_metrics(seed_details_, meta_attack_, method_name="LightGAE"):
+        """
+        Re-derives AUC/F1 per attack_type from the already-stored per-seed test
+        scores/predictions/ground-truth (§per_seed) -- no retraining. For each
+        attack_type, combines ALL normal-test sessions (label 0, shared across
+        every attack_type's evaluation since it's the same negative class) with
+        just that attack_type's attack sessions (label 1), for each seed, then
+        reports the mean/std across seeds. Only meaningful while every attack
+        session shares one broad campaign (the current ATTACK_TYPES slugs, §4) --
+        see README §공격 시나리오 for the richer 4-type taxonomy planned once
+        configs/attacks/ is wired into collection.
+        """
+        attack_types_ = sorted({m["attack_type"] for m in meta_attack_})
+        out = {}
+        for atype in attack_types_:
+            idxs = [i for i, m in enumerate(meta_attack_) if m["attack_type"] == atype]
+            aucs, f1s, auprcs, r5fprs = [], [], [], []
+            for sd in seed_details_:
+                md = sd["methods"][method_name]
+                n_test_normal = sd["split_sizes"]["normal_test"]
+                scores = md["test_scores"]
+                preds  = md["test_predictions"]
+                gts    = md["test_ground_truth"]
+                sub_scores = scores[:n_test_normal] + [scores[n_test_normal + i] for i in idxs]
+                sub_preds  = preds[:n_test_normal]  + [preds[n_test_normal + i] for i in idxs]
+                sub_gts    = gts[:n_test_normal]    + [gts[n_test_normal + i] for i in idxs]
+                if len(set(sub_gts)) < 2:
+                    continue
+                aucs.append(roc_auc_score(sub_gts, sub_scores))
+                f1s.append(f1_score(sub_gts, sub_preds, zero_division=0))
+                auprcs.append(average_precision_score(sub_gts, sub_scores))
+                r5fprs.append(recall_at_fpr(np.array(sub_gts), np.array(sub_scores), target_fpr=0.05))
+            out[atype] = {
+                "n_attack_sessions": len(idxs),
+                "auc_mean": float(np.mean(aucs)) if aucs else None,
+                "auc_std":  float(np.std(aucs)) if aucs else None,
+                "f1_mean":  float(np.mean(f1s)) if f1s else None,
+                "f1_std":   float(np.std(f1s)) if f1s else None,
+                "auprc_mean": float(np.mean(auprcs)) if auprcs else None,
+                "auprc_std":  float(np.std(auprcs)) if auprcs else None,
+                "recall_at_5pct_fpr_mean": float(np.mean(r5fprs)) if r5fprs else None,
+                "recall_at_5pct_fpr_std":  float(np.std(r5fprs)) if r5fprs else None,
+            }
+        return out
+
+
+    run_completed = (len(X_normal) == N_NORMAL and len(X_attack) == N_ATTACK and not failed_sessions)
+    EXPERIMENT_ID = f"exp_{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+    RERUN_COMMAND = f"python {os.path.relpath(os.path.abspath(__file__))}"
+
+    lightgae_aucs_    = [r['AUC'] for r in seed_records['LightGAE']]
+    lightgae_f1s_     = [r['F1'] for r in seed_records['LightGAE']]
+    lightgae_tprs_    = [r['TPR'] for r in seed_records['LightGAE']]      # == recall
+    lightgae_fprs_    = [r['FPR'] for r in seed_records['LightGAE']]
+    lightgae_precs_   = [r['precision'] for r in seed_records['LightGAE']]
+    lightgae_auprcs_  = [r['AUPRC'] for r in seed_records['LightGAE']]
+    lightgae_r5fprs_  = [r['recall_at_5fpr'] for r in seed_records['LightGAE']]
+
+    # 헤드라인 결과 저장 (real-LLM 단독 결과만; 시뮬레이션 수치와는 절대 이 파일에서 합치지 않는다.
+    # 시뮬레이션과의 교차 환경 비교가 필요하면 experiments/synthetic_legacy/cross_env_comparison.py
+    # 가 이 JSON을 읽어 별도 output/synthetic_legacy/에 산출한다.)
+    results_summary = {
+        # ── canonical reproducibility schema ────────────────────────────────
+        "experiment": {
+            "experiment_id": EXPERIMENT_ID,
+            "dataset_version": DATASET_VERSION,
+            "config_path": TOPOLOGY_CONFIG_PATH,
+            "git_commit": get_git_commit(),
         },
+        "dataset": {
+            "normal_train": N_TR,
+            "normal_validation": N_VAL,
+            "normal_test": N_TE_NORMAL,
+            "attack_test": N_ATTACK,
+        },
+        "threshold": {
+            "policy": "normal_validation_percentile",
+            "percentile": THRESHOLD_PERCENTILE,
+            "value": last["theta_gae"],   # representative value: LightGAE threshold, last seed
+            "note": "threshold varies per seed -- see per_seed[].methods.*.threshold for every "
+                    "seed's value; this is SEEDS[-1]'s LightGAE threshold as a single headline number",
+        },
+        "metrics": {
+            # LightGAE (proposed method), mean across SEEDS -- see methods.* below for
+            # MLPAE/Z-score and per_seed[] for every individual seed's full breakdown.
+            "auc": float(np.mean(lightgae_aucs_)),
+            "f1": float(np.mean(lightgae_f1s_)),
+            "precision": float(np.mean(lightgae_precs_)),
+            "recall": float(np.mean(lightgae_tprs_)),
+            "fpr": float(np.mean(lightgae_fprs_)),
+            "auprc": float(np.mean(lightgae_auprcs_)),
+            "recall_at_5pct_fpr": float(np.mean(lightgae_r5fprs_)),
+        },
+        "per_attack_type": compute_per_attack_type_metrics(seed_details, meta_attack, "LightGAE"),
+        "localization": {
+            "representative_seed": SEEDS[-1],
+            "note": "mean/max LightGAE reconstruction error per agent, attack sessions only, "
+                    "from the representative_seed's model (not averaged across seeds)",
+            "per_agent_mean_score": {AGENT_NAMES[i]: float(atk_node[:, i].mean()) for i in range(N_AGENTS)},
+            "per_agent_max_score":  {AGENT_NAMES[i]: float(atk_node[:, i].max())  for i in range(N_AGENTS)},
+        },
+        "environment": collect_environment_info(),
+        "run_status": {
+            "status": "completed" if run_completed else "partial",
+            "n_normal_collected": len(X_normal),
+            "n_normal_expected": N_NORMAL,
+            "n_attack_collected": len(X_attack),
+            "n_attack_expected": N_ATTACK,
+            "n_failed_sessions": len(failed_sessions),
+            "failed_sessions_file": (os.path.join(OUT, "failed_sessions.json") if failed_sessions else None),
+        },
+        "data_provenance_summary": {
+            "normal_source": "cache" if normal_from_cache else "collected_this_run",
+            "attack_source": "attack_from_cache" if attack_from_cache else "collected_this_run",
+            "normal_from_cache": N_NORMAL if normal_from_cache else 0,
+            "normal_collected_this_run": 0 if normal_from_cache else N_NORMAL,
+            "attack_from_cache": N_ATTACK if attack_from_cache else 0,
+            "attack_collected_this_run": 0 if attack_from_cache else N_ATTACK,
+        },
+        "rerun_command": RERUN_COMMAND,
+
+        # ── existing fields, kept for backward compatibility (e.g.
+        # cross_env_comparison.py reads methods/seeds directly) ─────────────
+        "env": "real_llm",
+        "model": MODEL,
+        "n_normal": N_NORMAL,
+        "n_attack": N_ATTACK,
+        "seeds": SEEDS,
+        "split": {
+            "normal_train": N_TR,
+            "normal_val": N_VAL,
+            "normal_test": N_TE_NORMAL,
+            "attack_test": N_ATTACK,
+            "split_unit": "original task_id (group split) -- see group_split_3way()",
+        },
+        "dataset_provenance": {
+            "topology_id": TOPOLOGY_ID,
+            "dataset_summary_csv": DATASET_SUMMARY_CSV,
+            "session_metadata_files": [META_NORMAL, META_ATTACK],
+            "n_task_categories": len(set(TASK_CATEGORIES)),
+            "n_attack_types": len(ATTACK_TYPES),
+        },
+        "threshold_policy":
+            "threshold = percentile(normal_validation_reconstruction_scores, "
+            "THRESHOLD_PERCENTILE); prediction = int(session_score > threshold). "
+            "Never computed from training or test/attack scores.",
+        "threshold_percentile": THRESHOLD_PERCENTILE,
+        "per_seed": seed_details,
+        "ground_truth_label_definition":
+            "int(injection_enabled) -- fixed by which pool (normal vs. attack) a "
+            "session was collected into; never derived from response content or "
+            "keyword matching. See indicator_observed_* for the (unused-as-label) "
+            "keyword-based diagnostic.",
+        "indicator_observed_rate": (float(np.mean(indicator_attack)) if indicator_attack is not None else None),
+        "indicator_observed_false_positive_rate": (float(np.mean(indicator_normal)) if indicator_normal is not None else None),
         "methods": {
-            "LightGAE": {
-                "threshold": theta_gae,
-                "val_score_distribution": _score_summary(val_sc_gae),
-                "test_scores": sc_gae.tolist(),
-                "test_predictions": pred_gae.tolist(),
-                "test_ground_truth": y_te.tolist(),
-                # per-agent reconstruction error, row-aligned with test_scores/
-                "test_node_scores": node_sc.tolist(),
-                # test_ground_truth (normal_test rows first, then attack_test, in
-                # AGENT_NAMES column order) -- feeds node-level localization
-                # metrics (entry-node top-1/MRR/Hit@1) without retraining.
-            },
-            "MLPAE": {
-                "threshold": theta_mlp,
-                "val_score_distribution": _score_summary(val_sc_mlp),
-                "test_scores": sc_mlp.tolist(),
-                "test_predictions": pred_mlp.tolist(),
-                "test_ground_truth": y_te.tolist(),
-            },
-            "Z-score": {
-                "threshold": z_th,
-                "val_score_distribution": _score_summary(zval),
-                "test_scores": zte.tolist(),
-                "test_predictions": pred_z.tolist(),
-                "test_ground_truth": y_te.tolist(),
-            },
+            name: {
+                "auc_mean": float(np.mean([r['AUC'] for r in records])),
+                "auc_std":  float(np.std([r['AUC'] for r in records])),
+                "f1_mean":  float(np.mean([r['F1'] for r in records])),
+                "f1_std":   float(np.std([r['F1'] for r in records])),
+            }
+            for name, records in seed_records.items()
         },
-    })
-
-    dg = r_gae['AUC'] - r_z['AUC']
-    print(f"  seed={seed:3d}  split(train/val/test_normal)={len(idx_tr)}/{len(idx_val)}/{len(idx_ten)}  "
-          f"GAE={r_gae['AUC']:.4f}  MLP={r_mlp['AUC']:.4f}  Z={r_z['AUC']:.4f}  ΔAUC(GAE-Z)={dg:+.4f}")
-
-    if seed == SEEDS[-1]:
-        last = dict(sc_gae=sc_gae, sc_mlp=sc_mlp, node_sc=node_sc, zte=zte,
-                    X_ten=X_ten, y_te=y_te, r_gae=r_gae, r_z=r_z, r_mlp=r_mlp,
-                    theta_gae=theta_gae)
-
-print(f"\n  {'Method':<22} {'AUC mean':>10} {'AUC std':>9} {'F1 mean':>9} {'F1 std':>9}")
-print("  " + "-" * 64)
-for name, records in seed_records.items():
-    aucs  = [r['AUC'] for r in records]
-    f1s   = [r['F1']  for r in records]
-    win   = " <<< best" if np.mean(aucs) == max(
-        np.mean([r['AUC'] for r in v]) for v in seed_records.values()) else ""
-    print(f"  {name:<22} {np.mean(aucs):>10.4f} {np.std(aucs):>9.4f} "
-          f"{np.mean(f1s):>9.4f} {np.std(f1s):>9.4f}{win}")
-
-from scipy import stats as _stats
-gae_f1 = [r['F1'] for r in seed_records['LightGAE']]
-mlp_f1 = [r['F1'] for r in seed_records['MLPAE']]
-z_f1   = [r['F1'] for r in seed_records['Z-score']]
-t_gm, p_gm = _stats.ttest_rel(gae_f1, mlp_f1)
-t_gz, p_gz = _stats.ttest_rel(gae_f1, z_f1)
-print(f"\n  [paired t-test, F1, N=5 seeds]")
-print(f"  LightGAE vs MLPAE  : t={t_gm:+.3f}  p={p_gm:.4f}")
-print(f"  LightGAE vs Z-score: t={t_gz:+.3f}  p={p_gz:.4f}")
-print("  " + "-" * 54)
-
-gae_aucs = [r['AUC'] for r in seed_records['LightGAE']]
-real_auc = np.mean(gae_aucs)
-
-# 노드 수준 점수 (localization -- results_summary.json에도 포함되므로 그 전에 계산)
-atk_node = last['node_sc'][len(last['X_ten']):]
-print(f"\n  에이전트별 이상 점수 (attack sessions, seed={SEEDS[-1]}):")
-print(f"  {'Agent':<16} {'Mean Score':>12} {'Max Score':>12}")
-for i, name in enumerate(AGENT_NAMES):
-    print(f"  {name:<16} {atk_node[:, i].mean():>12.4f} {atk_node[:, i].max():>12.4f}")
-
-
-def get_git_commit():
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=os.path.dirname(os.path.abspath(__file__)),
-            text=True, stderr=subprocess.DEVNULL).strip()
-    except Exception:
-        return None
-
-
-def get_ollama_version():
-    try:
-        r = requests.get("http://localhost:11434/api/version", timeout=5)
-        return r.json().get("version")
-    except Exception:
-        return None
-
-
-def collect_environment_info():
-    """Everything needed to reproduce this exact run's numeric environment,
-    independent of the dataset/model-config info already captured elsewhere
-    in results_summary.json."""
-    return {
-        "python": sys.version.split()[0],
-        "pytorch": torch.__version__,
-        "numpy": np.__version__,
-        "scipy": scipy.__version__,
-        "scikit_learn": sklearn.__version__,
-        "os": platform.platform(),
-        "cpu_architecture": platform.machine(),
-        "ollama_version": get_ollama_version(),
-        "model_identifier": MODEL,
-        "generation_seed_policy": "per-session deterministic: normal_i -> seed=i, "
-                                   "attack_i -> seed=100000+i (see session_metadata_*.json "
-                                   "for the exact seed used per session)",
-        "model_init_seed": MODEL_INIT_SEED,
-        "multiseed_eval_seeds": SEEDS,
-        "split_seed_policy": "group_split_3way() reuses each multiseed_eval_seeds value "
-                              "as its own split seed -- one split per (seed) iteration, not "
-                              "a single global split seed",
-        "git_commit": get_git_commit(),
-        "prompt_template_version": PROMPT_TEMPLATE_VERSION,
-        "topology_version": TOPOLOGY_ID,
-        "task_dataset_version": DATASET_VERSION,
     }
+    with open(f"{OUT}/results_summary.json", "w") as f:
+        json.dump(results_summary, f, indent=2)
+    print(f"\n  [headline] results_summary.json 저장 -> {OUT}/results_summary.json")
+    print(f"  run_status: {results_summary['run_status']['status']}")
+    print(f"  재실행 명령: {RERUN_COMMAND}")
+
+    # ══════════════════════════════════════════════════════════════════════════════
+    # §6.  FIGURES
+    # ══════════════════════════════════════════════════════════════════════════════
+    print(f"\n[Figure] 생성 중...")
+
+    # ── Fig 1: Agent_1/Agent_2 피처 분포 ───────────────────────────────────────
+    fig1, axes1 = plt.subplots(2, N_FEATS, figsize=(18, 7))
+    fig1.suptitle(f"Figure 1. Feature Distributions — Normal vs. Attack\n"
+                  f"Real LLM: Ollama {MODEL}  (N={N_NORMAL} normal, {N_ATTACK} attack)",
+                  fontsize=12, fontweight="bold")
+
+    for row, agent_idx in enumerate([1, 2]):   # Agent_1, Agent_2
+        for col, feat in enumerate(FEAT_NAMES):
+            ax = axes1[row, col]
+            ax.hist(X_normal[:, agent_idx, col], bins=10, alpha=0.7, color=BLUE,
+                    label="Normal", density=True)
+            ax.hist(X_attack[:, agent_idx, col], bins=10, alpha=0.7, color=RED,
+                    label="Attack", density=True)
+            ax.set_title(f"{AGENT_NAMES[agent_idx]}\n{feat}", fontsize=8, fontweight="bold")
+            ax.set_xlabel("value")
+            ax.grid(alpha=0.3)
+            if col == 0:
+                ax.set_ylabel("Density", fontsize=8)
+
+    axes1[0, 0].legend(fontsize=8)
+    plt.tight_layout()
+    plt.savefig(f"{OUT}/lgnn_fig1_feature_dist.png", dpi=150, bbox_inches="tight")
+    plt.close()
+    print("  Fig 1 saved.")
+
+    # ── Fig 2: ROC Curve ─────────────────────────────────────────────────────
+    fig2, ax2 = plt.subplots(figsize=(7, 6))
+    y_te_ = last['y_te']
+    for sc, col, nm, lw in [
+            (last['zte'],    GRAY,   "Z-score (baseline)",      1.8),
+            (last['sc_mlp'], GREEN,  "MLPAE (no graph)",        1.8),
+            (last['sc_gae'], RED,    "LightGAE [proposed]",     2.5)]:
+        if len(np.unique(y_te_)) > 1:
+            fpr_r, tpr_r, _ = roc_curve(y_te_, sc)
+            auc_v = roc_auc_score(y_te_, sc)
+            ax2.plot(fpr_r, tpr_r, color=col, lw=lw, label=f"{nm}  (AUC={auc_v:.3f})")
+    ax2.plot([0, 1], [0, 1], ":", color="#CCC", lw=1)
+    ax2.set_xlabel("False Positive Rate", fontsize=12)
+    ax2.set_ylabel("True Positive Rate", fontsize=12)
+    ax2.set_title(f"Figure 2. ROC Curve — Real LLM Environment\n"
+                  f"4-agent cascade pipeline  (Ollama {MODEL})",
+                  fontsize=12, fontweight="bold")
+    ax2.legend(fontsize=10, loc="lower right")
+    ax2.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f"{OUT}/lgnn_fig2_roc.png", dpi=150, bbox_inches="tight")
+    plt.close()
+    print("  Fig 2 saved.")
+
+    # ── Fig 3: 노드 수준 이상 점수 ──────────────────────────────────────────
+    fig3, (ax3a, ax3b) = plt.subplots(1, 2, figsize=(12, 5))
+    fig3.suptitle("Figure 3. Node-Level Anomaly Score — Cascade Pattern Detection",
+                  fontsize=12, fontweight="bold")
+
+    node_sc_last = last['node_sc']
+    norm_node    = node_sc_last[:len(last['X_ten'])]
+
+    x3 = np.arange(N_AGENTS)
+    w3 = 0.35
+    ax3a.bar(x3 - w3/2, norm_node.mean(axis=0), w3, color=BLUE, alpha=0.85, label="Normal")
+    ax3a.bar(x3 + w3/2, atk_node.mean(axis=0),  w3, color=RED,  alpha=0.85, label="Attack")
+    ax3a.set_xticks(x3); ax3a.set_xticklabels(AGENT_NAMES, fontsize=9)
+    ax3a.set_ylabel("Mean Recon Error"); ax3a.legend(fontsize=9)
+    ax3a.grid(axis='y', alpha=0.3)
+    ax3a.set_title("(a) Mean Anomaly Score per Agent", fontweight="bold")
+
+    heat = np.vstack([norm_node.mean(axis=0), atk_node.mean(axis=0)])
+    im   = ax3b.imshow(heat, aspect="auto", cmap="RdYlBu_r")
+    ax3b.set_xticks(range(N_AGENTS)); ax3b.set_xticklabels(AGENT_NAMES, fontsize=9)
+    ax3b.set_yticks([0, 1]); ax3b.set_yticklabels(["Normal", "Attack"])
+    ax3b.set_title("(b) Heatmap", fontweight="bold")
+    plt.colorbar(im, ax=ax3b, label="Recon Error")
+    for i in range(2):
+        for j in range(N_AGENTS):
+            ax3b.text(j, i, f"{heat[i,j]:.3f}", ha='center', va='center',
+                      fontsize=9, color='white' if heat[i, j] > heat.max()*0.6 else 'black')
+    plt.tight_layout()
+    plt.savefig(f"{OUT}/lgnn_fig3_node_score.png", dpi=150, bbox_inches="tight")
+    plt.close()
+    print("  Fig 3 saved.")
+
+    # ── Fig 4: Ablation — 멀티시드 AUC 비교 ─────────────────────────────────
+    # (구 Fig 5. 시뮬레이션과 합치던 구 Fig 4 "교차 환경 비교"는 제거했다 — 시뮬레이션 AUC를
+    #  하드코딩해 real-LLM 헤드라인 결과와 같은 그래프에 섞었던 부분. 필요하면
+    #  experiments/synthetic_legacy/cross_env_comparison.py 에서 별도로 생성한다.)
+    fig4, ax4 = plt.subplots(figsize=(8, 5))
+    methods4   = ["Z-score\n(baseline)", "MLPAE\n(no graph)", "LightGAE\n(proposed)"]
+    auc_means4 = [np.mean([r['AUC'] for r in seed_records[k]])
+                  for k in ["Z-score", "MLPAE", "LightGAE"]]
+    auc_stds4  = [np.std([r['AUC'] for r in seed_records[k]])
+                  for k in ["Z-score", "MLPAE", "LightGAE"]]
+    best_idx   = int(np.argmax(auc_means4))
+    colors4    = [GRAY, GREEN, RED]
+    colors4[best_idx] = TEAL   # best 방법 강조
+    bars4 = ax4.bar(methods4, auc_means4, color=colors4, alpha=0.85, width=0.5)
+    ax4.errorbar(methods4, auc_means4, yerr=auc_stds4,
+                 fmt='none', color='black', capsize=6, lw=2)
+    ax4.set_ylim(0, 1.15); ax4.grid(axis='y', alpha=0.3)
+    ax4.set_ylabel("AUC (mean ± std across 5 seeds)", fontsize=11)
+    ax4.set_title(f"Figure 4. Ablation: Graph Structure vs. Flat Baseline\n"
+                  f"Real LLM Environment ({len(SEEDS)} seeds, N={N_ATTACK} attack)",
+                  fontsize=12, fontweight="bold")
+    for bar, v, s in zip(bars4, auc_means4, auc_stds4):
+        ax4.text(bar.get_x() + bar.get_width()/2, v + s + 0.02,
+                 f"{v:.4f}", ha='center', fontsize=10, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(f"{OUT}/lgnn_fig4_ablation.png", dpi=150, bbox_inches="tight")
+    plt.close()
+    print("  Fig 4 saved.")
+
+    # ══════════════════════════════════════════════════════════════════════════════
+    # §7.  최종 요약
+    # ══════════════════════════════════════════════════════════════════════════════
+    print("\n" + "=" * 64)
+    print("  최종 요약 - Real LLM + LightGAE (v2)")
+    print("=" * 64)
+    print(f"\n  정상 세션: {N_NORMAL} (train={N_TR}, val={N_VAL}, test={N_TE_NORMAL})  |  공격 세션(test-only): {N_ATTACK}")
+    print(f"\n  {'Method':<22} {'AUC mean':>10} {'AUC std':>9} {'F1 mean':>9}")
+    print("  " + "-" * 54)
+    for name, records in seed_records.items():
+        aucs_ = [r['AUC'] for r in records]
+        f1s_  = [r['F1']  for r in records]
+        best  = " <<< best" if np.mean(aucs_) == max(
+            np.mean([r['AUC'] for r in v]) for v in seed_records.values()) else ""
+        print(f"  {name:<22} {np.mean(aucs_):>10.4f} {np.std(aucs_):>9.4f} "
+              f"{np.mean(f1s_):>9.4f}{best}")
+    print("  " + "-" * 54)
+    print(f"\n  Figure 저장 위치:")
+    for i, fn in enumerate(["feature_dist", "roc", "node_score", "ablation"], 1):
+        print(f"    output/real_llm/lgnn_fig{i}_{fn}.png")
+    print(f"    output/real_llm/results_summary.json")
+    print("\n실험 완료.")
 
 
-def compute_per_attack_type_metrics(seed_details_, meta_attack_, method_name="LightGAE"):
-    """
-    Re-derives AUC/F1 per attack_type from the already-stored per-seed test
-    scores/predictions/ground-truth (§per_seed) -- no retraining. For each
-    attack_type, combines ALL normal-test sessions (label 0, shared across
-    every attack_type's evaluation since it's the same negative class) with
-    just that attack_type's attack sessions (label 1), for each seed, then
-    reports the mean/std across seeds. Only meaningful while every attack
-    session shares one broad campaign (the current ATTACK_TYPES slugs, §4) --
-    see README §공격 시나리오 for the richer 4-type taxonomy planned once
-    configs/attacks/ is wired into collection.
-    """
-    attack_types_ = sorted({m["attack_type"] for m in meta_attack_})
-    out = {}
-    for atype in attack_types_:
-        idxs = [i for i, m in enumerate(meta_attack_) if m["attack_type"] == atype]
-        aucs, f1s, auprcs, r5fprs = [], [], [], []
-        for sd in seed_details_:
-            md = sd["methods"][method_name]
-            n_test_normal = sd["split_sizes"]["normal_test"]
-            scores = md["test_scores"]
-            preds  = md["test_predictions"]
-            gts    = md["test_ground_truth"]
-            sub_scores = scores[:n_test_normal] + [scores[n_test_normal + i] for i in idxs]
-            sub_preds  = preds[:n_test_normal]  + [preds[n_test_normal + i] for i in idxs]
-            sub_gts    = gts[:n_test_normal]    + [gts[n_test_normal + i] for i in idxs]
-            if len(set(sub_gts)) < 2:
-                continue
-            aucs.append(roc_auc_score(sub_gts, sub_scores))
-            f1s.append(f1_score(sub_gts, sub_preds, zero_division=0))
-            auprcs.append(average_precision_score(sub_gts, sub_scores))
-            r5fprs.append(recall_at_fpr(np.array(sub_gts), np.array(sub_scores), target_fpr=0.05))
-        out[atype] = {
-            "n_attack_sessions": len(idxs),
-            "auc_mean": float(np.mean(aucs)) if aucs else None,
-            "auc_std":  float(np.std(aucs)) if aucs else None,
-            "f1_mean":  float(np.mean(f1s)) if f1s else None,
-            "f1_std":   float(np.std(f1s)) if f1s else None,
-            "auprc_mean": float(np.mean(auprcs)) if auprcs else None,
-            "auprc_std":  float(np.std(auprcs)) if auprcs else None,
-            "recall_at_5pct_fpr_mean": float(np.mean(r5fprs)) if r5fprs else None,
-            "recall_at_5pct_fpr_std":  float(np.std(r5fprs)) if r5fprs else None,
-        }
-    return out
-
-
-run_completed = (len(X_normal) == N_NORMAL and len(X_attack) == N_ATTACK and not failed_sessions)
-EXPERIMENT_ID = f"exp_{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-RERUN_COMMAND = f"python {os.path.relpath(os.path.abspath(__file__))}"
-
-lightgae_aucs_    = [r['AUC'] for r in seed_records['LightGAE']]
-lightgae_f1s_     = [r['F1'] for r in seed_records['LightGAE']]
-lightgae_tprs_    = [r['TPR'] for r in seed_records['LightGAE']]      # == recall
-lightgae_fprs_    = [r['FPR'] for r in seed_records['LightGAE']]
-lightgae_precs_   = [r['precision'] for r in seed_records['LightGAE']]
-lightgae_auprcs_  = [r['AUPRC'] for r in seed_records['LightGAE']]
-lightgae_r5fprs_  = [r['recall_at_5fpr'] for r in seed_records['LightGAE']]
-
-# 헤드라인 결과 저장 (real-LLM 단독 결과만; 시뮬레이션 수치와는 절대 이 파일에서 합치지 않는다.
-# 시뮬레이션과의 교차 환경 비교가 필요하면 experiments/synthetic_legacy/cross_env_comparison.py
-# 가 이 JSON을 읽어 별도 output/synthetic_legacy/에 산출한다.)
-results_summary = {
-    # ── canonical reproducibility schema ────────────────────────────────
-    "experiment": {
-        "experiment_id": EXPERIMENT_ID,
-        "dataset_version": DATASET_VERSION,
-        "config_path": TOPOLOGY_CONFIG_PATH,
-        "git_commit": get_git_commit(),
-    },
-    "dataset": {
-        "normal_train": N_TR,
-        "normal_validation": N_VAL,
-        "normal_test": N_TE_NORMAL,
-        "attack_test": N_ATTACK,
-    },
-    "threshold": {
-        "policy": "normal_validation_percentile",
-        "percentile": THRESHOLD_PERCENTILE,
-        "value": last["theta_gae"],   # representative value: LightGAE threshold, last seed
-        "note": "threshold varies per seed -- see per_seed[].methods.*.threshold for every "
-                "seed's value; this is SEEDS[-1]'s LightGAE threshold as a single headline number",
-    },
-    "metrics": {
-        # LightGAE (proposed method), mean across SEEDS -- see methods.* below for
-        # MLPAE/Z-score and per_seed[] for every individual seed's full breakdown.
-        "auc": float(np.mean(lightgae_aucs_)),
-        "f1": float(np.mean(lightgae_f1s_)),
-        "precision": float(np.mean(lightgae_precs_)),
-        "recall": float(np.mean(lightgae_tprs_)),
-        "fpr": float(np.mean(lightgae_fprs_)),
-        "auprc": float(np.mean(lightgae_auprcs_)),
-        "recall_at_5pct_fpr": float(np.mean(lightgae_r5fprs_)),
-    },
-    "per_attack_type": compute_per_attack_type_metrics(seed_details, meta_attack, "LightGAE"),
-    "localization": {
-        "representative_seed": SEEDS[-1],
-        "note": "mean/max LightGAE reconstruction error per agent, attack sessions only, "
-                "from the representative_seed's model (not averaged across seeds)",
-        "per_agent_mean_score": {AGENT_NAMES[i]: float(atk_node[:, i].mean()) for i in range(N_AGENTS)},
-        "per_agent_max_score":  {AGENT_NAMES[i]: float(atk_node[:, i].max())  for i in range(N_AGENTS)},
-    },
-    "environment": collect_environment_info(),
-    "run_status": {
-        "status": "completed" if run_completed else "partial",
-        "n_normal_collected": len(X_normal),
-        "n_normal_expected": N_NORMAL,
-        "n_attack_collected": len(X_attack),
-        "n_attack_expected": N_ATTACK,
-        "n_failed_sessions": len(failed_sessions),
-        "failed_sessions_file": (os.path.join(OUT, "failed_sessions.json") if failed_sessions else None),
-    },
-    "data_provenance_summary": {
-        "normal_source": "cache" if normal_from_cache else "collected_this_run",
-        "attack_source": "attack_from_cache" if attack_from_cache else "collected_this_run",
-        "normal_from_cache": N_NORMAL if normal_from_cache else 0,
-        "normal_collected_this_run": 0 if normal_from_cache else N_NORMAL,
-        "attack_from_cache": N_ATTACK if attack_from_cache else 0,
-        "attack_collected_this_run": 0 if attack_from_cache else N_ATTACK,
-    },
-    "rerun_command": RERUN_COMMAND,
-
-    # ── existing fields, kept for backward compatibility (e.g.
-    # cross_env_comparison.py reads methods/seeds directly) ─────────────
-    "env": "real_llm",
-    "model": MODEL,
-    "n_normal": N_NORMAL,
-    "n_attack": N_ATTACK,
-    "seeds": SEEDS,
-    "split": {
-        "normal_train": N_TR,
-        "normal_val": N_VAL,
-        "normal_test": N_TE_NORMAL,
-        "attack_test": N_ATTACK,
-        "split_unit": "original task_id (group split) -- see group_split_3way()",
-    },
-    "dataset_provenance": {
-        "topology_id": TOPOLOGY_ID,
-        "dataset_summary_csv": DATASET_SUMMARY_CSV,
-        "session_metadata_files": [META_NORMAL, META_ATTACK],
-        "n_task_categories": len(set(TASK_CATEGORIES)),
-        "n_attack_types": len(ATTACK_TYPES),
-    },
-    "threshold_policy":
-        "threshold = percentile(normal_validation_reconstruction_scores, "
-        "THRESHOLD_PERCENTILE); prediction = int(session_score > threshold). "
-        "Never computed from training or test/attack scores.",
-    "threshold_percentile": THRESHOLD_PERCENTILE,
-    "per_seed": seed_details,
-    "ground_truth_label_definition":
-        "int(injection_enabled) -- fixed by which pool (normal vs. attack) a "
-        "session was collected into; never derived from response content or "
-        "keyword matching. See indicator_observed_* for the (unused-as-label) "
-        "keyword-based diagnostic.",
-    "indicator_observed_rate": (float(np.mean(indicator_attack)) if indicator_attack is not None else None),
-    "indicator_observed_false_positive_rate": (float(np.mean(indicator_normal)) if indicator_normal is not None else None),
-    "methods": {
-        name: {
-            "auc_mean": float(np.mean([r['AUC'] for r in records])),
-            "auc_std":  float(np.std([r['AUC'] for r in records])),
-            "f1_mean":  float(np.mean([r['F1'] for r in records])),
-            "f1_std":   float(np.std([r['F1'] for r in records])),
-        }
-        for name, records in seed_records.items()
-    },
-}
-with open(f"{OUT}/results_summary.json", "w") as f:
-    json.dump(results_summary, f, indent=2)
-print(f"\n  [headline] results_summary.json 저장 -> {OUT}/results_summary.json")
-print(f"  run_status: {results_summary['run_status']['status']}")
-print(f"  재실행 명령: {RERUN_COMMAND}")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# §6.  FIGURES
-# ══════════════════════════════════════════════════════════════════════════════
-print(f"\n[Figure] 생성 중...")
-
-# ── Fig 1: Agent_1/Agent_2 피처 분포 ───────────────────────────────────────
-fig1, axes1 = plt.subplots(2, N_FEATS, figsize=(18, 7))
-fig1.suptitle(f"Figure 1. Feature Distributions — Normal vs. Attack\n"
-              f"Real LLM: Ollama {MODEL}  (N={N_NORMAL} normal, {N_ATTACK} attack)",
-              fontsize=12, fontweight="bold")
-
-for row, agent_idx in enumerate([1, 2]):   # Agent_1, Agent_2
-    for col, feat in enumerate(FEAT_NAMES):
-        ax = axes1[row, col]
-        ax.hist(X_normal[:, agent_idx, col], bins=10, alpha=0.7, color=BLUE,
-                label="Normal", density=True)
-        ax.hist(X_attack[:, agent_idx, col], bins=10, alpha=0.7, color=RED,
-                label="Attack", density=True)
-        ax.set_title(f"{AGENT_NAMES[agent_idx]}\n{feat}", fontsize=8, fontweight="bold")
-        ax.set_xlabel("value")
-        ax.grid(alpha=0.3)
-        if col == 0:
-            ax.set_ylabel("Density", fontsize=8)
-
-axes1[0, 0].legend(fontsize=8)
-plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig1_feature_dist.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("  Fig 1 saved.")
-
-# ── Fig 2: ROC Curve ─────────────────────────────────────────────────────
-fig2, ax2 = plt.subplots(figsize=(7, 6))
-y_te_ = last['y_te']
-for sc, col, nm, lw in [
-        (last['zte'],    GRAY,   "Z-score (baseline)",      1.8),
-        (last['sc_mlp'], GREEN,  "MLPAE (no graph)",        1.8),
-        (last['sc_gae'], RED,    "LightGAE [proposed]",     2.5)]:
-    if len(np.unique(y_te_)) > 1:
-        fpr_r, tpr_r, _ = roc_curve(y_te_, sc)
-        auc_v = roc_auc_score(y_te_, sc)
-        ax2.plot(fpr_r, tpr_r, color=col, lw=lw, label=f"{nm}  (AUC={auc_v:.3f})")
-ax2.plot([0, 1], [0, 1], ":", color="#CCC", lw=1)
-ax2.set_xlabel("False Positive Rate", fontsize=12)
-ax2.set_ylabel("True Positive Rate", fontsize=12)
-ax2.set_title(f"Figure 2. ROC Curve — Real LLM Environment\n"
-              f"4-agent cascade pipeline  (Ollama {MODEL})",
-              fontsize=12, fontweight="bold")
-ax2.legend(fontsize=10, loc="lower right")
-ax2.grid(alpha=0.3)
-plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig2_roc.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("  Fig 2 saved.")
-
-# ── Fig 3: 노드 수준 이상 점수 ──────────────────────────────────────────
-fig3, (ax3a, ax3b) = plt.subplots(1, 2, figsize=(12, 5))
-fig3.suptitle("Figure 3. Node-Level Anomaly Score — Cascade Pattern Detection",
-              fontsize=12, fontweight="bold")
-
-node_sc_last = last['node_sc']
-norm_node    = node_sc_last[:len(last['X_ten'])]
-
-x3 = np.arange(N_AGENTS)
-w3 = 0.35
-ax3a.bar(x3 - w3/2, norm_node.mean(axis=0), w3, color=BLUE, alpha=0.85, label="Normal")
-ax3a.bar(x3 + w3/2, atk_node.mean(axis=0),  w3, color=RED,  alpha=0.85, label="Attack")
-ax3a.set_xticks(x3); ax3a.set_xticklabels(AGENT_NAMES, fontsize=9)
-ax3a.set_ylabel("Mean Recon Error"); ax3a.legend(fontsize=9)
-ax3a.grid(axis='y', alpha=0.3)
-ax3a.set_title("(a) Mean Anomaly Score per Agent", fontweight="bold")
-
-heat = np.vstack([norm_node.mean(axis=0), atk_node.mean(axis=0)])
-im   = ax3b.imshow(heat, aspect="auto", cmap="RdYlBu_r")
-ax3b.set_xticks(range(N_AGENTS)); ax3b.set_xticklabels(AGENT_NAMES, fontsize=9)
-ax3b.set_yticks([0, 1]); ax3b.set_yticklabels(["Normal", "Attack"])
-ax3b.set_title("(b) Heatmap", fontweight="bold")
-plt.colorbar(im, ax=ax3b, label="Recon Error")
-for i in range(2):
-    for j in range(N_AGENTS):
-        ax3b.text(j, i, f"{heat[i,j]:.3f}", ha='center', va='center',
-                  fontsize=9, color='white' if heat[i, j] > heat.max()*0.6 else 'black')
-plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig3_node_score.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("  Fig 3 saved.")
-
-# ── Fig 4: Ablation — 멀티시드 AUC 비교 ─────────────────────────────────
-# (구 Fig 5. 시뮬레이션과 합치던 구 Fig 4 "교차 환경 비교"는 제거했다 — 시뮬레이션 AUC를
-#  하드코딩해 real-LLM 헤드라인 결과와 같은 그래프에 섞었던 부분. 필요하면
-#  experiments/synthetic_legacy/cross_env_comparison.py 에서 별도로 생성한다.)
-fig4, ax4 = plt.subplots(figsize=(8, 5))
-methods4   = ["Z-score\n(baseline)", "MLPAE\n(no graph)", "LightGAE\n(proposed)"]
-auc_means4 = [np.mean([r['AUC'] for r in seed_records[k]])
-              for k in ["Z-score", "MLPAE", "LightGAE"]]
-auc_stds4  = [np.std([r['AUC'] for r in seed_records[k]])
-              for k in ["Z-score", "MLPAE", "LightGAE"]]
-best_idx   = int(np.argmax(auc_means4))
-colors4    = [GRAY, GREEN, RED]
-colors4[best_idx] = TEAL   # best 방법 강조
-bars4 = ax4.bar(methods4, auc_means4, color=colors4, alpha=0.85, width=0.5)
-ax4.errorbar(methods4, auc_means4, yerr=auc_stds4,
-             fmt='none', color='black', capsize=6, lw=2)
-ax4.set_ylim(0, 1.15); ax4.grid(axis='y', alpha=0.3)
-ax4.set_ylabel("AUC (mean ± std across 5 seeds)", fontsize=11)
-ax4.set_title(f"Figure 4. Ablation: Graph Structure vs. Flat Baseline\n"
-              f"Real LLM Environment ({len(SEEDS)} seeds, N={N_ATTACK} attack)",
-              fontsize=12, fontweight="bold")
-for bar, v, s in zip(bars4, auc_means4, auc_stds4):
-    ax4.text(bar.get_x() + bar.get_width()/2, v + s + 0.02,
-             f"{v:.4f}", ha='center', fontsize=10, fontweight='bold')
-plt.tight_layout()
-plt.savefig(f"{OUT}/lgnn_fig4_ablation.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("  Fig 4 saved.")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# §7.  최종 요약
-# ══════════════════════════════════════════════════════════════════════════════
-print("\n" + "=" * 64)
-print("  최종 요약 - Real LLM + LightGAE (v2)")
-print("=" * 64)
-print(f"\n  정상 세션: {N_NORMAL} (train={N_TR}, val={N_VAL}, test={N_TE_NORMAL})  |  공격 세션(test-only): {N_ATTACK}")
-print(f"\n  {'Method':<22} {'AUC mean':>10} {'AUC std':>9} {'F1 mean':>9}")
-print("  " + "-" * 54)
-for name, records in seed_records.items():
-    aucs_ = [r['AUC'] for r in records]
-    f1s_  = [r['F1']  for r in records]
-    best  = " <<< best" if np.mean(aucs_) == max(
-        np.mean([r['AUC'] for r in v]) for v in seed_records.values()) else ""
-    print(f"  {name:<22} {np.mean(aucs_):>10.4f} {np.std(aucs_):>9.4f} "
-          f"{np.mean(f1s_):>9.4f}{best}")
-print("  " + "-" * 54)
-print(f"\n  Figure 저장 위치:")
-for i, fn in enumerate(["feature_dist", "roc", "node_score", "ablation"], 1):
-    print(f"    output/real_llm/lgnn_fig{i}_{fn}.png")
-print(f"    output/real_llm/results_summary.json")
-print("\n실험 완료.")
+if __name__ == "__main__":
+    main()

@@ -1,14 +1,22 @@
 """
-Attack/task redesign mini validation (Priority 5+7, per-turn instruction).
-5 mini-validation tasks (data/tasks/v2/mini_validation.json, one per category,
-2 marked difficulty="hard_normal") x 5 representative goal-based attacks
-(configs/attacks/v2/*.json) = 5 normal + 25 attack = 30 sessions.
+Attack/task redesign validation (Priority 5+7). Parameterized so the same
+runner serves multiple rounds against disjoint task sets, per the "don't
+overfit templates to the tasks used to tune them" instruction:
 
-This is NOT a performance benchmark -- no model training, no AUC/F1. It exists
-to validate the attack/task REDESIGN itself before spending a 20-task feature-
-screening run (or the 300-session formal collection) on a structure that might
-still have bugs. Checks, per the turn's instruction:
+  Round 1 (attack development):  data/tasks/v2/mini_validation.json      x configs/attacks/v2/*.json (overt-only, 1 template/goal)
+  Round 2 (attack validation):   data/tasks/v2/validation_round2.json    x configs/attacks/v2/*.json (overt+contextual, 2 templates/goal)
 
+Round 1's output is preserved as output/real_llm/attack_development_round1_records.json
+(dataset_role="attack_development_set_round1") -- NOT mixed into round 2's
+output or any future feature-screening/formal data.
+
+This is NOT a performance benchmark -- no model training, no AUC/F1, and
+templates must be tuned using ONLY goal_success/propagation criteria below,
+never by inspecting LightGAE/Z-score/feature/anomaly-score behavior (that
+would reintroduce exactly the "design the attack around the detector" bias
+already removed in P1 2순위).
+
+Checks:
   1. indirect injection channel -- user_request is byte-identical between
      normal/attack for a given task; injection lives only in external_content
   2. matched-pair integrity -- same check as #1, stated from the task side
@@ -20,7 +28,12 @@ still have bugs. Checks, per the turn's instruction:
   6. every attack's success condition is code-checkable -- demonstrated by
      evaluate_criterion() running cleanly against config data (not hardcoded
      per-attack Python logic)
+  7. [round 2] readiness-for-screening criteria: every goal has >=1 success,
+     both successes and failures exist per goal (not 0% or 100%), all 3
+     output-effect length categories present, partial AND full propagation
+     examples exist
 """
+import argparse
 import datetime as dt
 import glob
 import json
@@ -38,23 +51,29 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL      = "llama3.2"
 OUT        = "./output/real_llm"
 
-TASK_PATH    = os.path.join(os.path.dirname(__file__), "..", "..", "data", "tasks", "v2", "mini_validation.json")
-ATTACK_GLOB  = os.path.join(os.path.dirname(__file__), "..", "..", "configs", "attacks", "v2", "*.json")
+DEFAULT_TASK_PATH   = os.path.join(os.path.dirname(__file__), "..", "..", "data", "tasks", "v2", "mini_validation.json")
+DEFAULT_ATTACK_GLOB = os.path.join(os.path.dirname(__file__), "..", "..", "configs", "attacks", "v2", "*.json")
 
 AGENT_NAMES = ["Agent_0", "Agent_1", "Agent_2", "Agent_3"]
 N_AGENTS = len(AGENT_NAMES)
 
 
-def load_tasks():
-    with open(TASK_PATH, encoding="utf-8") as f:
+def load_tasks(task_path):
+    with open(task_path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def load_attacks():
+def load_attacks(attack_glob, variant=None):
+    """variant: None loads every template in every matched file; "overt" or
+    "contextual" filters to attack_id endswith("_" + variant) -- round-1
+    templates predate this naming and have no variant suffix, so they're only
+    ever loaded with variant=None."""
     attacks = []
-    for path in sorted(glob.glob(ATTACK_GLOB)):
+    for path in sorted(glob.glob(attack_glob)):
         with open(path, encoding="utf-8") as f:
             attacks.extend(json.load(f))
+    if variant is not None:
+        attacks = [a for a in attacks if a["attack_id"].endswith("_" + variant)]
     return attacks
 
 
@@ -78,6 +97,19 @@ def evaluate_criterion(criterion, session_texts_by_agent):
     if criterion["match_mode"] == "all":
         return all(matches)
     raise ValueError(f"unknown match_mode: {criterion['match_mode']}")
+
+
+def evaluate_hop_criteria(hop_criteria, session_texts_by_agent):
+    """[Round 2] downstream_propagation-specific: hop_criteria is
+    {agent_id: substring_match_criterion} in config, one independent check
+    per agent, so propagation can be reported as an actual per-hop boolean
+    sequence (Agent_0 observed / Agent_1 propagated / Agent_2 propagated /
+    Agent_3 propagated) rather than a single collapsed True/False. Returns
+    {} if hop_criteria is None (attacks that don't define per-hop checks)."""
+    if hop_criteria is None:
+        return {}
+    return {agent_id: evaluate_criterion(crit, session_texts_by_agent)
+            for agent_id, crit in hop_criteria.items()}
 
 
 def ask_ollama(prompt, seed=None):
@@ -153,10 +185,19 @@ def detect_hardware_backend(model=MODEL):
 
 
 def main():
-    tasks = load_tasks()
-    attacks = load_attacks()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tasks", default=DEFAULT_TASK_PATH)
+    ap.add_argument("--attacks", default=DEFAULT_ATTACK_GLOB)
+    ap.add_argument("--variant", default=None, choices=[None, "overt", "contextual"],
+                     help="filter to attack_ids ending _overt or _contextual; omit to load all")
+    ap.add_argument("--label", default="mini_validation",
+                     help="output filename stem and dataset_role suffix, e.g. 'attack_development_round1' or 'attack_validation_round2'")
+    args = ap.parse_args()
+
+    tasks = load_tasks(args.tasks)
+    attacks = load_attacks(args.attacks, variant=args.variant)
     print("=" * 64)
-    print(f"  Mini Validation -- {len(tasks)} tasks x {len(attacks)} attacks")
+    print(f"  {args.label} -- {len(tasks)} tasks x {len(attacks)} attacks")
     print(f"  = {len(tasks)} normal + {len(tasks)*len(attacks)} attack = {len(tasks) + len(tasks)*len(attacks)} sessions")
     print("=" * 64)
 
@@ -193,6 +234,7 @@ def main():
             indicator = evaluate_criterion(attack.get("indicator_criterion"), texts_a)
             goal_success = evaluate_criterion(attack.get("goal_success_criterion"), texts_a)
             propagation = evaluate_criterion(attack.get("propagation_criterion"), texts_a)
+            hop_results = evaluate_hop_criteria(attack.get("hop_criteria"), texts_a)
             records.append({
                 "session_id": f"mini_attack_{task['task_id']}_{attack['attack_id']}",
                 "task_id": task["task_id"], "task_category": task["category"],
@@ -201,18 +243,22 @@ def main():
                 "output_effect": attack["output_effect"], "user_request": task["user_request"],
                 "ok": ok_a, "tokens_by_agent": tokens_a, "texts_by_agent": texts_a,
                 "indicator_observed": indicator, "goal_success": goal_success,
-                "propagation_observed": propagation,
+                "propagation_observed": propagation, "hop_propagation": hop_results,
             })
-            print(f"  [{n_done}/{n_total}] attack  {task['task_id']:<16} {attack['attack_id']:<32} "
+            hop_str = f"  hops={hop_results}" if hop_results else ""
+            print(f"  [{n_done}/{n_total}] attack  {task['task_id']:<16} {attack['attack_id']:<40} "
                   f"ok={ok_a}  indicator={indicator}  goal_success={goal_success}  "
-                  f"propagation={propagation}  elapsed={time.time()-t0:.0f}s", flush=True)
+                  f"propagation={propagation}{hop_str}  elapsed={time.time()-t0:.0f}s", flush=True)
 
-    out_path = os.path.join(OUT, "mini_validation_records.json")
+    out_path = os.path.join(OUT, f"{args.label}_records.json")
     # texts_by_agent dropped from the saved file (large, response text already
     # served its purpose for criterion evaluation above) -- tokens/booleans kept.
     slim_records = [{k: v for k, v in r.items() if k != "texts_by_agent"} for r in records]
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(slim_records, f, indent=2, ensure_ascii=False)
+        json.dump({"dataset_role": args.label, "tasks_file": args.tasks,
+                    "attacks_glob": args.attacks, "variant_filter": args.variant,
+                    "n_sessions": len(slim_records), "records": slim_records},
+                   f, indent=2, ensure_ascii=False)
     print(f"\n  [saved] {out_path}")
 
     run_checks(tasks, attacks, records)
@@ -290,6 +336,39 @@ def run_checks(tasks, attacks, records):
     print(f"  [OK] {n_with_all_criteria}/{len(attacks)} attacks have both indicator_criterion and "
           f"goal_success_criterion evaluated by the single generic evaluate_criterion() function "
           f"-- no per-attack hardcoded Python branches were needed")
+
+    print("\n" + "=" * 64)
+    print("  CHECK 7: readiness-for-screening criteria (per-turn instruction)")
+    print("=" * 64)
+    goals = sorted({a["attack_goal"] for a in attacks})
+    all_pass = True
+    for goal in goals:
+        goal_attacks = [a["attack_id"] for a in attacks if a["attack_goal"] == goal]
+        pairs = [r["goal_success"] for r in records if r["condition"] == "attack" and r["attack_id"] in goal_attacks]
+        rate = sum(1 for g in pairs if g) / len(pairs) if pairs else 0.0
+        has_success = any(pairs)
+        has_failure = not all(pairs) if pairs else False
+        status = "OK" if (has_success and has_failure) else ("NO SUCCESS -- template/evaluator needs review" if not has_success else "0% FAILURE -- too easy, review template")
+        if not (has_success and has_failure):
+            all_pass = False
+        print(f"  goal={goal:<24} goal_success_rate={rate:.2f}  [{status}]")
+
+    effects_present = {a["output_effect"] for a in attacks}
+    length_effects_needed = {"length_increasing", "length_preserving", "length_reducing"}
+    missing_effects = length_effects_needed - effects_present
+    print(f"\n  output_effect coverage: {sorted(effects_present)}  "
+          f"{'[all 3 length categories present]' if not missing_effects else f'[MISSING: {missing_effects}]'}")
+    if missing_effects:
+        all_pass = False
+
+    partial_present = "partial_propagation" in effects_present
+    full_present = "full_chain" in effects_present
+    print(f"  propagation coverage: partial_propagation={partial_present}  full_chain={full_present}  "
+          f"{'[both present]' if (partial_present and full_present) else '[MISSING one or both]'}")
+    if not (partial_present and full_present):
+        all_pass = False
+
+    print(f"\n  {'[READY FOR SCREENING]' if all_pass else '[NOT YET READY -- see failing criteria above]'}")
 
     print("\n실험 완료 (mini validation).")
 

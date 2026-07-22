@@ -18,9 +18,9 @@ so if the wording ever needs to change here, bump the version string in both
 files together.
 
 Usage:
-    python collect_normal_v2.py --pilot      # 2 tasks/category x 2 runs = 20 sessions
-    python collect_normal_v2.py              # all 50 tasks x 3 runs = 150 sessions
-    python collect_normal_v2.py --repeats 3 --task-ids sum_001,sum_002
+    python collect_normal.py --pilot      # 2 tasks/category x 2 runs = 20 sessions
+    python collect_normal.py              # all 50 tasks x 3 runs = 150 sessions
+    python collect_normal.py --repeats 3 --task-ids sum_001,sum_002
 """
 import argparse
 import json
@@ -222,7 +222,7 @@ def main():
             split = json.load(f)
         task_ids = split["train_task_ids"] + split["validation_task_ids"] + split["test_task_ids"]
         n_repeats = args.repeats or 3
-        out_prefix = "v2"
+        out_prefix = "formal"
 
     cache_path = os.path.join(OUT, f"cache_normal_{out_prefix}.json")
     meta_path  = os.path.join(OUT, f"session_metadata_normal_{out_prefix}.json")

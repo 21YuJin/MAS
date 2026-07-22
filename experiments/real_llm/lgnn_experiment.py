@@ -526,6 +526,51 @@ def ask_ollama(prompt, seed=None):
         }
 
 
+def detect_hardware_backend(model=MODEL):
+    """
+    [Session provenance addendum, added after finding this project's dev
+    machine ran llama3.2 100% on CPU despite an RTX 5060 being present and
+    recognized by nvidia-smi -- see README/chat history.] Queries Ollama's
+    /api/ps to determine whether `model` is currently loaded into GPU VRAM
+    (size_vram > 0, backend="gpu") or running CPU-only (size_vram == 0,
+    backend="cpu"). Must be called AFTER at least one ask_ollama() call in
+    this process has already loaded the model -- Ollama loads lazily on first
+    request, so calling this before any request sees an empty model list and
+    reports "unknown", not "cpu".
+
+    Every session_telemetry record now self-reports hardware_backend/gpu_name/
+    ollama_version (passed through run_session()) so CPU-collected data
+    (schema-validation only, e.g. smoke_test.py's local run) can never be
+    silently mixed into a GPU-collected formal dataset -- the exclusion is
+    checkable directly from the data, not dependent on out-of-band bookkeeping.
+    """
+    try:
+        r = requests.get("http://localhost:11434/api/ps", timeout=5)
+        models = r.json().get("models", [])
+        entry = next((m_ for m_ in models if m_.get("model", "").startswith(model)), None)
+        backend = "unknown" if entry is None else ("gpu" if entry.get("size_vram", 0) > 0 else "cpu")
+    except Exception:
+        backend = "unknown"
+
+    gpu_name = None
+    if backend == "gpu":
+        try:
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                text=True, stderr=subprocess.DEVNULL, timeout=5)
+            gpu_name = out.strip().split("\n")[0] or None
+        except Exception:
+            gpu_name = None
+
+    try:
+        v = requests.get("http://localhost:11434/api/version", timeout=5)
+        ollama_version = v.json().get("version")
+    except Exception:
+        ollama_version = None
+
+    return {"hardware_backend": backend, "gpu_name": gpu_name, "ollama_version": ollama_version}
+
+
 def extract_features(text, latency, tokens, predecessor_tokens):
     """
     5 raw metadata features per agent (§CORE_FEATURES/DIAGNOSTIC_FEATURES above
@@ -601,7 +646,8 @@ def topology_neighbors(agent_name):
 
 def run_session(task, injection=None, session_seed=None, session_id=None,
                  task_id=None, task_category=None, task_source=None,
-                 attack_type=None, attack_goal=None, execution_repeat=None):
+                 attack_type=None, attack_goal=None, execution_repeat=None,
+                 hardware_backend=None, gpu_name=None, ollama_version=None):
     """
     4-agent pipeline: Orchestrator -> Researcher -> Analyst -> Writer
     injection at Orchestrator (not Researcher). Contaminated task assignment
@@ -712,6 +758,8 @@ def run_session(task, injection=None, session_seed=None, session_id=None,
             "task_category": task_category, "task_source": task_source,
             "condition": condition, "attack_type": attack_type,
             "attack_goal": attack_goal, "execution_repeat": execution_repeat,
+            "hardware_backend": hardware_backend, "gpu_name": gpu_name,
+            "ollama_version": ollama_version,
             "agent_id": agent_id,
             "sender_ids": [AGENT_NAMES[i - 1]] if i > 0 else [],
             "receiver_ids": [AGENT_NAMES[i + 1]] if i < N_AGENTS - 1 else [],
@@ -745,6 +793,21 @@ try:
 except Exception:
     print("\n[ERROR] Ollama 연결 실패 - ollama serve 먼저 실행하세요")
     exit()
+
+# [Session provenance addendum] Warm-up call to force-load the model, then
+# detect_hardware_backend() -- must come AFTER a real request, see that
+# function's docstring. Computed once per run (hardware doesn't change
+# mid-collection) and passed through to every session_telemetry record below,
+# so CPU-collected runs are self-identifying and can never be silently
+# mistaken for GPU-collected formal data.
+_ = ask_ollama("Say OK.")
+_HW = detect_hardware_backend()
+print(f"  hardware_backend={_HW['hardware_backend']}  gpu_name={_HW['gpu_name']}  "
+      f"ollama_version={_HW['ollama_version']}")
+if _HW["hardware_backend"] != "gpu":
+    print(f"  [WARNING] running on {_HW['hardware_backend']} -- formal/screening collection "
+          f"should wait for GPU (see analysis_plan.md); this run's data will be "
+          f"self-labeled hardware_backend='{_HW['hardware_backend']}' in every session_telemetry record.")
 
 CACHE_NORMAL = os.path.join(OUT, "cache_normal.json")
 CACHE_ATTACK = os.path.join(OUT, "cache_attack.json")
@@ -874,7 +937,9 @@ else:
         X_i, success_i, ok_i, telemetry_i = run_session(
             task, injection=None, session_seed=session_seed, session_id=session_id,
             task_id=task_id_str, task_category=TASK_CATEGORIES[task_idx],
-            task_source="internal_TASKS_list", execution_repeat=i // len(TASKS))
+            task_source="internal_TASKS_list", execution_repeat=i // len(TASKS),
+            hardware_backend=_HW["hardware_backend"], gpu_name=_HW["gpu_name"],
+            ollama_version=_HW["ollama_version"])
         if not ok_i:
             failed_sessions.append({"session_id": session_id, "task_id": task_id_str,
                                      "injection_enabled": False,
@@ -928,7 +993,9 @@ else:
             task, injection=injection, session_seed=session_seed, session_id=session_id,
             task_id=task_id_str, task_category=TASK_CATEGORIES[task_idx],
             task_source="internal_TASKS_list", attack_type=ATTACK_TYPES[inj_idx],
-            attack_goal="verbosity_inflation_v1_pending_redesign", execution_repeat=i // len(TASKS))
+            attack_goal="verbosity_inflation_v1_pending_redesign", execution_repeat=i // len(TASKS),
+            hardware_backend=_HW["hardware_backend"], gpu_name=_HW["gpu_name"],
+            ollama_version=_HW["ollama_version"])
         if not ok_i:
             failed_sessions.append({"session_id": session_id, "task_id": task_id_str,
                                      "injection_enabled": True,

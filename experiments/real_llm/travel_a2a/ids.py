@@ -47,6 +47,10 @@ def new_event_id(factory=None) -> str:
     return _make_id("event_", factory)
 
 
+def new_call_id(factory=None) -> str:
+    return _make_id("call_", factory)
+
+
 class DeterministicIdFactory:
     """
     Injectable ID source for tests: one independent zero-padded counter per
@@ -83,3 +87,6 @@ class DeterministicIdFactory:
 
     def event_id(self) -> str:
         return new_event_id(factory=lambda: self._next("event"))
+
+    def call_id(self) -> str:
+        return new_call_id(factory=lambda: self._next("call"))

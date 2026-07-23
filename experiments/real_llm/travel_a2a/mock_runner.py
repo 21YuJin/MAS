@@ -34,10 +34,10 @@ from typing import List, Optional, Tuple
 
 from .ids import DeterministicIdFactory
 from .content_repository import ContentRepository, load_content_repository
+from .dispatch import apply_action_result
 from .mock_agents import build_mock_agent_registry
-from .models import Artifact, InteractionEvent, Message, Part, TravelTask
-from .status import validate_status_transition
-from .workflow_policy import INTERNAL_ACTION_TYPES, TravelWorkflowPolicy
+from .models import AgentCallRecord, Artifact, InteractionEvent, Message, Part, TravelTask
+from .workflow_policy import TravelWorkflowPolicy
 
 # [Step 3-8] runtime/ is a sibling package under experiments/real_llm/, one
 # level up from travel_a2a/ -- see runtime/session_runner.py (Step 1-4).
@@ -85,7 +85,7 @@ class MockWorkflowResult:
     parts: List[Part]
     artifacts: List[Artifact]
     events: List[InteractionEvent]
-    agent_call_records: List[dict]
+    agent_call_records: List[AgentCallRecord]
     status_transition_issues: List[dict]
 
 
@@ -104,7 +104,7 @@ def run_mock_workflow(task: TravelTask, content_repository: ContentRepository,
     parts: List[Part] = []
     artifacts: List[Artifact] = []
     events: List[InteractionEvent] = []
-    agent_call_records: List[dict] = []
+    agent_call_records: List[AgentCallRecord] = []
     status_transition_issues: List[dict] = []
 
     for _ in range(MAX_STEPS + 1):
@@ -125,61 +125,27 @@ def run_mock_workflow(task: TravelTask, content_repository: ContentRepository,
         else:
             agent = mock_agents[action.sender_id]
             result = agent.handle(action, task, artifacts, parts, id_factory, start_ts, sequence_index)
-            parts.extend(result.generated_parts)
-            artifacts.extend(result.generated_artifacts)
 
-        status_before = task.status
-        status_transition_valid = True
-        if action.next_status is not None and action.next_status != status_before:
-            status_transition_valid = validate_status_transition(status_before, action.next_status, mode="diagnostic")
-            if not status_transition_valid:
-                status_transition_issues.append({"event_index": len(events), "before": status_before.value,
-                                                  "after": action.next_status.value})
-            task.status = action.next_status
-        status_after = task.status
+        outcome = apply_action_result(
+            action, result, task, messages, parts, artifacts, events, session_id, id_factory,
+            start_ts, end_ts, prev_end_ts, timing_source="deterministic_mock",
+            status_transition_issues=status_transition_issues, llm_called=False, model_name=None)
 
-        input_part_ids = []
-        request_message_id = action.context.get("request_message_id")
-        if request_message_id:
-            answered = next((m for m in messages if m.message_id == request_message_id), None)
-            if answered is not None:
-                input_part_ids = list(answered.part_ids)
+        wall_clock_latency_ms = None
+        if start_ts and end_ts:
+            wall_clock_latency_ms = (dt.datetime.fromisoformat(end_ts) - dt.datetime.fromisoformat(start_ts)).total_seconds() * 1000.0
 
-        if action.action_type in INTERNAL_ACTION_TYPES:
-            # [Step 3-5, step 10] internal bookkeeping -- no Message/Event,
-            # per workflow_policy.py's INTERNAL_ACTION_TYPES docstring.
-            agent_call_records.append({
-                "agent_id": action.sender_id, "llm_called": False, "action_type": action.action_type,
-                "input_part_ids": input_part_ids,
-                "output_part_ids": ([p.part_id for p in result.generated_parts] if result else []),
-                "output_artifact_ids": ([a.artifact_id for a in result.generated_artifacts] if result else []),
-            })
-            continue
-
-        messages.extend(result.generated_messages)
-        message = result.generated_messages[0] if result.generated_messages else None
-
-        event = InteractionEvent(
-            event_id=id_factory.event_id(), event_index=len(events), session_id=session_id,
-            task_id=task.task_id, context_id=task.context_id,
-            sender_id=action.sender_id, receiver_id=action.receiver_id, interaction_type=action.interaction_type,
-            message_id=(message.message_id if message else None),
-            part_ids=[p.part_id for p in result.generated_parts],
-            artifact_ids=[a.artifact_id for a in result.generated_artifacts],
-            status_before=status_before, status_after=status_after,
-            status_transition_valid=status_transition_valid,
-            start_timestamp=start_ts, end_timestamp=end_ts, previous_event_timestamp=prev_end_ts,
-            llm_called=False, model_name=None, retry_count=0, error_flag=False, done_reason=None,
-            raw_ollama_telemetry={}, timing_source="deterministic_mock",
-        )
-        events.append(event)
-
-        agent_call_records.append({
-            "agent_id": action.sender_id, "llm_called": False, "action_type": action.action_type,
-            "input_part_ids": input_part_ids,
-            "output_part_ids": [p.part_id for p in result.generated_parts],
-            "output_artifact_ids": [a.artifact_id for a in result.generated_artifacts],
-        })
+        agent_call_records.append(AgentCallRecord(
+            call_id=id_factory.call_id(), session_id=session_id, task_id=task.task_id, context_id=task.context_id,
+            agent_id=action.sender_id, action_type=action.action_type,
+            triggering_message_id=action.context.get("request_message_id"),
+            input_part_ids=outcome.input_part_ids,
+            output_part_ids=([p.part_id for p in result.generated_parts] if result else []),
+            output_artifact_ids=([a.artifact_id for a in result.generated_artifacts] if result else []),
+            call_start_timestamp=start_ts, call_end_timestamp=end_ts, wall_clock_latency_ms=wall_clock_latency_ms,
+            llm_called=False, model_name=None, retry_count=0, error_flag=False,
+            timing_source="deterministic_mock",
+        ))
     else:
         raise RuntimeError(f"workflow policy did not terminate within {MAX_STEPS} steps "
                             f"for task {task.task_id!r} -- likely rule bug (non-terminating loop)")
@@ -218,7 +184,7 @@ class MockTravelSessionRunner(SessionRunner):
 
         return SessionRunResult(
             session_id=kwargs.get("session_id"), task_id=task.task_id, context_id=task.context_id,
-            agent_call_records=result.agent_call_records,
+            agent_call_records=[r.to_dict() for r in result.agent_call_records],
             messages=[m.to_dict() for m in result.messages],
             parts=[p.to_dict() for p in result.parts],
             artifacts=[a.to_dict() for a in result.artifacts],

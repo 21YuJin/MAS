@@ -522,14 +522,14 @@ class InteractionEvent:
     raw_ollama_telemetry: Optional[dict] = None
     # [Step 3-7] Provenance for WHERE start/end/previous timestamps came from --
     # "deterministic_mock" (fixed-increment DeterministicClock, mock_runner.py)
-    # vs. "real_ollama" (actual wall-clock measurements, runtime/ollama_client.py).
+    # vs. "ollama_runtime" (actual wall-clock measurements, runtime/ollama_client.py).
     # Required so mock timing can never be silently mixed into real
     # normal/attack telemetry -- a caller can filter/assert on this field
     # instead of having to infer origin from timestamp shape.
     timing_source: Optional[str] = None
     schema_version: str = "travel_a2a_v1"
 
-    _VALID_TIMING_SOURCES = ("deterministic_mock", "real_ollama")
+    _VALID_TIMING_SOURCES = ("deterministic_mock", "ollama_runtime")
 
     def __post_init__(self):
         for name in ("event_id", "session_id", "task_id", "context_id", "sender_id", "receiver_id"):
@@ -631,4 +631,118 @@ class InteractionEvent:
             "time_since_previous_event_ms": self.time_since_previous_event_ms,
             "timing_source": self.timing_source,
             "schema_version": self.schema_version,
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# G. AgentCallRecord -- [Step 4-1] one Agent's own internal execution (LLM
+# call or otherwise), as opposed to InteractionEvent (one inter-agent
+# COMMUNICATION -- a graph edge). An agent handling one WorkflowAction
+# produces exactly one AgentCallRecord always, plus a Message/InteractionEvent
+# pair only when the action actually communicates with another agent (not for
+# purely-internal work like artifact_integration -- see workflow_policy.py's
+# INTERNAL_ACTION_TYPES). Node-level telemetry (prompt_eval_count/eval_count/
+# durations) belongs here, never on InteractionEvent, which only ever
+# describes the communication itself.
+# ══════════════════════════════════════════════════════════════════════════
+
+_VALID_TIMING_SOURCES_CALL = ("deterministic_mock", "ollama_runtime")
+
+
+@dataclasses.dataclass
+class AgentCallRecord:
+    call_id: str
+    session_id: str
+    task_id: str
+    context_id: str
+    agent_id: str
+    action_type: str
+    triggering_message_id: Optional[str] = None
+    input_part_ids: List[str] = dataclasses.field(default_factory=list)
+    input_artifact_ids: List[str] = dataclasses.field(default_factory=list)
+    output_part_ids: List[str] = dataclasses.field(default_factory=list)
+    output_artifact_ids: List[str] = dataclasses.field(default_factory=list)
+    call_start_timestamp: str = ""
+    call_end_timestamp: str = ""
+    wall_clock_latency_ms: Optional[float] = None
+    llm_called: bool = False
+    model_name: Optional[str] = None
+    model_digest: Optional[str] = None
+    prompt_eval_count: Optional[int] = None
+    eval_count: Optional[int] = None
+    prompt_eval_duration: Optional[int] = None
+    eval_duration: Optional[int] = None
+    total_duration: Optional[int] = None
+    load_duration: Optional[int] = None
+    done_reason: Optional[str] = None
+    retry_count: int = 0
+    error_flag: bool = False
+    error_type: Optional[str] = None
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    seed: Optional[int] = None
+    prompt_config_version: Optional[str] = None
+    agent_config_version: Optional[str] = None
+    raw_ollama_telemetry: Optional[dict] = None
+    timing_source: Optional[str] = None
+    schema_version: str = "travel_a2a_v1"
+
+    def __post_init__(self):
+        for name in ("call_id", "session_id", "task_id", "context_id", "agent_id", "action_type"):
+            _require_nonempty(getattr(self, name), name)
+        if self.retry_count < 0:
+            raise ValueError(f"retry_count must be >= 0, got {self.retry_count}")
+        if self.timing_source is not None and self.timing_source not in _VALID_TIMING_SOURCES_CALL:
+            raise ValueError(f"timing_source must be one of {_VALID_TIMING_SOURCES_CALL} or None, "
+                              f"got {self.timing_source!r}")
+
+    def to_dict(self) -> dict:
+        return {
+            "call_id": self.call_id, "session_id": self.session_id, "task_id": self.task_id,
+            "context_id": self.context_id, "agent_id": self.agent_id, "action_type": self.action_type,
+            "triggering_message_id": self.triggering_message_id,
+            "input_part_ids": list(self.input_part_ids), "input_artifact_ids": list(self.input_artifact_ids),
+            "output_part_ids": list(self.output_part_ids), "output_artifact_ids": list(self.output_artifact_ids),
+            "call_start_timestamp": self.call_start_timestamp, "call_end_timestamp": self.call_end_timestamp,
+            "wall_clock_latency_ms": self.wall_clock_latency_ms,
+            "llm_called": self.llm_called, "model_name": self.model_name, "model_digest": self.model_digest,
+            "prompt_eval_count": self.prompt_eval_count, "eval_count": self.eval_count,
+            "prompt_eval_duration": self.prompt_eval_duration, "eval_duration": self.eval_duration,
+            "total_duration": self.total_duration, "load_duration": self.load_duration,
+            "done_reason": self.done_reason, "retry_count": self.retry_count,
+            "error_flag": self.error_flag, "error_type": self.error_type,
+            "temperature": self.temperature, "top_p": self.top_p, "seed": self.seed,
+            "prompt_config_version": self.prompt_config_version, "agent_config_version": self.agent_config_version,
+            "raw_ollama_telemetry": self.raw_ollama_telemetry, "timing_source": self.timing_source,
+            "schema_version": self.schema_version,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AgentCallRecord":
+        return cls(**data)
+
+    def to_metadata_dict(self) -> dict:
+        """
+        [Step 4-1] Content-free view. Excludes raw_ollama_telemetry entirely
+        (it embeds prompt/response text via ask_ollama's own 'text'/
+        'raw_response' fields, same reasoning as InteractionEvent's version)
+        -- everything else here is timing/count/identifier metadata, never
+        prompt or response content.
+        """
+        return {
+            "call_id": self.call_id, "session_id": self.session_id, "task_id": self.task_id,
+            "context_id": self.context_id, "agent_id": self.agent_id, "action_type": self.action_type,
+            "triggering_message_id": self.triggering_message_id,
+            "input_part_ids": list(self.input_part_ids), "input_artifact_ids": list(self.input_artifact_ids),
+            "output_part_ids": list(self.output_part_ids), "output_artifact_ids": list(self.output_artifact_ids),
+            "wall_clock_latency_ms": self.wall_clock_latency_ms,
+            "llm_called": self.llm_called, "model_name": self.model_name, "model_digest": self.model_digest,
+            "prompt_eval_count": self.prompt_eval_count, "eval_count": self.eval_count,
+            "prompt_eval_duration": self.prompt_eval_duration, "eval_duration": self.eval_duration,
+            "total_duration": self.total_duration, "load_duration": self.load_duration,
+            "done_reason": self.done_reason, "retry_count": self.retry_count,
+            "error_flag": self.error_flag, "error_type": self.error_type,
+            "temperature": self.temperature, "top_p": self.top_p, "seed": self.seed,
+            "prompt_config_version": self.prompt_config_version, "agent_config_version": self.agent_config_version,
+            "timing_source": self.timing_source, "schema_version": self.schema_version,
         }

@@ -16,7 +16,7 @@ import datetime as dt
 from typing import List, Optional
 
 from .agents import AgentRegistry
-from .models import Artifact, InteractionEvent, Message, Part, TravelTask
+from .models import AgentCallRecord, Artifact, InteractionEvent, Message, Part, TravelTask
 
 _VALID_MODES = ("strict", "diagnostic")
 
@@ -201,4 +201,68 @@ def validate_event_sequence(events: List[InteractionEvent], mode: str = "strict"
                         details={"start_timestamp": e.start_timestamp, "previous_end_timestamp": prev_end})
         if e.end_timestamp:
             prev_end = e.end_timestamp
+    return issues
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [Step 4-9] AgentCallRecord telemetry schema validation
+# ══════════════════════════════════════════════════════════════════════════
+
+# Fields that must be present (not None) and >= 0 whenever llm_called=True --
+# i.e. Ollama actually reported them. wall_clock_latency_ms is checked > 0
+# instead of >= 0 since a real network round-trip always takes measurable
+# time (a 0ms real call would itself indicate something is wrong, unlike a
+# mock call where 0ms could be a legitimate deterministic-clock artifact).
+_REQUIRED_NONNEGATIVE_WHEN_LLM_CALLED = (
+    "prompt_eval_count", "eval_count", "prompt_eval_duration", "eval_duration",
+    "total_duration", "load_duration",
+)
+
+
+def validate_agent_call_record_telemetry(record: AgentCallRecord, mode: str = "strict") -> List[ValidationIssue]:
+    """
+    Only meaningful when record.llm_called is True -- a mock
+    (llm_called=False) record legitimately has every one of these fields as
+    None/0, which is not a violation (see AgentCallRecord's own docstring
+    convention, Step 3-12: "Mock 실행에서 Ollama 관련 필드는 null 또는 0이어도
+    되지만 스키마 자체는 유지해야 해").
+    """
+    _check_mode(mode)
+    issues: List[ValidationIssue] = []
+    if not record.llm_called:
+        return issues
+
+    for field_name in _REQUIRED_NONNEGATIVE_WHEN_LLM_CALLED:
+        value = getattr(record, field_name)
+        if value is None:
+            _report(issues, mode, "MISSING_TELEMETRY_FIELD",
+                    f"AgentCallRecord {record.call_id!r} has llm_called=True but {field_name} is None",
+                    object_id=record.call_id, details={"field": field_name})
+        elif value < 0:
+            _report(issues, mode, "NEGATIVE_TELEMETRY_FIELD",
+                    f"AgentCallRecord {record.call_id!r}: {field_name} must be >= 0, got {value}",
+                    object_id=record.call_id, details={"field": field_name, "value": value})
+
+    if record.wall_clock_latency_ms is None or record.wall_clock_latency_ms <= 0:
+        _report(issues, mode, "INVALID_WALL_CLOCK_LATENCY",
+                f"AgentCallRecord {record.call_id!r} has llm_called=True but wall_clock_latency_ms "
+                f"is {record.wall_clock_latency_ms!r} (must be > 0 for a real call)",
+                object_id=record.call_id, details={"wall_clock_latency_ms": record.wall_clock_latency_ms})
+
+    if not record.done_reason:
+        _report(issues, mode, "MISSING_DONE_REASON",
+                f"AgentCallRecord {record.call_id!r} has llm_called=True but done_reason is missing",
+                object_id=record.call_id)
+
+    if not record.model_name:
+        _report(issues, mode, "MISSING_MODEL_NAME",
+                f"AgentCallRecord {record.call_id!r} has llm_called=True but model_name is missing",
+                object_id=record.call_id)
+
+    if record.timing_source != "ollama_runtime":
+        _report(issues, mode, "WRONG_TIMING_SOURCE",
+                f"AgentCallRecord {record.call_id!r} has llm_called=True but timing_source is "
+                f"{record.timing_source!r}, expected 'ollama_runtime'",
+                object_id=record.call_id, details={"timing_source": record.timing_source})
+
     return issues

@@ -15,20 +15,22 @@ Directory layout:
     |-- parts.jsonl
     |-- artifacts.jsonl
     |-- interaction_events.jsonl
+    |-- agent_call_records.jsonl     [Step 4-8] (optional -- only when passed)
     |-- session_result.json          (optional)
     |-- validation_report.json       (optional)
     `-- metadata/
         |-- messages_metadata.jsonl
         |-- parts_metadata.jsonl
         |-- artifacts_metadata.jsonl
-        `-- events_metadata.jsonl
+        |-- events_metadata.jsonl
+        `-- agent_calls_metadata.jsonl   [Step 4-8] (optional -- only when passed)
 """
 import json
 import os
 from typing import List, Optional
 
 from .models import (
-    Artifact, FORBIDDEN_METADATA_KEYS, InteractionEvent, Message, Part, TravelTask,
+    AgentCallRecord, Artifact, FORBIDDEN_METADATA_KEYS, InteractionEvent, Message, Part, TravelTask,
 )
 
 DEFAULT_OUTPUT_ROOT = os.path.join(
@@ -64,6 +66,7 @@ def _read_jsonl(path: str) -> list:
 
 def save_session(session_id: str, task: TravelTask, messages: List[Message], parts: List[Part],
                   artifacts: List[Artifact], events: List[InteractionEvent],
+                  agent_call_records: Optional[List[AgentCallRecord]] = None,
                   session_result: Optional[dict] = None, validation_report: Optional[dict] = None,
                   output_root: str = DEFAULT_OUTPUT_ROOT) -> str:
     session_dir = session_dir_for(session_id, output_root)
@@ -76,6 +79,8 @@ def save_session(session_id: str, task: TravelTask, messages: List[Message], par
     _write_jsonl(os.path.join(session_dir, "parts.jsonl"), [p.to_dict() for p in parts])
     _write_jsonl(os.path.join(session_dir, "artifacts.jsonl"), [a.to_dict() for a in artifacts])
     _write_jsonl(os.path.join(session_dir, "interaction_events.jsonl"), [e.to_dict() for e in events])
+    if agent_call_records is not None:
+        _write_jsonl(os.path.join(session_dir, "agent_call_records.jsonl"), [r.to_dict() for r in agent_call_records])
     if session_result is not None:
         _write_json(os.path.join(session_dir, "session_result.json"), session_result)
     if validation_report is not None:
@@ -85,6 +90,9 @@ def save_session(session_id: str, task: TravelTask, messages: List[Message], par
     _write_jsonl(os.path.join(metadata_dir, "parts_metadata.jsonl"), [p.to_metadata_dict() for p in parts])
     _write_jsonl(os.path.join(metadata_dir, "artifacts_metadata.jsonl"), [a.to_metadata_dict() for a in artifacts])
     _write_jsonl(os.path.join(metadata_dir, "events_metadata.jsonl"), [e.to_metadata_dict() for e in events])
+    if agent_call_records is not None:
+        _write_jsonl(os.path.join(metadata_dir, "agent_calls_metadata.jsonl"),
+                     [r.to_metadata_dict() for r in agent_call_records])
 
     validate_no_forbidden_metadata_fields(session_dir)
     return session_dir
@@ -96,8 +104,8 @@ def validate_no_forbidden_metadata_fields(session_dir: str) -> None:
     just a unit-test-time one, so this check runs on every real session
     written, not only on whatever the test suite happens to construct."""
     metadata_dir = os.path.join(session_dir, "metadata")
-    for fname in ("messages_metadata.jsonl", "parts_metadata.jsonl",
-                  "artifacts_metadata.jsonl", "events_metadata.jsonl"):
+    for fname in ("messages_metadata.jsonl", "parts_metadata.jsonl", "artifacts_metadata.jsonl",
+                  "events_metadata.jsonl", "agent_calls_metadata.jsonl"):
         for record in _read_jsonl(os.path.join(metadata_dir, fname)):
             leaked = FORBIDDEN_METADATA_KEYS & set(record.keys())
             if leaked:
@@ -105,10 +113,10 @@ def validate_no_forbidden_metadata_fields(session_dir: str) -> None:
 
 
 def load_session(session_id: str, output_root: str = DEFAULT_OUTPUT_ROOT) -> dict:
-    """Reconstructs task/messages/parts/artifacts/events from the RAW files
-    (not metadata/) -- the round-trip counterpart to save_session(). Returns
-    a plain dict rather than a dataclass since callers generally want to
-    unpack only some of these collections."""
+    """Reconstructs task/messages/parts/artifacts/events/agent_call_records
+    from the RAW files (not metadata/) -- the round-trip counterpart to
+    save_session(). Returns a plain dict rather than a dataclass since
+    callers generally want to unpack only some of these collections."""
     session_dir = session_dir_for(session_id, output_root)
     with open(os.path.join(session_dir, "task.json"), encoding="utf-8") as f:
         task = TravelTask.from_dict(json.load(f))
@@ -116,4 +124,7 @@ def load_session(session_id: str, output_root: str = DEFAULT_OUTPUT_ROOT) -> dic
     parts = [Part.from_dict(d) for d in _read_jsonl(os.path.join(session_dir, "parts.jsonl"))]
     artifacts = [Artifact.from_dict(d) for d in _read_jsonl(os.path.join(session_dir, "artifacts.jsonl"))]
     events = [InteractionEvent.from_dict(d) for d in _read_jsonl(os.path.join(session_dir, "interaction_events.jsonl"))]
-    return {"task": task, "messages": messages, "parts": parts, "artifacts": artifacts, "events": events}
+    agent_call_records = [AgentCallRecord.from_dict(d)
+                           for d in _read_jsonl(os.path.join(session_dir, "agent_call_records.jsonl"))]
+    return {"task": task, "messages": messages, "parts": parts, "artifacts": artifacts, "events": events,
+            "agent_call_records": agent_call_records}

@@ -520,7 +520,16 @@ class InteractionEvent:
     error_flag: bool = False
     done_reason: Optional[str] = None
     raw_ollama_telemetry: Optional[dict] = None
+    # [Step 3-7] Provenance for WHERE start/end/previous timestamps came from --
+    # "deterministic_mock" (fixed-increment DeterministicClock, mock_runner.py)
+    # vs. "real_ollama" (actual wall-clock measurements, runtime/ollama_client.py).
+    # Required so mock timing can never be silently mixed into real
+    # normal/attack telemetry -- a caller can filter/assert on this field
+    # instead of having to infer origin from timestamp shape.
+    timing_source: Optional[str] = None
     schema_version: str = "travel_a2a_v1"
+
+    _VALID_TIMING_SOURCES = ("deterministic_mock", "real_ollama")
 
     def __post_init__(self):
         for name in ("event_id", "session_id", "task_id", "context_id", "sender_id", "receiver_id"):
@@ -534,6 +543,9 @@ class InteractionEvent:
             self.status_after = TaskStatus(self.status_after)
         if self.retry_count < 0:
             raise ValueError(f"retry_count must be >= 0, got {self.retry_count}")
+        if self.timing_source is not None and self.timing_source not in self._VALID_TIMING_SOURCES:
+            raise ValueError(f"timing_source must be one of {self._VALID_TIMING_SOURCES} or None, "
+                              f"got {self.timing_source!r}")
 
     @property
     def wall_clock_latency_ms(self) -> Optional[float]:
@@ -579,6 +591,7 @@ class InteractionEvent:
             "error_flag": self.error_flag,
             "done_reason": self.done_reason,
             "raw_ollama_telemetry": self.raw_ollama_telemetry,
+            "timing_source": self.timing_source,
             "schema_version": self.schema_version,
         }
 
@@ -616,5 +629,6 @@ class InteractionEvent:
             "done_reason": self.done_reason,
             "wall_clock_latency_ms": self.wall_clock_latency_ms,
             "time_since_previous_event_ms": self.time_since_previous_event_ms,
+            "timing_source": self.timing_source,
             "schema_version": self.schema_version,
         }

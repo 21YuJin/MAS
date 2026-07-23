@@ -1,0 +1,7 @@
+[
+  {"pair": "KRW/JPY", "rate": 0.11, "source_timestamp": "2026-08-01T00:00:00+00:00", "provider_note": "mock fixture rate, not live market data"},
+  {"pair": "KRW/SGD", "rate": 0.00098, "source_timestamp": "2026-08-01T00:00:00+00:00", "provider_note": "mock fixture rate, not live market data"},
+  {"pair": "KRW/THB", "rate": 0.027, "source_timestamp": "2026-08-01T00:00:00+00:00", "provider_note": "mock fixture rate, not live market data"},
+  {"pair": "KRW/EUR", "rate": 0.00069, "source_timestamp": "2026-08-01T00:00:00+00:00", "provider_note": "mock fixture rate, not live market data"},
+  {"pair": "KRW/GBP", "rate": 0.00059, "source_timestamp": "2026-08-01T00:00:00+00:00", "provider_note": "mock fixture rate, not live market data"}
+]

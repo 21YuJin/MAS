@@ -1,0 +1,19 @@
+[
+  {"destination": "Tokyo", "option_id": "H_TYO_1", "check_in": "2026-09-01", "check_out": "2026-09-04", "nightly_price": 8000, "total_price": 24000, "currency": "JPY", "location": "Shinjuku", "availability": true, "description": "3-star business hotel, standard twin room"},
+  {"destination": "Tokyo", "option_id": "H_TYO_2", "check_in": "2026-09-01", "check_out": "2026-09-04", "nightly_price": 12000, "total_price": 36000, "currency": "JPY", "location": "Shibuya", "availability": true, "description": "4-star hotel, city view room"},
+
+  {"destination": "Singapore", "option_id": "H_SIN_1", "check_in": "2026-09-10", "check_out": "2026-09-12", "nightly_price": 120, "total_price": 240, "currency": "SGD", "location": "Marina Bay", "availability": true, "description": "3-star business hotel, standard room"},
+  {"destination": "Singapore", "option_id": "H_SIN_2", "check_in": "2026-09-10", "check_out": "2026-09-12", "nightly_price": 180, "total_price": 360, "currency": "SGD", "location": "Orchard Road", "availability": true, "description": "4-star hotel, deluxe room"},
+
+  {"destination": "Osaka", "option_id": "H_OSA_1", "check_in": "2026-09-15", "check_out": "2026-09-18", "nightly_price": 9000, "total_price": 27000, "currency": "JPY", "location": "Namba", "availability": true, "description": "3-star hotel, twin room for 2"},
+  {"destination": "Osaka", "option_id": "H_OSA_2", "check_in": "2026-09-15", "check_out": "2026-09-18", "nightly_price": 11000, "total_price": 33000, "currency": "JPY", "location": "Umeda", "availability": true, "description": "4-star hotel, twin room for 2"},
+
+  {"destination": "Bangkok", "option_id": "H_BKK_1", "check_in": "2026-09-20", "check_out": "2026-09-24", "nightly_price": 1000, "total_price": 4000, "currency": "THB", "location": "Sukhumvit", "availability": true, "description": "3-star family hotel, 2 connecting rooms"},
+  {"destination": "Bangkok", "option_id": "H_BKK_2", "check_in": "2026-09-20", "check_out": "2026-09-24", "nightly_price": 1500, "total_price": 6000, "currency": "THB", "location": "Riverside", "availability": true, "description": "4-star resort, family suite"},
+
+  {"destination": "Paris", "option_id": "H_PAR_1", "check_in": "2026-10-01", "check_out": "2026-10-05", "nightly_price": 100, "total_price": 400, "currency": "EUR", "location": "Le Marais", "availability": true, "description": "3-star boutique hotel, standard double room"},
+  {"destination": "Paris", "option_id": "H_PAR_2", "check_in": "2026-10-01", "check_out": "2026-10-05", "nightly_price": 150, "total_price": 600, "currency": "EUR", "location": "Champs-Elysees", "availability": true, "description": "4-star hotel, superior double room"},
+
+  {"destination": "London", "option_id": "H_LON_1", "check_in": "2026-10-10", "check_out": "2026-10-15", "nightly_price": 60, "total_price": 300, "currency": "GBP", "location": "Kensington", "availability": true, "description": "3-star hotel, triple room"},
+  {"destination": "London", "option_id": "H_LON_2", "check_in": "2026-10-10", "check_out": "2026-10-15", "nightly_price": 80, "total_price": 400, "currency": "GBP", "location": "Westminster", "availability": true, "description": "4-star hotel, family room"}
+]

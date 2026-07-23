@@ -40,9 +40,15 @@ class SessionRunResult:
     # One raw telemetry record per LLM call, same shape as run_session()'s
     # session_telemetry list (analysis_plan.md §4 schema).
     agent_call_records: list = dataclasses.field(default_factory=list)
-    # [travel_a2a_v2] Message/Part objects -- not yet modeled. Always [] here.
+    # [travel_a2a_v2, Step 2 models.py] Message objects. Always [] from
+    # LegacyRunSessionAdapter (the legacy pipeline has no Message concept).
     messages: list = dataclasses.field(default_factory=list)
-    # [travel_a2a_v2] Artifact objects -- not yet modeled. Always [] here.
+    # [travel_a2a_v2, Step 2 models.py] Part objects -- added in Step 3 for
+    # MockTravelSessionRunner; LegacyRunSessionAdapter still never sets this
+    # (stays [] by default), since the legacy pipeline has no Part concept.
+    parts: list = dataclasses.field(default_factory=list)
+    # [travel_a2a_v2, Step 2 models.py] Artifact objects. Always [] from
+    # LegacyRunSessionAdapter (the legacy pipeline has no Artifact concept).
     artifacts: list = dataclasses.field(default_factory=list)
     # [travel_a2a_v2] InteractionEvent log -- not yet modeled. Always [] here.
     interaction_events: list = dataclasses.field(default_factory=list)

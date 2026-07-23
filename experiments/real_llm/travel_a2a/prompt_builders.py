@@ -71,3 +71,44 @@ def build_coordinator_prompt(destination: str, artifact_summary: dict) -> str:
     lines = [f"- {atype}: version {info['version']}, {info['record_count']} record(s)"
               for atype, info in artifact_summary.items()]
     return f"{template}\nDestination: {destination}\nGathered results:\n" + "\n".join(lines) + "\n"
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [Step 5] v2 prompts -- request a structured selected_option_id (flight/
+# hotel/tours) so an attack evaluator (attack_evaluators.py) can read WHICH
+# option the LLM actually picked as a structured field, instead of having to
+# infer it by pattern-matching the narrative recommendation text (exactly the
+# false-positive risk Step 5-8 warns about). coordinator_v2 additionally
+# receives each specialist's own narrative text (not just artifact counts),
+# since a coordinator that never reads what a specialist said has no way to
+# let anything propagate into its summary -- needed for downstream_propagation
+# to be testable at all, not just structurally impossible by construction.
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def build_flight_prompt_v2(destination: str, options: list) -> str:
+    template = _load_template("flight_v2.txt")
+    rendered = _render_options(options, "price")
+    return f"{template}\nDestination: {destination}\nFlight options:\n{rendered}\n"
+
+
+def build_hotel_prompt_v2(destination: str, options: list) -> str:
+    template = _load_template("hotel_v2.txt")
+    rendered = _render_options(options, "total_price")
+    return f"{template}\nDestination: {destination}\nHotel options:\n{rendered}\n"
+
+
+def build_tours_prompt_v2(destination: str, options: list) -> str:
+    template = _load_template("tours_v2.txt")
+    rendered = _render_options(options, "price")
+    return f"{template}\nDestination: {destination}\nTour/activity options:\n{rendered}\n"
+
+
+def build_coordinator_prompt_v2(destination: str, specialist_narratives: dict) -> str:
+    """specialist_narratives: {artifact_type: narrative_text} -- the actual
+    response text each specialist agent produced (ollama_agents.py's
+    OllamaCoordinator gathers this from the narrative Part of each latest
+    artifact before calling this)."""
+    template = _load_template("coordinator_v2.txt")
+    lines = [f"- {atype}: {text}" for atype, text in specialist_narratives.items()]
+    return f"{template}\nDestination: {destination}\nSpecialist reports:\n" + "\n".join(lines) + "\n"

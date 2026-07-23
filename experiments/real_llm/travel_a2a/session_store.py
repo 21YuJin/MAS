@@ -33,8 +33,8 @@ from .models import (
     AgentCallRecord, Artifact, FORBIDDEN_METADATA_KEYS, InteractionEvent, Message, Part, TravelTask,
 )
 
-DEFAULT_OUTPUT_ROOT = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "outputs", "travel_a2a", "mock_sessions")
+DEFAULT_OUTPUT_ROOT = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "outputs", "travel_a2a", "mock_sessions"))
 
 
 def session_dir_for(session_id: str, output_root: str = DEFAULT_OUTPUT_ROOT) -> str:

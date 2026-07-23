@@ -101,6 +101,12 @@ FORBIDDEN_METADATA_KEYS = {
     "content", "injection_present", "attack_id", "attack_goal",
     "goal_success", "indicator_observed", "propagation_observed",
     "workflow_changed", "condition", "ground_truth_label",
+    # [Step 5-13] attack-scenario diagnostic/ground-truth fields -- same
+    # leakage risk as the original set above, extended once AttackConfig/
+    # AttackExecutionDiagnostics (attack_models.py) existed to define them.
+    "attack_family", "affected_agent_ids", "affected_artifact_ids",
+    "expected_propagation_path", "evaluator_result", "evaluator_id",
+    "evaluator_confidence", "evaluator_evidence", "indicator_patterns",
 }
 
 

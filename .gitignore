@@ -45,3 +45,11 @@ logs/
 *.pt
 *.pth
 *.ckpt
+
+# travel_a2a generated session outputs -- raw LLM responses, timestamps,
+# session IDs, regenerated (and non-deterministic for real Ollama runs) on
+# every execution. Keep the scaffolding README.md tracked, ignore only the
+# per-run session directories underneath. See reports/travel_a2a/ for the
+# content-free, committed summary of what a given run found.
+outputs/travel_a2a/attack_smoke/*/
+outputs/travel_a2a/mock_sessions/*/

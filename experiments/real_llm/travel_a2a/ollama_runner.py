@@ -16,6 +16,7 @@ import os
 import sys
 from typing import List, Optional
 
+from .attack_models import AttackConfig
 from .content_repository import ContentRepository, load_content_repository
 from .dispatch import apply_action_result
 from .ids import DeterministicIdFactory
@@ -35,7 +36,8 @@ def _now_iso() -> str:
 def run_ollama_workflow(task, content_repository: ContentRepository,
                          id_factory: Optional[DeterministicIdFactory] = None,
                          policy: Optional[TravelWorkflowPolicy] = None,
-                         session_id: Optional[str] = None) -> MockWorkflowResult:
+                         session_id: Optional[str] = None,
+                         attack_config: Optional[AttackConfig] = None) -> MockWorkflowResult:
     id_factory = id_factory or DeterministicIdFactory()
     policy = policy or TravelWorkflowPolicy()
     session_id = session_id or f"session_{task.provenance.get('task_fixture_id', task.task_id)}"
@@ -57,8 +59,12 @@ def run_ollama_workflow(task, content_repository: ContentRepository,
             result = None
         else:
             agent = agents[action.sender_id]
+            # attack_config is passed to EVERY agent call -- each agent's own
+            # handle() decides whether it applies (only the one whose own
+            # role matches attack_config.entry_agent_id actually injects
+            # anything, see injection_builder.apply_attack_injection()).
             result = agent.handle(action, task, artifacts, parts, id_factory, start_ts, sequence_index,
-                                   session_id=session_id)
+                                   session_id=session_id, attack_config=attack_config)
 
         end_ts = _now_iso()
         has_call_record = result is not None and result.call_record is not None
@@ -101,12 +107,13 @@ class OllamaTravelSessionRunner(SessionRunner):
     def __init__(self, content_repository: Optional[ContentRepository] = None):
         self.content_repository = content_repository or load_content_repository()
 
-    def run(self, task, condition: str, attack_config: Optional[dict] = None, **kwargs) -> SessionRunResult:
-        if condition != "normal":
-            raise NotImplementedError("OllamaTravelSessionRunner: attack payloads are out of scope for Step 4 "
-                                       "(see Step 4's 'do not implement' list)")
+    def run(self, task, condition: str, attack_config: Optional[AttackConfig] = None, **kwargs) -> SessionRunResult:
+        if condition == "attack" and attack_config is None:
+            raise ValueError("condition='attack' requires attack_config (Step 5)")
+        if condition == "normal" and attack_config is not None:
+            raise ValueError("attack_config must be None when condition='normal'")
         result = run_ollama_workflow(task, self.content_repository, id_factory=kwargs.get("id_factory"),
-                                      session_id=kwargs.get("session_id"))
+                                      session_id=kwargs.get("session_id"), attack_config=attack_config)
 
         final_plan = next((a for a in result.artifacts if a.artifact_type.value == "final_travel_plan"), None)
         final_output = None

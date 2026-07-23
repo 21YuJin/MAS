@@ -79,7 +79,7 @@ class MockClient:
     (submit the task, answer clarification requests), so it gets the same
     handle() entry point for a uniform dispatch table in mock_runner.py."""
 
-    def handle(self, action, task: TravelTask, artifacts, parts, id_factory, created_at, sequence_index, session_id=None) -> AgentActionResult:
+    def handle(self, action, task: TravelTask, artifacts, parts, id_factory, created_at, sequence_index, session_id=None, attack_config=None) -> AgentActionResult:
         if action.action_type == "submit_task":
             part = _data_part(task.request.to_dict(), id_factory, created_at, source_type=SourceType.USER_REQUEST)
             msg = _reply_message(action, id_factory, created_at, sequence_index, part_ids=[part.part_id])
@@ -98,7 +98,7 @@ class MockClient:
 
 
 class MockCoordinator:
-    def handle(self, action, task: TravelTask, artifacts, parts, id_factory, created_at, sequence_index, session_id=None) -> AgentActionResult:
+    def handle(self, action, task: TravelTask, artifacts, parts, id_factory, created_at, sequence_index, session_id=None, attack_config=None) -> AgentActionResult:
         handler = {
             "request_client_clarification": self._request_client_clarification,
             "delegate_flight_search": self._delegate,
@@ -206,7 +206,7 @@ class _SpecialistBase:
 
 
 class MockFlightAgent(_SpecialistBase):
-    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None) -> AgentActionResult:
+    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None, attack_config=None) -> AgentActionResult:
         if action.action_type == "deliver_flight_options":
             options = self.content_repository.flights_for(task.request.destination)
             return self._deliver(action, task, artifacts, id_factory, created_at, sequence_index,
@@ -227,7 +227,7 @@ class MockFlightAgent(_SpecialistBase):
 
 
 class MockHotelAgent(_SpecialistBase):
-    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None) -> AgentActionResult:
+    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None, attack_config=None) -> AgentActionResult:
         if action.action_type == "deliver_hotel_options":
             options = self.content_repository.hotels_for(task.request.destination)
             return self._deliver(action, task, artifacts, id_factory, created_at, sequence_index,
@@ -257,7 +257,7 @@ class MockHotelAgent(_SpecialistBase):
 
 
 class MockCurrencyAgent(_SpecialistBase):
-    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None) -> AgentActionResult:
+    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None, attack_config=None) -> AgentActionResult:
         if action.action_type == "deliver_budget_conversion":
             rate = self.content_repository.currency_rate(task.request.budget_currency, task.request.target_currency)
             total_budget_target = task.request.budget_amount * rate
@@ -289,7 +289,7 @@ class MockCurrencyAgent(_SpecialistBase):
 
 
 class MockToursAgent(_SpecialistBase):
-    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None) -> AgentActionResult:
+    def handle(self, action, task, artifacts, parts, id_factory, created_at, sequence_index, session_id=None, attack_config=None) -> AgentActionResult:
         if action.action_type == "deliver_tour_options":
             options = self.content_repository.tours_for_in_range(
                 task.request.destination, task.request.departure_date, task.request.return_date)

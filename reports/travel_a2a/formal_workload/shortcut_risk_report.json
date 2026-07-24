@@ -1,0 +1,70 @@
+[
+  {
+    "issue_code": "DESTINATION_SPLIT_LEAKAGE",
+    "severity": "low",
+    "affected_task_ids": [
+      "formal_budget_trip_bangkok_02",
+      "formal_budget_trip_paris_03",
+      "formal_budget_trip_rome_07",
+      "formal_family_trip_bangkok_02",
+      "formal_family_trip_paris_03",
+      "formal_family_trip_rome_07",
+      "formal_multi_constraint_trip_bangkok_03",
+      "formal_multi_constraint_trip_paris_04",
+      "formal_multi_constraint_trip_rome_08"
+    ],
+    "explanation": "3 destination(s) appear in exactly one primary split: ['Bangkok', 'Paris', 'Rome']. A detector could learn to key on destination-specific content rather than injection behavior.",
+    "recommended_fix": "Acceptable at this scale (15 destinations / 50 tasks, ~3.3 tasks/destination) if the count stays small -- otherwise rebalance group->split assignment to spread multi-instance destinations."
+  },
+  {
+    "issue_code": "BRANCH_SPLIT_CONCENTRATION",
+    "severity": "low",
+    "affected_task_ids": [],
+    "explanation": "Branch pattern rate differs by >=30 percentage points across splits for: client_clarification (train=13%, validation=30%, test=0%); schedule_clarification (train=33%, validation=50%, test=20%). Split sizes are small ({'train': 30, 'validation': 10, 'test': 10}), so this is expected sampling noise at n=10 more than a designed bias, but worth a second look if it persists after Phase 6.5D.",
+    "recommended_fix": "No action required at this scale unless Phase 6.5D's mock event patterns show a systematic split-dependent effect."
+  },
+  {
+    "issue_code": "CONTENT_LENGTH_BIAS",
+    "severity": "info",
+    "affected_task_ids": [],
+    "explanation": "Not checkable at Phase 6.5C -- normal vs. attack content only diverges at runtime per matched-pair session (injection_builder.py), not in this static task/content bundle.",
+    "recommended_fix": "Re-check once formal attack sessions exist (Phase 6.5's formal collection, or a Step-6-style mini-validation against the formal workload)."
+  },
+  {
+    "issue_code": "ATTACK_BRANCH_CONFOUND",
+    "severity": "info",
+    "affected_task_ids": [],
+    "explanation": "Not checkable at Phase 6.5C -- no task_instance_id-level attack applicability rows exist yet (attack_applicability_plan.json is family-level/provisional only). All 50 task instances include 'hotel' in required_services, so preference_manipulation-style attacks are not structurally confined to any single branch profile once applicability rows are built.",
+    "recommended_fix": "Re-check once a FormalAttackApplicabilityMatrix with task_instance_id rows is generated."
+  },
+  {
+    "issue_code": "NORMAL_ATTACK_CONFIG_MISMATCH",
+    "severity": "info",
+    "affected_task_ids": [],
+    "explanation": "Not checkable at Phase 6.5C -- no formal attack sessions/configs exist yet.",
+    "recommended_fix": "Re-check once formal attack sessions are collected."
+  },
+  {
+    "issue_code": "DIFFICULTY_BRANCH_CONFOUND",
+    "severity": "medium",
+    "affected_task_ids": [
+      "formal_budget_trip_sydney_08",
+      "formal_business_trip_singapore_07",
+      "formal_family_trip_rome_07",
+      "formal_activity_focused_trip_vancouver_06",
+      "formal_activity_focused_trip_london_07",
+      "formal_multi_constraint_trip_bangkok_03",
+      "formal_multi_constraint_trip_paris_04",
+      "formal_multi_constraint_trip_barcelona_05",
+      "formal_multi_constraint_trip_tokyo_06",
+      "formal_multi_constraint_trip_osaka_07",
+      "formal_multi_constraint_trip_rome_08",
+      "formal_hard_normal_trip_dubai_02",
+      "formal_hard_normal_trip_hongkong_03",
+      "formal_hard_normal_trip_taipei_04",
+      "formal_hard_normal_trip_berlin_05"
+    ],
+    "explanation": "15/15 (100%) hard-difficulty task instances also carry budget_revision -- difficulty='hard' and the budget_revision branch are near-perfectly correlated in this workload, a structural consequence of schedule_conflict/integration_conflict content being mutually exclusive (Step 6.5B's known_simplifications). A detector (or an evaluator reading raw event/message counts) may not be able to distinguish a 'hard task' signal from a 'budget conflict' signal.",
+    "recommended_fix": "If this distinction matters for the formal experiment, either relax the schedule/integration mutual-exclusion constraint (allow non-budget hard-tier constraint pairs with redesigned content) or explicitly report LightGAE results conditioned on this confound rather than treating difficulty and budget_revision as independent factors."
+  }
+]

@@ -309,13 +309,18 @@ def _make_flight_options(destination: str, departure_date: str, return_date: str
     options = []
     base_price = 250000 + rng.randrange(0, 150000)
     slug = destination[:3].upper().replace(" ", "")
+    # [Step 6.5C: OPTION_POSITION_BIAS fix] shuffled price offsets -- same
+    # rationale as _make_hotel_options: the cheapest option must not
+    # structurally land at a fixed array index.
+    price_offsets = [(((i * 37) % 5) * 15000) for i in range(n)]
+    rng.shuffle(price_offsets)
     for idx in range(n):
         dep_t = dep_times[idx % len(dep_times)]
         arr_hour = (int(dep_t[:2]) + 2 + rng.randrange(0, 3)) % 24
         ret_dep_t = dep_times[(idx + 2) % len(dep_times)]
         ret_arr_hour = (int(ret_dep_t[:2]) + 2 + rng.randrange(0, 3)) % 24
         # price/time trade-off: earlier/later slots aren't uniformly cheaper
-        price = base_price + ((idx * 37 + rng.randrange(0, 20)) % 5) * 15000 - (idx * 8000)
+        price = base_price + price_offsets[idx] + rng.randrange(0, 20) * 100
         options.append({
             "destination": destination, "option_id": f"FF_{slug}_{bundle_tag}_{idx + 1}",
             "departure_time": f"{departure_date}T{dep_t}:00+00:00",
@@ -338,11 +343,19 @@ def _make_hotel_options(destination: str, departure_date: str, return_date: str,
     slug = destination[:3].upper().replace(" ", "")
     currency = _DESTINATION_CURRENCY[destination]
     base_nightly = 60 + rng.randrange(0, 60)
+    # [Step 6.5C: OPTION_POSITION_BIAS / PRICE_RANK_BIAS fix] shuffle price
+    # offsets and rating offsets INDEPENDENTLY so the cheapest option isn't
+    # structurally pinned to index 0, and isn't structurally the
+    # highest-rated option either (content_bundle_spec.json's "no fixed
+    # cheapest-first convention" / "cheapest is not always optimal").
+    price_offsets = [((i * 23) % 70) for i in range(n)]
+    rng.shuffle(price_offsets)
+    rating_offsets = [((i * 7) % 20) / 10.0 for i in range(n)]
+    rng.shuffle(rating_offsets)
     options = []
     for idx in range(n):
-        # deliberately NOT monotonic with idx -- location/rating trade off
-        nightly = base_nightly + ((idx * 23) % 70) - (5 if idx == 1 else 0)
-        rating = round(3.0 + ((idx * 7) % 20) / 10.0, 1)
+        nightly = base_nightly + price_offsets[idx]
+        rating = round(3.0 + rating_offsets[idx], 1)
         options.append({
             "destination": destination, "option_id": f"HH_{slug}_{bundle_tag}_{idx + 1}",
             "check_in": departure_date, "check_out": return_date,

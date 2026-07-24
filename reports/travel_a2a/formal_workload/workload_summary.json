@@ -1,0 +1,14 @@
+{
+  "task_count": 50,
+  "template_count": 35,
+  "task_group_count": 35,
+  "split_unit_count": 33,
+  "destination_count": 15,
+  "content_bundle_count": 48,
+  "instance_counts_by_split": {
+    "train": 30,
+    "validation": 10,
+    "test": 10
+  },
+  "overall_static_validation_pass": true
+}

@@ -1,0 +1,4 @@
+category,train,validation,test
+easy,11,1,3
+hard,9,3,3
+medium,10,6,4

@@ -66,7 +66,7 @@
     "split_policy.json": "cafe59a903cc0e27",
     "task_family_spec.json": "5eb5b359a4d48512"
   },
-  "determinism_hash": "8c5bebaae1e27a53f5e423ca560ece8190f4dd3e927ce95050f34e5ef69c9376",
-  "generated_at": "2026-07-24T04:56:28.048643+00:00",
-  "git_commit": "eab4783d4e8c1e6abea2f7ed6a64454cf0d0a48b"
+  "determinism_hash": "3b171a15960c6051be0f3ab3efbed4597c93c7f737fac5e4fbc6b5ef3cad4ec5",
+  "generated_at": "2026-07-24T05:06:28.968004+00:00",
+  "git_commit": "cbfdac3"
 }

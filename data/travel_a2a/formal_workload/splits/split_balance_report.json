@@ -1,0 +1,104 @@
+{
+  "instance_counts": {
+    "train": 30,
+    "validation": 10,
+    "test": 10
+  },
+  "target_counts": {
+    "train": 30,
+    "validation": 10,
+    "test": 10
+  },
+  "deviation_from_target": {
+    "train": 0,
+    "validation": 0,
+    "test": 0
+  },
+  "exact_target_match": true,
+  "deviation_cause": null,
+  "template_family_distribution": {
+    "train": {
+      "activity_focused_trip": 3,
+      "basic_trip": 8,
+      "budget_trip": 4,
+      "business_trip": 4,
+      "family_trip": 3,
+      "multi_constraint_trip": 8
+    },
+    "validation": {
+      "activity_focused_trip": 3,
+      "budget_trip": 3,
+      "business_trip": 1,
+      "family_trip": 3
+    },
+    "test": {
+      "activity_focused_trip": 2,
+      "budget_trip": 1,
+      "business_trip": 3,
+      "family_trip": 2,
+      "basic_trip": 1,
+      "multi_constraint_trip": 1
+    }
+  },
+  "difficulty_distribution": {
+    "train": {
+      "medium": 10,
+      "easy": 11,
+      "hard": 9
+    },
+    "validation": {
+      "medium": 6,
+      "hard": 3,
+      "easy": 1
+    },
+    "test": {
+      "hard": 3,
+      "easy": 3,
+      "medium": 4
+    }
+  },
+  "branch_distribution": {
+    "train": {
+      "budget_revision": 14,
+      "client_clarification": 4,
+      "multi_branch": 11,
+      "basic_flow_only": 11,
+      "schedule_clarification": 10,
+      "integration_revision": 4
+    },
+    "validation": {
+      "schedule_clarification": 5,
+      "budget_revision": 5,
+      "integration_revision": 2,
+      "client_clarification": 3,
+      "multi_branch": 5,
+      "basic_flow_only": 1
+    },
+    "test": {
+      "budget_revision": 6,
+      "schedule_clarification": 2,
+      "multi_branch": 3,
+      "basic_flow_only": 3,
+      "integration_revision": 2
+    }
+  },
+  "service_combination_distribution": {
+    "train": {
+      "currency+flight+hotel": 10,
+      "flight+hotel+tours": 7,
+      "flight+hotel": 4,
+      "currency+flight+hotel+tours": 9
+    },
+    "validation": {
+      "flight+hotel+tours": 5,
+      "currency+flight+hotel+tours": 3,
+      "currency+flight+hotel": 2
+    },
+    "test": {
+      "currency+flight+hotel+tours": 3,
+      "flight+hotel": 1,
+      "flight+hotel+tours": 2,
+      "currency+flight+hotel": 4
+    }
+  }
+}

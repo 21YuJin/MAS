@@ -1,0 +1,22 @@
+{
+  "phase": "6.5C_static_validation",
+  "checks": {
+    "task_count_exactly_50": true,
+    "task_instance_id_duplicates": 0,
+    "task_group_id_missing_count": 0,
+    "required_service_content_missing_count": 0,
+    "option_count_below_minimum_count": 0,
+    "date_inconsistency_count": 0,
+    "missing_currency_pair_count": 0,
+    "train_val_test_group_overlap_count": 0,
+    "near_duplicate_cross_split_count": 0,
+    "attack_applicability_coverage_note": "family-level only (attack_applicability_plan.json) -- task_instance_id-level coverage not yet built",
+    "hard_normal_coverage_count": 10,
+    "hard_normal_coverage_in_target_range": true,
+    "forbidden_metadata_field_leak_count": 0,
+    "synthetic_provenance_missing_count": 0,
+    "critical_shortcut_issue_count": 0,
+    "overall_pass": true
+  },
+  "note": "Mock execution (Phase 6.5D) validation is a SEPARATE report -- this covers only static generation/split/shortcut/near-duplicate checks, no Ollama/mock session was run here."
+}

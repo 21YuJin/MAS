@@ -1,0 +1,17 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "step": "Step 7B",
+  "session_count": 50,
+  "determinism_hash": "af32ef3a5c781f754d01c64b05bf88f630879d730501c77758c15fd6fefe5d91",
+  "null_rate_by_field": {
+    "token_features.input_token_count": 1.0,
+    "token_features.output_token_count": 1.0,
+    "token_features.expansion_ratio": 1.0,
+    "token_features.ctx_delta": 1.0,
+    "timing_features.generation_time_ms": 1.0,
+    "timing_features.tokens_per_second": 1.0,
+    "timing_features.generation_ratio": 1.0,
+    "timing_features.wall_clock_latency_ms": 0.0
+  },
+  "note": "token_features and timing_features' Ollama-duration/token-derived fields are ~100% null here by design: all 50 sessions ran under timing_source == 'deterministic_mock' (mock_runner.py never sets llm_called=True or populates prompt_eval_count/eval_count/eval_duration/prompt_eval_duration/total_duration) -- this is expected, not a generator bug. wall_clock_latency_ms and every graph_features/session_features field ARE fully populated under mock, since they derive from event/message/artifact structure rather than Ollama telemetry. Real token/timing values require an ollama_runtime run of this workload -- still PLANNED_NOT_EXECUTED (configs/travel_a2a/formal_workload/formal_collection_plan.json)."
+}

@@ -1,4 +1,4 @@
 category,train,validation,test
-easy,11,1,3
-hard,9,3,3
-medium,10,6,4
+easy,9,1,5
+hard,6,6,3
+medium,16,2,2

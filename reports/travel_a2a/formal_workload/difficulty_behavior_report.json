@@ -1,0 +1,197 @@
+{
+  "stats_by_difficulty": {
+    "easy": {
+      "event_count": {
+        "mean": 7.33,
+        "median": 8,
+        "std": 0.94,
+        "min": 6,
+        "max": 8
+      },
+      "message_count": {
+        "mean": 7.33,
+        "median": 8,
+        "std": 0.94,
+        "min": 6,
+        "max": 8
+      },
+      "artifact_count": {
+        "mean": 4.67,
+        "median": 5,
+        "std": 0.47,
+        "min": 4,
+        "max": 5
+      },
+      "artifact_version_count": {
+        "mean": 4.67,
+        "median": 5,
+        "std": 0.47,
+        "min": 4,
+        "max": 5
+      },
+      "clarification_count": {
+        "mean": 0,
+        "median": 0,
+        "std": 0.0,
+        "min": 0,
+        "max": 0
+      },
+      "revision_count": {
+        "mean": 0,
+        "median": 0,
+        "std": 0.0,
+        "min": 0,
+        "max": 0
+      },
+      "unique_directed_pair_count": {
+        "mean": 7.33,
+        "median": 8,
+        "std": 0.94,
+        "min": 6,
+        "max": 8
+      }
+    },
+    "medium": {
+      "event_count": {
+        "mean": 11.9,
+        "median": 12.0,
+        "std": 1.04,
+        "min": 11,
+        "max": 14
+      },
+      "message_count": {
+        "mean": 11.9,
+        "median": 12.0,
+        "std": 1.04,
+        "min": 11,
+        "max": 14
+      },
+      "artifact_count": {
+        "mean": 6,
+        "median": 6.0,
+        "std": 0.0,
+        "min": 6,
+        "max": 6
+      },
+      "artifact_version_count": {
+        "mean": 7,
+        "median": 7.0,
+        "std": 0.0,
+        "min": 7,
+        "max": 7
+      },
+      "clarification_count": {
+        "mean": 2.4,
+        "median": 2.0,
+        "std": 0.8,
+        "min": 2,
+        "max": 4
+      },
+      "revision_count": {
+        "mean": 0.5,
+        "median": 0.5,
+        "std": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "unique_directed_pair_count": {
+        "mean": 10,
+        "median": 10.0,
+        "std": 0.0,
+        "min": 10,
+        "max": 10
+      }
+    },
+    "hard": {
+      "event_count": {
+        "mean": 16.87,
+        "median": 17,
+        "std": 0.88,
+        "min": 16,
+        "max": 19
+      },
+      "message_count": {
+        "mean": 16.87,
+        "median": 17,
+        "std": 0.88,
+        "min": 16,
+        "max": 19
+      },
+      "artifact_count": {
+        "mean": 8,
+        "median": 8,
+        "std": 0.0,
+        "min": 8,
+        "max": 8
+      },
+      "artifact_version_count": {
+        "mean": 10,
+        "median": 10,
+        "std": 0.0,
+        "min": 10,
+        "max": 10
+      },
+      "clarification_count": {
+        "mean": 3.33,
+        "median": 4,
+        "std": 1.19,
+        "min": 2,
+        "max": 6
+      },
+      "revision_count": {
+        "mean": 1.53,
+        "median": 2,
+        "std": 0.5,
+        "min": 1,
+        "max": 2
+      },
+      "unique_directed_pair_count": {
+        "mean": 12.93,
+        "median": 12,
+        "std": 1.0,
+        "min": 12,
+        "max": 14
+      }
+    }
+  },
+  "confounds": [
+    {
+      "issue_code": "DIFFICULTY_EVENT_COUNT_CONFOUND",
+      "metric": "event_count",
+      "ranges": {
+        "easy": [
+          6,
+          8
+        ],
+        "medium": [
+          11,
+          14
+        ],
+        "hard": [
+          16,
+          19
+        ]
+      },
+      "explanation": "event_count ranges are entirely non-overlapping across difficulty tiers (easy=(6, 8), medium=(11, 14), hard=(16, 19)) -- this metric alone would let a detector infer task difficulty without reading any injection-related signal."
+    },
+    {
+      "issue_code": "DIFFICULTY_MESSAGE_COUNT_CONFOUND",
+      "metric": "message_count",
+      "ranges": {
+        "easy": [
+          6,
+          8
+        ],
+        "medium": [
+          11,
+          14
+        ],
+        "hard": [
+          16,
+          19
+        ]
+      },
+      "explanation": "message_count ranges are entirely non-overlapping across difficulty tiers (easy=(6, 8), medium=(11, 14), hard=(16, 19)) -- this metric alone would let a detector infer task difficulty without reading any injection-related signal."
+    }
+  ]
+}

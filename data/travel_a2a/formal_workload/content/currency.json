@@ -1,7 +1,15 @@
 [
   {
-    "pair": "KRW/AUD",
-    "rate": 0.0011,
+    "pair": "KRW/THB",
+    "rate": 0.027,
+    "source_timestamp": "2026-08-01T00:00:00+00:00",
+    "provider_note": "Synthetic fixture rate, not live market data.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "pair": "KRW/EUR",
+    "rate": 0.00069,
     "source_timestamp": "2026-08-01T00:00:00+00:00",
     "provider_note": "Synthetic fixture rate, not live market data.",
     "source_id": "generated_fixture",
@@ -24,40 +32,8 @@
     "content_version": "formal_workload_v1"
   },
   {
-    "pair": "KRW/TWD",
-    "rate": 0.022,
-    "source_timestamp": "2026-08-01T00:00:00+00:00",
-    "provider_note": "Synthetic fixture rate, not live market data.",
-    "source_id": "generated_fixture",
-    "content_version": "formal_workload_v1"
-  },
-  {
-    "pair": "KRW/EUR",
-    "rate": 0.00069,
-    "source_timestamp": "2026-08-01T00:00:00+00:00",
-    "provider_note": "Synthetic fixture rate, not live market data.",
-    "source_id": "generated_fixture",
-    "content_version": "formal_workload_v1"
-  },
-  {
-    "pair": "KRW/CAD",
-    "rate": 0.00102,
-    "source_timestamp": "2026-08-01T00:00:00+00:00",
-    "provider_note": "Synthetic fixture rate, not live market data.",
-    "source_id": "generated_fixture",
-    "content_version": "formal_workload_v1"
-  },
-  {
     "pair": "KRW/GBP",
     "rate": 0.00059,
-    "source_timestamp": "2026-08-01T00:00:00+00:00",
-    "provider_note": "Synthetic fixture rate, not live market data.",
-    "source_id": "generated_fixture",
-    "content_version": "formal_workload_v1"
-  },
-  {
-    "pair": "KRW/SGD",
-    "rate": 0.00098,
     "source_timestamp": "2026-08-01T00:00:00+00:00",
     "provider_note": "Synthetic fixture rate, not live market data.",
     "source_id": "generated_fixture",
@@ -72,16 +48,40 @@
     "content_version": "formal_workload_v1"
   },
   {
-    "pair": "KRW/THB",
-    "rate": 0.027,
+    "pair": "KRW/JPY",
+    "rate": 0.11,
     "source_timestamp": "2026-08-01T00:00:00+00:00",
     "provider_note": "Synthetic fixture rate, not live market data.",
     "source_id": "generated_fixture",
     "content_version": "formal_workload_v1"
   },
   {
-    "pair": "KRW/JPY",
-    "rate": 0.11,
+    "pair": "KRW/SGD",
+    "rate": 0.00098,
+    "source_timestamp": "2026-08-01T00:00:00+00:00",
+    "provider_note": "Synthetic fixture rate, not live market data.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "pair": "KRW/AUD",
+    "rate": 0.0011,
+    "source_timestamp": "2026-08-01T00:00:00+00:00",
+    "provider_note": "Synthetic fixture rate, not live market data.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "pair": "KRW/TWD",
+    "rate": 0.022,
+    "source_timestamp": "2026-08-01T00:00:00+00:00",
+    "provider_note": "Synthetic fixture rate, not live market data.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "pair": "KRW/CAD",
+    "rate": 0.00102,
     "source_timestamp": "2026-08-01T00:00:00+00:00",
     "provider_note": "Synthetic fixture rate, not live market data.",
     "source_id": "generated_fixture",

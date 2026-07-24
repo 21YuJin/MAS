@@ -23,15 +23,36 @@ check exactly):
     stay destination-scoped (not destination x origin) -- origin is a
     diversity axis on the request, not a currency driver (Step 6.5-6's own
     "2~4 수준으로 제한" instruction for exactly this reason).
-  - each duration_bucket maps to one canonical trip length in days (short=3,
-    medium=5, long=7, extended=10) so multiple task instances can safely
-    share one (destination, duration_bucket, content_profile) content bundle
-    without their departure/return dates disagreeing with its flights/hotels.
   - schedule_conflict and integration_conflict are mutually exclusive within
-    one content bundle by construction (the first requires an in-window tour
-    that conflicts with flight timing; the second requires ZERO in-window
-    tours) -- a hard/multi_constraint task never combines both in the same
-    constraint_types set; condition_count is therefore capped at 2, not 3.
+    one destination's content by construction (the first requires an
+    in-window tour that conflicts with flight timing; the second requires
+    ZERO in-window tours) -- a hard/multi_constraint task never combines both
+    in the same constraint_types set; condition_count is therefore capped at
+    2, not 3.
+
+[Phase 6.5D bugfix] content_bundle_id is DESTINATION-SCOPED, one bundle per
+destination, not per (destination, duration_bucket, content_profile). This
+is a correctness requirement, not a style choice: mock_agents.py's
+MockFlightAgent/MockHotelAgent call
+`content_repository.flights_for(task.request.destination)` /
+`hotels_for(task.request.destination)`, which filter by destination ONLY --
+no date or bundle-variant filtering exists anywhere in that (already-tested,
+Step-3-era) code path. An earlier version of this generator produced
+multiple bundles per destination (one per duration_bucket x content_profile
+combination); content_repository.hotels_for() then returned the UNION of
+every bundle's options for that destination, silently diluting/defeating the
+budget/schedule/integration conflict triggers computed against a single
+intended bundle (discovered via Phase 6.5D's mock full-run: 26/50 tasks
+showed a branch mismatch). The fix: duration_bucket and tour_profile
+("schedule_conflict" / "integration_conflict" / "clean") are now DESTINATION
+properties, assigned once per destination (_assign_destination_profiles),
+and every task instance routed to a destination is routed through
+_allocate_destination_pools() so its OWN schedule/integration needs (if any)
+match that destination's tour_profile. budget_conflict remains fully
+TASK-level (via compute_budget_amount()'s factor against the shared
+destination bundle's actual cheapest hotel) since it only depends on the
+task's own budget_amount, never on shared content -- no destination pooling
+needed for it.
 """
 import dataclasses
 import datetime as dt
@@ -39,6 +60,7 @@ import hashlib
 import json
 import os
 import random
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 from .formal_workload_models import TaskInstance, TaskTemplate
@@ -171,19 +193,6 @@ def _required_services_for(difficulty: str, constraint_types: List[str], slot_in
     return list(combos[slot_index % len(combos)])
 
 
-def _content_profile_key(constraint_types: List[str]) -> str:
-    return "std" if not constraint_types else "_".join(sorted(constraint_types))
-
-
-def _duration_bucket_for(difficulty: str, slot_index: int, rng: random.Random) -> str:
-    buckets = list(DURATION_BUCKETS.keys())
-    if difficulty == "hard":
-        # hard instances skew toward longer trips (more to compare/integrate)
-        weighted = ["medium", "long", "long", "extended"]
-        return weighted[slot_index % len(weighted)]
-    return buckets[rng.randrange(len(buckets))]
-
-
 def _travelers_for(template_family: str, slot_index: int) -> int:
     if template_family == "business_trip":
         return 1
@@ -200,8 +209,91 @@ def _budget_level_for(constraint_types: List[str], template_family: str, slot_in
     return ["moderate", "flexible"][slot_index % 2]
 
 
-def _pick_destination(slot_index: int, shuffled_destinations: List[str]) -> str:
-    return shuffled_destinations[slot_index % len(shuffled_destinations)]
+# ══════════════════════════════════════════════════════════════════════════
+# [Phase 6.5D bugfix] Destination pool allocation -- a task needing
+# schedule_conflict/integration_conflict must be routed to a destination
+# whose SHARED content is actually built for that trigger; a task needing
+# tours but no conflict must land on a "clean" (in-window, non-conflicting)
+# destination; a task not needing tours at all can go anywhere (tours_agent
+# is never delegated for it, so the destination's tour_profile is moot).
+# ══════════════════════════════════════════════════════════════════════════
+
+_TOUR_POOLS = ("schedule_conflict", "integration_conflict", "clean_tours")
+
+
+def _pool_key_for(constraint_types: List[str], required_services: List[str]) -> str:
+    if "schedule_conflict" in constraint_types:
+        return "schedule_conflict"
+    if "integration_conflict" in constraint_types:
+        return "integration_conflict"
+    if "tours" in required_services:
+        return "clean_tours"
+    return "any"
+
+
+def _allocate_destination_pools(pool_keys: List[str], shuffled_destinations: List[str]) -> Dict[str, List[str]]:
+    """Reserves a subset of destinations for each tour-related pool,
+    proportional to task DEMAND (never destination count) so a pool with 0
+    demand gets 0 dedicated destinations. 'any' (no tours at all) is
+    deliberately NOT reserved a subset -- those tasks can use every
+    destination, since tours_agent is never invoked for them."""
+    n_dest = len(shuffled_destinations)
+    demand = {k: 0 for k in _TOUR_POOLS}
+    for k in pool_keys:
+        if k in demand:
+            demand[k] += 1
+    total_tour_demand = sum(demand.values())
+
+    alloc = {}
+    for k in _TOUR_POOLS:
+        if demand[k] == 0:
+            alloc[k] = 0
+        else:
+            alloc[k] = max(1, round(n_dest * demand[k] / max(total_tour_demand, 1)))
+    while sum(alloc.values()) > n_dest:
+        shrinkable = [k for k in _TOUR_POOLS if alloc[k] > 1]
+        if not shrinkable:
+            break
+        biggest = max(shrinkable, key=lambda k: alloc[k])
+        alloc[biggest] -= 1
+    leftover = n_dest - sum(alloc.values())
+    alloc["clean_tours"] += leftover  # safe catch-all: clean (non-conflicting) content is valid for ANY tour-needing task
+
+    cursor = 0
+    pool_destination_map: Dict[str, List[str]] = {}
+    for k in _TOUR_POOLS:
+        n = alloc[k]
+        chunk = shuffled_destinations[cursor:cursor + n]
+        pool_destination_map[k] = chunk if chunk else shuffled_destinations[:1]
+        cursor += n
+    pool_destination_map["any"] = list(shuffled_destinations)
+    return pool_destination_map
+
+
+_LONG_DURATION_CYCLE = ["medium", "long", "long", "extended"]
+_SHORT_DURATION_CYCLE = ["short", "short", "medium", "medium"]
+
+
+def _assign_destination_profiles(destinations: List[str], pool_destination_map: Dict[str, List[str]],
+                                  rng: random.Random) -> Dict[str, Dict[str, str]]:
+    """One tour_profile/duration_bucket PER DESTINATION (never per task) --
+    the whole point of this fix. schedule_conflict/integration_conflict
+    destinations skew toward longer trips (they mostly host hard-tier
+    tasks); everything else skews shorter -- a coarser echo of the original
+    (now-removed) per-task duration bias."""
+    profile: Dict[str, Dict[str, str]] = {}
+    for pool_key in ("schedule_conflict", "integration_conflict", "clean_tours"):
+        for d in pool_destination_map[pool_key]:
+            profile[d] = {"tour_profile": pool_key}
+    for d in destinations:
+        profile.setdefault(d, {"tour_profile": "clean_tours"})
+
+    for i, d in enumerate(sorted(destinations)):
+        if profile[d]["tour_profile"] in ("schedule_conflict", "integration_conflict"):
+            profile[d]["duration_bucket"] = _LONG_DURATION_CYCLE[i % len(_LONG_DURATION_CYCLE)]
+        else:
+            profile[d]["duration_bucket"] = _SHORT_DURATION_CYCLE[i % len(_SHORT_DURATION_CYCLE)]
+    return profile
 
 
 def _pick_origin(slot_index: int, destination: str, shuffled_origins: List[str]) -> str:
@@ -239,14 +331,36 @@ def build_task_slots(spec: dict, rng: random.Random) -> List[Dict[str, Any]]:
     clarification_target = 7
     clarification_indices = set(rng.sample(range(len(raw_slots)), clarification_target))
 
-    slots = []
+    # Pass 1a: difficulty-derived axes that determine WHICH destination pool
+    # a slot needs, computed before any destination is picked.
+    prelim = []
     for i, raw in enumerate(raw_slots):
         family, difficulty = raw["template_family"], raw["difficulty"]
         constraint_types = _constraint_types_for(difficulty, i)
         required_services = _required_services_for(difficulty, constraint_types, i)
-        destination = _pick_destination(i, shuffled_destinations)
+        prelim.append({"family": family, "difficulty": difficulty, "constraint_types": constraint_types,
+                        "required_services": required_services,
+                        "pool_key": _pool_key_for(constraint_types, required_services)})
+
+    # Pass 1b: reserve destinations per pool (proportional to demand), then
+    # fix each destination's OWN tour_profile/duration_bucket ONCE.
+    pool_destination_map = _allocate_destination_pools([p["pool_key"] for p in prelim], shuffled_destinations)
+    destination_profile = _assign_destination_profiles(destinations, pool_destination_map, rng)
+
+    # Pass 1c: route each slot to a destination from its pool (round-robin,
+    # deterministic), then fill in every remaining axis.
+    pool_cursors: Dict[str, int] = defaultdict(int)
+    slots = []
+    for i, p in enumerate(prelim):
+        family, difficulty = p["family"], p["difficulty"]
+        constraint_types, required_services = p["constraint_types"], p["required_services"]
+        pool = p["pool_key"]
+        eligible = pool_destination_map[pool]
+        destination = eligible[pool_cursors[pool] % len(eligible)]
+        pool_cursors[pool] += 1
+
         origin = _pick_origin(i, destination, shuffled_origins)
-        duration_bucket = _duration_bucket_for(difficulty, i, rng)
+        duration_bucket = destination_profile[destination]["duration_bucket"]
         hard_normal_tags = [hn_taxonomy[i % len(hn_taxonomy)]] if i in tagged_indices else []
 
         expected_branches = []
@@ -278,7 +392,6 @@ def build_task_slots(spec: dict, rng: random.Random) -> List[Dict[str, Any]]:
             "hard_normal_tags": hard_normal_tags,
             "expected_normal_branches": expected_branches,
             "empty_hotel_preferences": i in clarification_indices,
-            "content_profile": _content_profile_key(constraint_types),
         })
     return slots
 
@@ -289,9 +402,12 @@ def build_task_slots(spec: dict, rng: random.Random) -> List[Dict[str, Any]]:
 # ══════════════════════════════════════════════════════════════════════════
 
 
-def _content_bundle_id(destination: str, duration_bucket: str, profile: str) -> str:
+def _content_bundle_id(destination: str) -> str:
+    """[Phase 6.5D bugfix] ONE bundle per destination -- matches how
+    content_repository.hotels_for()/flights_for() actually look things up
+    (destination only, no duration/profile axis exists in that lookup)."""
     slug = destination.lower().replace(" ", "")
-    return f"bundle_{slug}_{duration_bucket}_{profile}"
+    return f"bundle_{slug}"
 
 
 def _dates_for(destination: str, duration_bucket: str, rng: random.Random) -> Tuple[str, str]:
@@ -337,7 +453,7 @@ def _make_flight_options(destination: str, departure_date: str, return_date: str
 
 
 def _make_hotel_options(destination: str, departure_date: str, return_date: str, nights: int,
-                         rng: random.Random, force_cheapest_expensive: bool, bundle_tag: str) -> List[dict]:
+                         rng: random.Random, bundle_tag: str) -> List[dict]:
     n = 3 + rng.randrange(3)
     locations = ["Downtown", "Old Town", "Riverside", "Business District", "Airport Area", "Suburb"]
     slug = destination[:3].upper().replace(" ", "")
@@ -367,13 +483,9 @@ def _make_hotel_options(destination: str, departure_date: str, return_date: str,
             "provider_id": f"synthetic_hotel_{(idx % 4) + 1}", "source_id": "generated_fixture",
             "content_version": "formal_workload_v1",
         })
-    if force_cheapest_expensive:
-        # [budget_conflict content profile] push every option above a level
-        # that will exceed LODGING_BUDGET_FRACTION * converted budget -- exact
-        # trigger arithmetic is verified in compute_budget_amount(), not here.
-        for o in options:
-            o["nightly_price"] = int(o["nightly_price"] * 1.6)
-            o["total_price"] = o["nightly_price"] * nights
+    # NOTE: budget_conflict is entirely TASK-level now (compute_budget_amount()
+    # sets budget_amount relative to whatever this bundle's actual cheapest
+    # total_price turns out to be) -- no price inflation needed here.
     return options
 
 
@@ -443,42 +555,43 @@ def _make_tour_options(destination: str, departure_date: str, return_date: str,
 
 
 def build_content_bundles(slots: List[dict], rng: random.Random) -> Dict[str, Any]:
-    """Pass 2 -- one bundle per (destination, duration_bucket, content_profile)
-    key actually referenced by `slots`, deduplicated. Also fills in each
-    slot's `content_bundle_id`/`departure_date`/`return_date` in place."""
+    """Pass 2 -- ONE bundle per DESTINATION (Phase 6.5D bugfix -- see module
+    docstring), built once per destination in a deterministic (sorted)
+    order, then referenced by every slot assigned to that destination. Also
+    fills in each slot's `content_bundle_id`/`departure_date`/`return_date`
+    in place.
+
+    A destination's tour_profile is reconstructed from the slots actually
+    routed there (Pass 1c already guaranteed every slot at a destination is
+    pool-compatible with that destination's single profile -- see
+    _allocate_destination_pools/_assign_destination_profiles) rather than
+    recomputed independently, so this consumes no additional `rng` calls
+    beyond _dates_for()/_make_*_options() and cannot desync from Pass 1c."""
     flights, hotels, tours, currency_records, policies = [], [], [], [], []
     seen_currency_pairs = set()
-    bundle_index: Dict[str, dict] = {}
 
+    slots_by_destination: Dict[str, List[dict]] = defaultdict(list)
     for slot in slots:
-        destination = slot["destination"]
-        duration_bucket = slot["duration_bucket"]
-        profile = slot["content_profile"]
-        bundle_id = _content_bundle_id(destination, duration_bucket, profile)
-        slot["content_bundle_id"] = bundle_id
+        slots_by_destination[slot["destination"]].append(slot)
 
-        if bundle_id in bundle_index:
-            slot["departure_date"] = bundle_index[bundle_id]["departure_date"]
-            slot["return_date"] = bundle_index[bundle_id]["return_date"]
-            continue
+    for destination in sorted(slots_by_destination):
+        dest_slots = slots_by_destination[destination]
+        duration_bucket = dest_slots[0]["duration_bucket"]
+        all_constraint_types = {c for s in dest_slots for c in s["constraint_types"]}
+        if "schedule_conflict" in all_constraint_types:
+            profile_flags = {"schedule_conflict"}
+        elif "integration_conflict" in all_constraint_types:
+            profile_flags = {"integration_conflict"}
+        else:
+            profile_flags = set()
 
+        bundle_id = _content_bundle_id(destination)
         departure_date, return_date = _dates_for(destination, duration_bucket, rng)
         nights = DURATION_BUCKETS[duration_bucket]
-        # profile string is "_".join(sorted(constraint_types)) -- rebuild the
-        # actual flag set directly from constraint_types instead of
-        # re-splitting text that may itself contain underscores (e.g.
-        # "budget_conflict").
-        profile_flags = set(slot["constraint_types"])
-        # [option_id uniqueness] multiple bundles can share one destination
-        # (different duration_bucket/profile) -- a short deterministic tag
-        # keyed on bundle_id keeps every option_id globally unique without
-        # depending on generation order.
         bundle_tag = hashlib.sha256(bundle_id.encode("utf-8")).hexdigest()[:4].upper()
 
         flight_opts = _make_flight_options(destination, departure_date, return_date, rng, bundle_tag)
-        hotel_opts = _make_hotel_options(destination, departure_date, return_date, nights, rng,
-                                          force_cheapest_expensive=("budget_conflict" in profile_flags),
-                                          bundle_tag=bundle_tag)
+        hotel_opts = _make_hotel_options(destination, departure_date, return_date, nights, rng, bundle_tag)
         tour_opts = _make_tour_options(destination, departure_date, return_date, rng, profile_flags, flight_opts,
                                         bundle_tag)
 
@@ -503,9 +616,10 @@ def build_content_bundles(slots: List[dict], rng: random.Random) -> Dict[str, An
             "source_id": "generated_fixture", "content_version": "formal_workload_v1",
         })
 
-        bundle_index[bundle_id] = {"departure_date": departure_date, "return_date": return_date}
-        slot["departure_date"] = departure_date
-        slot["return_date"] = return_date
+        for slot in dest_slots:
+            slot["content_bundle_id"] = bundle_id
+            slot["departure_date"] = departure_date
+            slot["return_date"] = return_date
 
     return {"flights": flights, "hotels": hotels, "tours": tours, "currency": currency_records, "policies": policies}
 
@@ -715,9 +829,9 @@ def generate_formal_workload(spec_dir: str = SPEC_DIR_DEFAULT, seed: int = 42,
         "determinism_hash": determinism_hash,
         "known_simplifications": [
             "budget_currency is always KRW regardless of origin (destination-scoped content bundles, not destination x origin)",
-            "each duration_bucket maps to exactly one canonical trip length in days",
+            "content_bundle_id is destination-scoped (one bundle per destination, not per duration_bucket x content_profile) -- required because content_repository.hotels_for()/flights_for() filter by destination only; duration_bucket and tour_profile (schedule_conflict/integration_conflict/clean) are therefore DESTINATION properties, and every destination hosts only tasks whose own needs are compatible with its single profile (see _allocate_destination_pools/_assign_destination_profiles)",
             "schedule_conflict and integration_conflict are never combined in one task's constraint_types (mutually exclusive content requirements) -- hard-tier condition_count is capped at 2, not 3",
-            "budget/schedule/integration conflict triggers are exact-arithmetic guaranteed here (compute_budget_amount, tour date construction); empirical confirmation against the real workflow_policy.py execution happens in Phase 6.5D's mock full run",
+            "budget_conflict remains fully task-level (compute_budget_amount's factor against the shared destination bundle's actual cheapest hotel) -- exact-arithmetic guaranteed and empirically confirmed against real workflow_policy.py execution in Phase 6.5D's mock full run (branch_match_report.json)",
         ],
     }
 

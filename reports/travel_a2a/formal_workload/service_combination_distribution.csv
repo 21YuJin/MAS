@@ -1,5 +1,5 @@
 category,train,validation,test
-currency+flight+hotel,10,2,4
-currency+flight+hotel+tours,9,3,3
-flight+hotel,4,0,1
-flight+hotel+tours,7,5,2
+currency+flight+hotel,12,2,2
+currency+flight+hotel+tours,6,6,3
+flight+hotel,3,0,2
+flight+hotel+tours,10,1,3

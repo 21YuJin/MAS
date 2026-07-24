@@ -1,0 +1,192 @@
+{
+  "stats_by_split": {
+    "train": {
+      "event_count": {
+        "mean": 11.58,
+        "median": 11,
+        "std": 3.53,
+        "min": 6,
+        "max": 19
+      },
+      "message_count": {
+        "mean": 11.58,
+        "median": 11,
+        "std": 3.53,
+        "min": 6,
+        "max": 19
+      },
+      "artifact_count": {
+        "mean": 6,
+        "median": 6,
+        "std": 1.16,
+        "min": 4,
+        "max": 8
+      },
+      "artifact_version_count": {
+        "mean": 6.9,
+        "median": 7,
+        "std": 1.84,
+        "min": 4,
+        "max": 10
+      },
+      "clarification_count": {
+        "mean": 1.94,
+        "median": 2,
+        "std": 1.56,
+        "min": 0,
+        "max": 6
+      },
+      "revision_count": {
+        "mean": 0.55,
+        "median": 0,
+        "std": 0.66,
+        "min": 0,
+        "max": 2
+      },
+      "unique_directed_pair_count": {
+        "mean": 9.81,
+        "median": 10,
+        "std": 2.05,
+        "min": 6,
+        "max": 14
+      }
+    },
+    "test": {
+      "event_count": {
+        "mean": 11.2,
+        "median": 10.0,
+        "std": 4.38,
+        "min": 6,
+        "max": 18
+      },
+      "message_count": {
+        "mean": 11.2,
+        "median": 10.0,
+        "std": 4.38,
+        "min": 6,
+        "max": 18
+      },
+      "artifact_count": {
+        "mean": 5.9,
+        "median": 5.5,
+        "std": 1.51,
+        "min": 4,
+        "max": 8
+      },
+      "artifact_version_count": {
+        "mean": 6.7,
+        "median": 6.0,
+        "std": 2.37,
+        "min": 4,
+        "max": 10
+      },
+      "clarification_count": {
+        "mean": 1.6,
+        "median": 1.0,
+        "std": 1.74,
+        "min": 0,
+        "max": 4
+      },
+      "revision_count": {
+        "mean": 0.6,
+        "median": 0.0,
+        "std": 0.8,
+        "min": 0,
+        "max": 2
+      },
+      "unique_directed_pair_count": {
+        "mean": 9.4,
+        "median": 9.0,
+        "std": 2.54,
+        "min": 6,
+        "max": 14
+      }
+    },
+    "validation": {
+      "event_count": {
+        "mean": 14.44,
+        "median": 16,
+        "std": 3.1,
+        "min": 8,
+        "max": 17
+      },
+      "message_count": {
+        "mean": 14.44,
+        "median": 16,
+        "std": 3.1,
+        "min": 8,
+        "max": 17
+      },
+      "artifact_count": {
+        "mean": 7.22,
+        "median": 8,
+        "std": 1.13,
+        "min": 5,
+        "max": 8
+      },
+      "artifact_version_count": {
+        "mean": 8.78,
+        "median": 10,
+        "std": 1.81,
+        "min": 5,
+        "max": 10
+      },
+      "clarification_count": {
+        "mean": 2.44,
+        "median": 2,
+        "std": 1.26,
+        "min": 0,
+        "max": 4
+      },
+      "revision_count": {
+        "mean": 1.11,
+        "median": 1,
+        "std": 0.74,
+        "min": 0,
+        "max": 2
+      },
+      "unique_directed_pair_count": {
+        "mean": 11.78,
+        "median": 12,
+        "std": 1.99,
+        "min": 8,
+        "max": 14
+      }
+    }
+  },
+  "branch_rates_by_split": {
+    "train": {
+      "basic_flow_only": 0.29,
+      "schedule_clarification": 0.355,
+      "budget_revision": 0.452,
+      "client_clarification": 0.161,
+      "multi_branch": 0.29,
+      "integration_revision": 0.097
+    },
+    "test": {
+      "budget_revision": 0.4,
+      "basic_flow_only": 0.5,
+      "integration_revision": 0.2,
+      "multi_branch": 0.4,
+      "client_clarification": 0.2,
+      "schedule_clarification": 0.2
+    },
+    "validation": {
+      "basic_flow_only": 0.111,
+      "budget_revision": 0.778,
+      "schedule_clarification": 0.444,
+      "multi_branch": 0.667,
+      "integration_revision": 0.333
+    }
+  },
+  "graph_pattern_count_by_split": {
+    "train": 7,
+    "test": 7,
+    "validation": 5
+  },
+  "warnings": [
+    "branch 'budget_revision' rate differs by >30 percentage points across splits: {'train': 0.452, 'test': 0.4, 'validation': 0.778}",
+    "branch 'multi_branch' rate differs by >30 percentage points across splits: {'train': 0.29, 'test': 0.4, 'validation': 0.667}",
+    "branch 'basic_flow_only' rate differs by >30 percentage points across splits: {'train': 0.29, 'test': 0.5, 'validation': 0.111}"
+  ]
+}

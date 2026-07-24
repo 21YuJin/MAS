@@ -17,11 +17,11 @@
       "hard": 15
     }
   },
-  "determinism_hash": "3b171a15960c6051be0f3ab3efbed4597c93c7f737fac5e4fbc6b5ef3cad4ec5",
+  "determinism_hash": "23d337b9f5cc0f7833d33f6d1b338be14870303cf503085a6a02da23cbe49fa2",
   "known_simplifications": [
     "budget_currency is always KRW regardless of origin (destination-scoped content bundles, not destination x origin)",
-    "each duration_bucket maps to exactly one canonical trip length in days",
+    "content_bundle_id is destination-scoped (one bundle per destination, not per duration_bucket x content_profile) -- required because content_repository.hotels_for()/flights_for() filter by destination only; duration_bucket and tour_profile (schedule_conflict/integration_conflict/clean) are therefore DESTINATION properties, and every destination hosts only tasks whose own needs are compatible with its single profile (see _allocate_destination_pools/_assign_destination_profiles)",
     "schedule_conflict and integration_conflict are never combined in one task's constraint_types (mutually exclusive content requirements) -- hard-tier condition_count is capped at 2, not 3",
-    "budget/schedule/integration conflict triggers are exact-arithmetic guaranteed here (compute_budget_amount, tour date construction); empirical confirmation against the real workflow_policy.py execution happens in Phase 6.5D's mock full run"
+    "budget_conflict remains fully task-level (compute_budget_amount's factor against the shared destination bundle's actual cheapest hotel) -- exact-arithmetic guaranteed and empirically confirmed against real workflow_policy.py execution in Phase 6.5D's mock full run (branch_match_report.json)"
   ]
 }

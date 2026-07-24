@@ -1,12 +1,12 @@
 {
-  "near_duplicate_group_count": 3,
+  "near_duplicate_group_count": 1,
   "near_duplicate_groups": [
     {
       "signature": [
         "business_trip",
         "flight+hotel+tours",
         "medium",
-        "short",
+        "long",
         "solo",
         "flexible",
         [
@@ -15,45 +15,7 @@
       ],
       "task_ids": [
         "formal_business_trip_berlin_04",
-        "formal_business_trip_london_06"
-      ]
-    },
-    {
-      "signature": [
-        "multi_constraint_trip",
-        "currency+flight+hotel+tours",
-        "hard",
-        "extended",
-        "group",
-        "tight",
-        [
-          "budget_revision",
-          "integration_revision",
-          "multi_branch"
-        ]
-      ],
-      "task_ids": [
-        "formal_multi_constraint_trip_bangkok_03",
-        "formal_multi_constraint_trip_osaka_07"
-      ]
-    },
-    {
-      "signature": [
-        "multi_constraint_trip",
-        "currency+flight+hotel+tours",
-        "hard",
-        "long",
-        "group",
-        "tight",
-        [
-          "budget_revision",
-          "multi_branch",
-          "schedule_clarification"
-        ]
-      ],
-      "task_ids": [
-        "formal_multi_constraint_trip_tokyo_06",
-        "formal_hard_normal_trip_dubai_02"
+        "formal_business_trip_vancouver_06"
       ]
     }
   ],

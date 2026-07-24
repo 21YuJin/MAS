@@ -1,7 +1,7 @@
 {
   "instance_counts": {
-    "train": 30,
-    "validation": 10,
+    "train": 31,
+    "validation": 9,
     "test": 10
   },
   "target_counts": {
@@ -10,95 +10,95 @@
     "test": 10
   },
   "deviation_from_target": {
-    "train": 0,
-    "validation": 0,
+    "train": 1,
+    "validation": -1,
     "test": 0
   },
-  "exact_target_match": true,
-  "deviation_cause": null,
+  "exact_target_match": false,
+  "deviation_cause": "task_group sizes (1/2/3, from Phase 6.5B's template-based grouping) do not tile evenly into 30/10/10 -- groups are never split to force an exact match (Step 6.5C's explicit priority order: group leakage 0 first, exact instance count second).",
   "template_family_distribution": {
     "train": {
       "activity_focused_trip": 3,
-      "basic_trip": 8,
-      "budget_trip": 4,
-      "business_trip": 4,
-      "family_trip": 3,
-      "multi_constraint_trip": 8
+      "basic_trip": 7,
+      "budget_trip": 5,
+      "business_trip": 5,
+      "family_trip": 4,
+      "multi_constraint_trip": 7
     },
     "validation": {
-      "activity_focused_trip": 3,
-      "budget_trip": 3,
-      "business_trip": 1,
-      "family_trip": 3
+      "budget_trip": 1,
+      "business_trip": 2,
+      "family_trip": 3,
+      "multi_constraint_trip": 2,
+      "basic_trip": 1
     },
     "test": {
-      "activity_focused_trip": 2,
-      "budget_trip": 1,
-      "business_trip": 3,
-      "family_trip": 2,
+      "activity_focused_trip": 5,
       "basic_trip": 1,
-      "multi_constraint_trip": 1
+      "budget_trip": 2,
+      "business_trip": 1,
+      "family_trip": 1
     }
   },
   "difficulty_distribution": {
     "train": {
-      "medium": 10,
-      "easy": 11,
-      "hard": 9
+      "medium": 16,
+      "easy": 9,
+      "hard": 6
     },
     "validation": {
-      "medium": 6,
-      "hard": 3,
-      "easy": 1
+      "easy": 1,
+      "hard": 6,
+      "medium": 2
     },
     "test": {
       "hard": 3,
-      "easy": 3,
-      "medium": 4
+      "easy": 5,
+      "medium": 2
     }
   },
   "branch_distribution": {
     "train": {
       "budget_revision": 14,
-      "client_clarification": 4,
-      "multi_branch": 11,
-      "basic_flow_only": 11,
-      "schedule_clarification": 10,
-      "integration_revision": 4
+      "client_clarification": 5,
+      "multi_branch": 9,
+      "schedule_clarification": 11,
+      "basic_flow_only": 9,
+      "integration_revision": 3
     },
     "validation": {
-      "schedule_clarification": 5,
-      "budget_revision": 5,
-      "integration_revision": 2,
-      "client_clarification": 3,
-      "multi_branch": 5,
-      "basic_flow_only": 1
+      "basic_flow_only": 1,
+      "budget_revision": 7,
+      "schedule_clarification": 4,
+      "multi_branch": 6,
+      "integration_revision": 3
     },
     "test": {
-      "budget_revision": 6,
-      "schedule_clarification": 2,
-      "multi_branch": 3,
-      "basic_flow_only": 3,
-      "integration_revision": 2
+      "budget_revision": 4,
+      "integration_revision": 2,
+      "client_clarification": 2,
+      "multi_branch": 4,
+      "basic_flow_only": 5,
+      "schedule_clarification": 2
     }
   },
   "service_combination_distribution": {
     "train": {
-      "currency+flight+hotel": 10,
-      "flight+hotel+tours": 7,
-      "flight+hotel": 4,
-      "currency+flight+hotel+tours": 9
+      "currency+flight+hotel": 12,
+      "flight+hotel+tours": 10,
+      "flight+hotel": 3,
+      "currency+flight+hotel+tours": 6
     },
     "validation": {
-      "flight+hotel+tours": 5,
-      "currency+flight+hotel+tours": 3,
-      "currency+flight+hotel": 2
+      "currency+flight+hotel": 2,
+      "currency+flight+hotel+tours": 6,
+      "flight+hotel+tours": 1
     },
     "test": {
       "currency+flight+hotel+tours": 3,
-      "flight+hotel": 1,
-      "flight+hotel+tours": 2,
-      "currency+flight+hotel": 4
+      "flight+hotel": 2,
+      "currency+flight+hotel": 2,
+      "flight+hotel+tours": 3
     }
   }
 }

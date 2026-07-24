@@ -1,12 +1,11 @@
 [
-  "formal_activity_focused_trip_taipei_04",
-  "formal_activity_focused_trip_vancouver_06",
-  "formal_budget_trip_barcelona_04",
-  "formal_budget_trip_osaka_06",
-  "formal_budget_trip_sydney_08",
-  "formal_business_trip_singapore_07",
-  "formal_family_trip_barcelona_04",
-  "formal_family_trip_newyork_01",
-  "formal_family_trip_osaka_06",
-  "formal_hard_normal_trip_sydney_01"
+  "formal_budget_trip_london_03",
+  "formal_business_trip_london_07",
+  "formal_family_trip_paris_07",
+  "formal_family_trip_singapore_05",
+  "formal_hard_normal_trip_barcelona_03",
+  "formal_hard_normal_trip_london_02",
+  "formal_hard_normal_trip_singapore_04",
+  "formal_hard_normal_trip_tokyo_05",
+  "formal_multi_constraint_trip_vancouver_02"
 ]

@@ -1,16 +1,16 @@
 category,train,validation,test
-Bangkok,3,0,0
-Barcelona,1,2,0
+Bangkok,2,0,1
+Barcelona,1,1,1
 Berlin,3,0,1
 Dubai,3,0,1
 Hong Kong,3,0,1
-London,2,0,1
-New York,0,1,2
-Osaka,1,2,0
-Paris,3,0,0
-Rome,3,0,0
-Singapore,2,1,0
-Sydney,1,2,1
-Taipei,2,1,1
-Tokyo,2,0,1
-Vancouver,1,1,1
+London,0,3,0
+New York,2,0,0
+Osaka,2,0,1
+Paris,2,1,0
+Rome,2,0,1
+Singapore,1,2,0
+Sydney,3,0,1
+Taipei,4,0,0
+Tokyo,2,1,0
+Vancouver,1,1,2

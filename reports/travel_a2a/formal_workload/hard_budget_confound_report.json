@@ -1,0 +1,13 @@
+{
+  "hard_task_count": 15,
+  "observed_branch_counts": {
+    "budget_revision": 15,
+    "integration_revision": 8,
+    "multi_branch": 15,
+    "schedule_clarification": 7,
+    "client_clarification": 3
+  },
+  "dominant_event_pattern_share": 0.4,
+  "budget_revision_rate_among_hard": 1.0,
+  "recommend_redesign": true
+}

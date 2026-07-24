@@ -95,27 +95,135 @@ def _merge_groups_sharing_content_bundle(task_instances: List[TaskInstance]) -> 
     return merged
 
 
-def build_primary_split(task_instances: List[TaskInstance], split_seed: int = 7) -> Dict[str, Any]:
-    """Greedy largest-deficit bin-packing over CONTENT-BUNDLE-MERGED split
-    units (see _merge_groups_sharing_content_bundle) -- deterministic (fixed
-    iteration order: units sorted by (-size, unit_id), so split_seed does not
-    currently affect the outcome but is recorded for provenance and future
-    tie-breaking rule changes)."""
-    groups = _merge_groups_sharing_content_bundle(task_instances)
+_EXHAUSTIVE_SEARCH_UNIT_LIMIT = 14  # 3^14 ~= 4.8M is still fast; beyond that, fall back to greedy
 
-    ordered_group_ids = sorted(groups.keys(), key=lambda gid: (-len(groups[gid]), gid))
+
+def _unit_difficulty_counts(groups: Dict[str, List[TaskInstance]]) -> Dict[str, Dict[str, int]]:
+    out = {}
+    for gid, members in groups.items():
+        c: Dict[str, int] = defaultdict(int)
+        for m in members:
+            c[m.difficulty] += 1
+        out[gid] = dict(c)
+    return out
+
+
+def _assignment_score(assignment: Dict[str, str], unit_sizes: Dict[str, int],
+                       unit_difficulty: Dict[str, Dict[str, int]], overall_difficulty_frac: Dict[str, float]) -> float:
+    """Lower is better. Combines (a) squared deviation of instance counts
+    from target and (b) a size-weighted squared deviation of each split's
+    difficulty PROPORTIONS from the overall population's difficulty
+    proportions -- pure size-based bin-packing (a alone) can produce a
+    split-unit assignment where one split is almost entirely 'hard' purely
+    by chance of which destinations' content bundles happened to land there;
+    (b) penalizes that even when (a) is already satisfied."""
     counts = {"train": 0, "validation": 0, "test": 0}
-    assignment: Dict[str, str] = {}  # split unit id -> split
+    diff_counts = {"train": defaultdict(int), "validation": defaultdict(int), "test": defaultdict(int)}
+    for gid, split_name in assignment.items():
+        counts[split_name] += unit_sizes[gid]
+        for d, n in unit_difficulty[gid].items():
+            diff_counts[split_name][d] += n
 
-    for gid in ordered_group_ids:
-        size = len(groups[gid])
-        # deficit = how far below target (in remaining "room"); pick the
-        # split with the largest deficit-to-target ratio, tie-broken by
-        # fixed order train->validation->test then by lowest current count.
-        deficits = {s: PRIMARY_SPLIT_TARGETS[s] - counts[s] for s in ("train", "validation", "test")}
-        best_split = max(("train", "validation", "test"), key=lambda s: (deficits[s], -counts[s]))
-        assignment[gid] = best_split
-        counts[best_split] += size
+    # RELATIVE deviation (normalized by each split's own target) -- using raw
+    # absolute squared deviation would make the size-30 train target look
+    # "worse" for the same proportional miss than the size-10 val/test
+    # targets, biasing any incremental/greedy use of this score toward
+    # filling the smaller targets first (verified empirically during
+    # Phase 6.5D: an earlier absolute-deviation version of the greedy fallback
+    # produced train=0/validation=25/test=25).
+    size_penalty = sum(((counts[s] - PRIMARY_SPLIT_TARGETS[s]) / PRIMARY_SPLIT_TARGETS[s]) ** 2 for s in counts)
+    difficulty_penalty = 0.0
+    for s in counts:
+        if counts[s] == 0:
+            difficulty_penalty += 1000.0
+            continue
+        for d, expected_frac in overall_difficulty_frac.items():
+            actual_frac = diff_counts[s].get(d, 0) / counts[s]
+            difficulty_penalty += ((actual_frac - expected_frac) ** 2) * counts[s]
+    return size_penalty + difficulty_penalty * 10.0
+
+
+def build_primary_split(task_instances: List[TaskInstance], split_seed: int = 7) -> Dict[str, Any]:
+    """Assigns each task_group_id to train/validation/test (Step 6.5-10's
+    explicit split unit -- near-duplicate template variants deployed across
+    different destinations). Deliberately does NOT also merge groups sharing
+    a content_bundle_id: an earlier version of this function did (via
+    _merge_groups_sharing_content_bundle) to structurally prevent
+    CONTENT_BUNDLE_REUSE_LEAKAGE, but the workload's destination-reuse
+    density (Phase 6.5D's destination-scoped content bundle fix) makes that
+    merge's transitive closure collapse most of the 35 template groups into
+    a handful of giant, destination-spanning blocks -- destroying
+    family/difficulty balance far more than the raw-content-reuse risk it
+    was preventing justifies for a METADATA-only detector (LightGAE never
+    reads raw flight/hotel/tour prices/descriptions as a feature). Content-
+    bundle reuse across splits is instead just REPORTED as a shortcut risk
+    (validate_shortcut_risks' CONTENT_BUNDLE_REUSE_LEAKAGE check), not
+    structurally prevented.
+
+    When the resulting unit count is small enough, exhaustively searches
+    every 3^n assignment (deterministic tie-break: first-encountered in
+    itertools.product order) and keeps the one minimizing
+    _assignment_score -- jointly balancing instance-count-vs-target AND
+    difficulty-proportion balance. Falls back to a difficulty-aware greedy
+    for larger unit counts, where exhaustive search is no longer tractable."""
+    groups: Dict[str, List[TaskInstance]] = defaultdict(list)
+    for ti in task_instances:
+        groups[ti.task_group_id].append(ti)
+    unit_sizes = {gid: len(members) for gid, members in groups.items()}
+    unit_difficulty = _unit_difficulty_counts(groups)
+    overall_difficulty: Dict[str, int] = defaultdict(int)
+    for gid, counts in unit_difficulty.items():
+        for d, n in counts.items():
+            overall_difficulty[d] += n
+    total_instances = sum(overall_difficulty.values())
+    overall_difficulty_frac = {d: n / total_instances for d, n in overall_difficulty.items()}
+
+    ordered_group_ids = sorted(groups.keys(), key=lambda gid: (-unit_sizes[gid], gid))
+
+    if len(ordered_group_ids) <= _EXHAUSTIVE_SEARCH_UNIT_LIMIT:
+        import itertools
+        best_assignment: Optional[Dict[str, str]] = None
+        best_score: Optional[float] = None
+        for combo in itertools.product(("train", "validation", "test"), repeat=len(ordered_group_ids)):
+            candidate = dict(zip(ordered_group_ids, combo))
+            s = _assignment_score(candidate, unit_sizes, unit_difficulty, overall_difficulty_frac)
+            if best_score is None or s < best_score:
+                best_score = s
+                best_assignment = candidate
+        assignment = best_assignment
+    else:
+        # difficulty-aware greedy: PRIMARY criterion is still "largest
+        # remaining absolute deficit" (the original, working proportional-
+        # fill rule -- train's target of 30 means it must win most early
+        # picks over validation/test's target of 10, or it starves; a
+        # resulting-penalty-style comparison was tried and empirically
+        # produced train=0/validation=25/test=25 during Phase 6.5D, because
+        # it's cheaper in relative terms to "satisfy" a small target first).
+        # difficulty balance only breaks NEAR-ties on that primary criterion.
+        counts = {"train": 0, "validation": 0, "test": 0}
+        diff_counts = {"train": defaultdict(int), "validation": defaultdict(int), "test": defaultdict(int)}
+        assignment = {}
+        for gid in ordered_group_ids:
+            deficits = {s: PRIMARY_SPLIT_TARGETS[s] - counts[s] for s in ("train", "validation", "test")}
+            max_deficit = max(deficits.values())
+            tolerance = max(1, unit_sizes[gid])
+            candidates = [s for s in deficits if max_deficit - deficits[s] <= tolerance]
+            if len(candidates) == 1:
+                best_split = candidates[0]
+            else:
+                def _local_diff_penalty(s):
+                    trial_count = counts[s] + unit_sizes[gid]
+                    pen = 0.0
+                    for d, expected_frac in overall_difficulty_frac.items():
+                        trial_d = diff_counts[s].get(d, 0) + unit_difficulty[gid].get(d, 0)
+                        actual_frac = trial_d / trial_count if trial_count else 0.0
+                        pen += (actual_frac - expected_frac) ** 2
+                    return pen
+                best_split = min(candidates, key=lambda s: (_local_diff_penalty(s), -counts[s]))
+            assignment[gid] = best_split
+            counts[best_split] += unit_sizes[gid]
+            for d, n in unit_difficulty[gid].items():
+                diff_counts[best_split][d] += n
 
     train_ids = sorted(ti.task_instance_id for gid in ordered_group_ids if assignment[gid] == "train" for ti in groups[gid])
     val_ids = sorted(ti.task_instance_id for gid in ordered_group_ids if assignment[gid] == "validation" for ti in groups[gid])
@@ -123,7 +231,7 @@ def build_primary_split(task_instances: List[TaskInstance], split_seed: int = 7)
 
     return {
         "split_seed": split_seed,
-        "split_unit": "task_group_id, merged across groups sharing a content_bundle_id",
+        "split_unit": "task_group_id",
         "split_unit_count": len(ordered_group_ids),
         "split_unit_assignment": assignment,
         "train_task_ids": train_ids,
@@ -296,13 +404,18 @@ def validate_shortcut_risks(task_instances: List[TaskInstance], content_bundles:
     leaked_bundles = {b: s for b, s in bundle_splits.items() if len(s) > 1}
     if leaked_bundles:
         issues.append(ShortcutIssue(
-            "CONTENT_BUNDLE_REUSE_LEAKAGE", "medium",
+            "CONTENT_BUNDLE_REUSE_LEAKAGE", "low",
             [tid for tid, sp in id_to_split.items() if by_id[tid].content_bundle_id in leaked_bundles],
             f"{len(leaked_bundles)} content_bundle_id(s) are shared by task instances landing in different "
-            "primary splits -- raw flight/hotel/tour content (prices/descriptions) could let a detector "
-            "recognize train content reappearing in test.",
-            "Route task_group_id assignment so every task instance sharing a content_bundle_id lands in the "
-            "same split (currently NOT enforced by build_primary_split -- see generation_report follow-up)."
+            "primary splits -- raw flight/hotel/tour content (prices/descriptions) reappears across train/test. "
+            "Accepted trade-off (Phase 6.5D): content_bundle_id is destination-scoped (required for correct "
+            "workflow_policy.py branch triggering -- see formal_workload_generator.py's module docstring), and "
+            "with 15 destinations shared across 35 templates, forcing every content-bundle-sharing template "
+            "into one split collapses the workload into a handful of giant blocks that badly damage "
+            "difficulty/family balance (a strictly worse trade for a METADATA-only detector, which never reads "
+            "raw price/description content as a feature).",
+            "No action required unless a future feature actually reads raw content values -- if so, revisit "
+            "by re-enabling _merge_groups_sharing_content_bundle() in build_primary_split()."
         ))
 
     # OPTION_POSITION_BIAS -- cheapest hotel option at the same array index in

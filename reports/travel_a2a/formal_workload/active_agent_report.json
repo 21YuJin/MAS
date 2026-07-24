@@ -1,0 +1,20 @@
+{
+  "active_session_counts": {
+    "travel_coordinator": 50,
+    "flight_agent": 50,
+    "hotel_agent": 50,
+    "currency_agent": 31,
+    "tours_agent": 29
+  },
+  "total_sessions": 50,
+  "minimums": {
+    "travel_coordinator": 50,
+    "flight_agent": 40,
+    "hotel_agent": 40,
+    "currency_agent": 30,
+    "tours_agent": 30
+  },
+  "below_minimum": {
+    "tours_agent": 29
+  }
+}

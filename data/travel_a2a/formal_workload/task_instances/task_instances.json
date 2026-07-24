@@ -5,10 +5,10 @@
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel_none",
     "origin": "Busan",
     "destination": "Sydney",
-    "departure_date": "2027-11-12",
-    "return_date": "2027-11-17",
+    "departure_date": "2027-11-08",
+    "return_date": "2027-11-18",
     "travelers": 1,
-    "budget_amount": 1873000.0,
+    "budget_amount": 2473000.0,
     "budget_currency": "KRW",
     "target_currency": "AUD",
     "required_services": [
@@ -17,7 +17,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_sydney_medium_std",
+    "content_bundle_id": "bundle_sydney",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -42,10 +42,10 @@
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel-currency_none",
     "origin": "Tokyo",
     "destination": "Dubai",
-    "departure_date": "2027-10-11",
-    "return_date": "2027-10-21",
+    "departure_date": "2027-10-09",
+    "return_date": "2027-10-19",
     "travelers": 2,
-    "budget_amount": 1579000.0,
+    "budget_amount": 1351000.0,
     "budget_currency": "KRW",
     "target_currency": "AED",
     "required_services": [
@@ -55,7 +55,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_dubai_extended_std",
+    "content_bundle_id": "bundle_dubai",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -77,17 +77,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_basic_trip_hongkong_03",
+    "task_instance_id": "formal_basic_trip_osaka_03",
     "template_id": "tmpl_basic_trip_flight-hotel-tours_none",
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel-tours_none",
     "origin": "Singapore",
-    "destination": "Hong Kong",
-    "departure_date": "2027-10-17",
-    "return_date": "2027-10-24",
+    "destination": "Osaka",
+    "departure_date": "2027-04-13",
+    "return_date": "2027-04-18",
     "travelers": 3,
-    "budget_amount": 451000.0,
+    "budget_amount": 13000.0,
     "budget_currency": "KRW",
-    "target_currency": "HKD",
+    "target_currency": "JPY",
     "required_services": [
       "flight",
       "hotel",
@@ -95,7 +95,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_hongkong_long_std",
+    "content_bundle_id": "bundle_osaka",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -115,24 +115,24 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_basic_trip_taipei_04",
+    "task_instance_id": "formal_basic_trip_hongkong_04",
     "template_id": "tmpl_basic_trip_flight-hotel_none",
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel_none",
     "origin": "Seoul",
-    "destination": "Taipei",
-    "departure_date": "2027-09-09",
-    "return_date": "2027-09-12",
+    "destination": "Hong Kong",
+    "departure_date": "2027-10-11",
+    "return_date": "2027-10-16",
     "travelers": 4,
-    "budget_amount": 73000.0,
+    "budget_amount": 291000.0,
     "budget_currency": "KRW",
-    "target_currency": "TWD",
+    "target_currency": "HKD",
     "required_services": [
       "flight",
       "hotel"
     ],
     "task_category": "basic_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_taipei_short_std",
+    "content_bundle_id": "bundle_hongkong",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -152,17 +152,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_basic_trip_berlin_05",
+    "task_instance_id": "formal_basic_trip_taipei_05",
     "template_id": "tmpl_basic_trip_flight-hotel-currency_none",
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel-currency_none",
     "origin": "Busan",
-    "destination": "Berlin",
-    "departure_date": "2027-12-05",
-    "return_date": "2027-12-10",
+    "destination": "Taipei",
+    "departure_date": "2027-09-18",
+    "return_date": "2027-09-23",
     "travelers": 1,
-    "budget_amount": 2957000.0,
+    "budget_amount": 94000.0,
     "budget_currency": "KRW",
-    "target_currency": "EUR",
+    "target_currency": "TWD",
     "required_services": [
       "flight",
       "hotel",
@@ -170,7 +170,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_berlin_medium_std",
+    "content_bundle_id": "bundle_taipei",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -190,17 +190,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_basic_trip_vancouver_06",
+    "task_instance_id": "formal_basic_trip_sydney_06",
     "template_id": "tmpl_basic_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Tokyo",
-    "destination": "Vancouver",
-    "departure_date": "2027-08-19",
-    "return_date": "2027-08-29",
+    "destination": "Sydney",
+    "departure_date": "2027-11-08",
+    "return_date": "2027-11-18",
     "travelers": 2,
-    "budget_amount": 5882000.0,
+    "budget_amount": 3532000.0,
     "budget_currency": "KRW",
-    "target_currency": "CAD",
+    "target_currency": "AUD",
     "required_services": [
       "flight",
       "hotel",
@@ -208,7 +208,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_vancouver_extended_schedule_conflict",
+    "content_bundle_id": "bundle_sydney",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -228,17 +228,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_basic_trip_london_07",
+    "task_instance_id": "formal_basic_trip_berlin_07",
     "template_id": "tmpl_basic_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel-currency_budget_conflict",
     "origin": "Singapore",
-    "destination": "London",
-    "departure_date": "2027-08-18",
-    "return_date": "2027-08-25",
+    "destination": "Berlin",
+    "departure_date": "2027-12-07",
+    "return_date": "2027-12-14",
     "travelers": 3,
-    "budget_amount": 4973000.0,
+    "budget_amount": 2635000.0,
     "budget_currency": "KRW",
-    "target_currency": "GBP",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -246,7 +246,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_london_long_budget_conflict",
+    "content_bundle_id": "bundle_berlin",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -266,17 +266,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_basic_trip_singapore_08",
+    "task_instance_id": "formal_basic_trip_dubai_08",
     "template_id": "tmpl_basic_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_basic_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Seoul",
-    "destination": "Singapore",
-    "departure_date": "2027-05-18",
-    "return_date": "2027-05-25",
+    "destination": "Dubai",
+    "departure_date": "2027-10-09",
+    "return_date": "2027-10-19",
     "travelers": 4,
-    "budget_amount": 2571000.0,
+    "budget_amount": 1351000.0,
     "budget_currency": "KRW",
-    "target_currency": "SGD",
+    "target_currency": "AED",
     "required_services": [
       "flight",
       "hotel",
@@ -284,7 +284,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_singapore_long_schedule_conflict",
+    "content_bundle_id": "bundle_dubai",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -304,17 +304,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_newyork_01",
+    "task_instance_id": "formal_budget_trip_rome_01",
     "template_id": "tmpl_budget_trip_flight-hotel-tours_none",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel-tours_none",
     "origin": "Busan",
-    "destination": "New York",
-    "departure_date": "2027-03-11",
-    "return_date": "2027-03-16",
+    "destination": "Rome",
+    "departure_date": "2027-05-11",
+    "return_date": "2027-05-14",
     "travelers": 1,
-    "budget_amount": 1440000.0,
+    "budget_amount": 939000.0,
     "budget_currency": "KRW",
-    "target_currency": "USD",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -322,7 +322,7 @@
     ],
     "task_category": "budget_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_newyork_medium_std",
+    "content_bundle_id": "bundle_rome",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -342,24 +342,24 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_bangkok_02",
+    "task_instance_id": "formal_budget_trip_vancouver_02",
     "template_id": "tmpl_budget_trip_flight-hotel_none",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel_none",
     "origin": "Tokyo",
-    "destination": "Bangkok",
-    "departure_date": "2027-06-05",
-    "return_date": "2027-06-10",
+    "destination": "Vancouver",
+    "departure_date": "2027-08-07",
+    "return_date": "2027-08-14",
     "travelers": 2,
-    "budget_amount": 50000.0,
+    "budget_amount": 1894000.0,
     "budget_currency": "KRW",
-    "target_currency": "THB",
+    "target_currency": "CAD",
     "required_services": [
       "flight",
       "hotel"
     ],
     "task_category": "budget_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_bangkok_medium_std",
+    "content_bundle_id": "bundle_vancouver",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -379,17 +379,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_paris_03",
+    "task_instance_id": "formal_budget_trip_london_03",
     "template_id": "tmpl_budget_trip_flight-hotel-currency_none",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel-currency_none",
     "origin": "Singapore",
-    "destination": "Paris",
-    "departure_date": "2027-07-08",
-    "return_date": "2027-07-15",
+    "destination": "London",
+    "departure_date": "2027-08-07",
+    "return_date": "2027-08-14",
     "travelers": 3,
-    "budget_amount": 2070000.0,
+    "budget_amount": 3844000.0,
     "budget_currency": "KRW",
-    "target_currency": "EUR",
+    "target_currency": "GBP",
     "required_services": [
       "flight",
       "hotel",
@@ -397,7 +397,7 @@
     ],
     "task_category": "budget_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_paris_long_std",
+    "content_bundle_id": "bundle_london",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -417,17 +417,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_barcelona_04",
+    "task_instance_id": "formal_budget_trip_hongkong_04",
     "template_id": "tmpl_budget_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Seoul",
-    "destination": "Barcelona",
-    "departure_date": "2027-06-18",
-    "return_date": "2027-06-21",
+    "destination": "Hong Kong",
+    "departure_date": "2027-10-11",
+    "return_date": "2027-10-16",
     "travelers": 4,
-    "budget_amount": 1791000.0,
+    "budget_amount": 203000.0,
     "budget_currency": "KRW",
-    "target_currency": "EUR",
+    "target_currency": "HKD",
     "required_services": [
       "flight",
       "hotel",
@@ -435,7 +435,7 @@
     ],
     "task_category": "budget_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_barcelona_short_schedule_conflict",
+    "content_bundle_id": "bundle_hongkong",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -455,17 +455,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_tokyo_05",
+    "task_instance_id": "formal_budget_trip_singapore_05",
     "template_id": "tmpl_budget_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel-currency_budget_conflict",
     "origin": "Busan",
-    "destination": "Tokyo",
-    "departure_date": "2027-03-19",
-    "return_date": "2027-03-22",
+    "destination": "Singapore",
+    "departure_date": "2027-05-05",
+    "return_date": "2027-05-12",
     "travelers": 1,
-    "budget_amount": 12000.0,
+    "budget_amount": 1231000.0,
     "budget_currency": "KRW",
-    "target_currency": "JPY",
+    "target_currency": "SGD",
     "required_services": [
       "flight",
       "hotel",
@@ -473,7 +473,7 @@
     ],
     "task_category": "budget_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_tokyo_short_budget_conflict",
+    "content_bundle_id": "bundle_singapore",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -493,17 +493,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_osaka_06",
+    "task_instance_id": "formal_budget_trip_taipei_06",
     "template_id": "tmpl_budget_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Tokyo",
-    "destination": "Osaka",
-    "departure_date": "2027-04-07",
-    "return_date": "2027-04-17",
+    "destination": "Taipei",
+    "departure_date": "2027-09-18",
+    "return_date": "2027-09-23",
     "travelers": 2,
-    "budget_amount": 25000.0,
+    "budget_amount": 94000.0,
     "budget_currency": "KRW",
-    "target_currency": "JPY",
+    "target_currency": "TWD",
     "required_services": [
       "flight",
       "hotel",
@@ -511,7 +511,7 @@
     ],
     "task_category": "budget_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_osaka_extended_schedule_conflict",
+    "content_bundle_id": "bundle_taipei",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -533,17 +533,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_rome_07",
+    "task_instance_id": "formal_budget_trip_newyork_07",
     "template_id": "tmpl_budget_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel-currency_budget_conflict",
     "origin": "Singapore",
-    "destination": "Rome",
-    "departure_date": "2027-05-17",
-    "return_date": "2027-05-20",
+    "destination": "New York",
+    "departure_date": "2027-03-09",
+    "return_date": "2027-03-16",
     "travelers": 3,
-    "budget_amount": 1945000.0,
+    "budget_amount": 1776000.0,
     "budget_currency": "KRW",
-    "target_currency": "EUR",
+    "target_currency": "USD",
     "required_services": [
       "flight",
       "hotel",
@@ -551,7 +551,7 @@
     ],
     "task_category": "budget_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_rome_short_budget_conflict",
+    "content_bundle_id": "bundle_newyork",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -573,17 +573,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_budget_trip_sydney_08",
+    "task_instance_id": "formal_budget_trip_bangkok_08",
     "template_id": "tmpl_budget_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "task_group_id": "grp_tmpl_budget_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "origin": "Seoul",
-    "destination": "Sydney",
-    "departure_date": "2027-11-05",
-    "return_date": "2027-11-15",
+    "destination": "Bangkok",
+    "departure_date": "2027-06-08",
+    "return_date": "2027-06-13",
     "travelers": 4,
-    "budget_amount": 3132000.0,
+    "budget_amount": 53000.0,
     "budget_currency": "KRW",
-    "target_currency": "AUD",
+    "target_currency": "THB",
     "required_services": [
       "flight",
       "hotel",
@@ -592,7 +592,7 @@
     ],
     "task_category": "budget_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_sydney_extended_budget_conflict_integration_conflict",
+    "content_bundle_id": "bundle_bangkok",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -614,17 +614,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_business_trip_dubai_01",
+    "task_instance_id": "formal_business_trip_bangkok_01",
     "template_id": "tmpl_business_trip_flight-hotel-currency_none",
     "task_group_id": "grp_tmpl_business_trip_flight-hotel-currency_none",
     "origin": "Busan",
-    "destination": "Dubai",
-    "departure_date": "2027-10-05",
-    "return_date": "2027-10-12",
+    "destination": "Bangkok",
+    "departure_date": "2027-06-08",
+    "return_date": "2027-06-13",
     "travelers": 1,
-    "budget_amount": 692000.0,
+    "budget_amount": 82000.0,
     "budget_currency": "KRW",
-    "target_currency": "AED",
+    "target_currency": "THB",
     "required_services": [
       "flight",
       "hotel",
@@ -632,7 +632,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_dubai_long_std",
+    "content_bundle_id": "bundle_bangkok",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -652,17 +652,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_business_trip_hongkong_02",
+    "task_instance_id": "formal_business_trip_osaka_02",
     "template_id": "tmpl_business_trip_flight-hotel-tours_none",
     "task_group_id": "grp_tmpl_business_trip_flight-hotel-tours_none",
     "origin": "Tokyo",
-    "destination": "Hong Kong",
-    "departure_date": "2027-10-17",
-    "return_date": "2027-10-24",
+    "destination": "Osaka",
+    "departure_date": "2027-04-13",
+    "return_date": "2027-04-18",
     "travelers": 1,
-    "budget_amount": 644000.0,
+    "budget_amount": 19000.0,
     "budget_currency": "KRW",
-    "target_currency": "HKD",
+    "target_currency": "JPY",
     "required_services": [
       "flight",
       "hotel",
@@ -670,7 +670,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_hongkong_long_std",
+    "content_bundle_id": "bundle_osaka",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -690,17 +690,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_business_trip_taipei_03",
+    "task_instance_id": "formal_business_trip_paris_03",
     "template_id": "tmpl_business_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_business_trip_flight-hotel-currency_budget_conflict",
     "origin": "Singapore",
-    "destination": "Taipei",
-    "departure_date": "2027-09-09",
-    "return_date": "2027-09-16",
+    "destination": "Paris",
+    "departure_date": "2027-07-18",
+    "return_date": "2027-07-23",
     "travelers": 1,
-    "budget_amount": 85000.0,
+    "budget_amount": 1174000.0,
     "budget_currency": "KRW",
-    "target_currency": "TWD",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -708,7 +708,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_taipei_long_budget_conflict",
+    "content_bundle_id": "bundle_paris",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -733,10 +733,10 @@
     "task_group_id": "grp_tmpl_business_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Seoul",
     "destination": "Berlin",
-    "departure_date": "2027-12-05",
-    "return_date": "2027-12-08",
+    "departure_date": "2027-12-07",
+    "return_date": "2027-12-14",
     "travelers": 1,
-    "budget_amount": 2509000.0,
+    "budget_amount": 5855000.0,
     "budget_currency": "KRW",
     "target_currency": "EUR",
     "required_services": [
@@ -746,7 +746,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_berlin_short_schedule_conflict",
+    "content_bundle_id": "bundle_berlin",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -766,17 +766,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_business_trip_vancouver_05",
+    "task_instance_id": "formal_business_trip_barcelona_05",
     "template_id": "tmpl_business_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_business_trip_flight-hotel-currency_budget_conflict",
     "origin": "Busan",
-    "destination": "Vancouver",
-    "departure_date": "2027-08-07",
-    "return_date": "2027-08-17",
+    "destination": "Barcelona",
+    "departure_date": "2027-06-18",
+    "return_date": "2027-06-25",
     "travelers": 1,
-    "budget_amount": 4311000.0,
+    "budget_amount": 2661000.0,
     "budget_currency": "KRW",
-    "target_currency": "CAD",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -784,7 +784,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_vancouver_extended_budget_conflict",
+    "content_bundle_id": "bundle_barcelona",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -804,17 +804,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_business_trip_london_06",
+    "task_instance_id": "formal_business_trip_vancouver_06",
     "template_id": "tmpl_business_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_business_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Tokyo",
-    "destination": "London",
-    "departure_date": "2027-08-17",
-    "return_date": "2027-08-20",
+    "destination": "Vancouver",
+    "departure_date": "2027-08-07",
+    "return_date": "2027-08-14",
     "travelers": 1,
-    "budget_amount": 2499000.0,
+    "budget_amount": 2706000.0,
     "budget_currency": "KRW",
-    "target_currency": "GBP",
+    "target_currency": "CAD",
     "required_services": [
       "flight",
       "hotel",
@@ -822,7 +822,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_london_short_schedule_conflict",
+    "content_bundle_id": "bundle_vancouver",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -842,17 +842,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_business_trip_singapore_07",
+    "task_instance_id": "formal_business_trip_london_07",
     "template_id": "tmpl_business_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "task_group_id": "grp_tmpl_business_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
-    "origin": "Seoul",
-    "destination": "Singapore",
-    "departure_date": "2027-05-05",
-    "return_date": "2027-05-12",
+    "origin": "Singapore",
+    "destination": "London",
+    "departure_date": "2027-08-07",
+    "return_date": "2027-08-14",
     "travelers": 1,
-    "budget_amount": 3141000.0,
+    "budget_amount": 3295000.0,
     "budget_currency": "KRW",
-    "target_currency": "SGD",
+    "target_currency": "GBP",
     "required_services": [
       "flight",
       "hotel",
@@ -861,7 +861,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_singapore_long_budget_conflict_schedule_conflict",
+    "content_bundle_id": "bundle_london",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -883,17 +883,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_family_trip_newyork_01",
+    "task_instance_id": "formal_family_trip_rome_01",
     "template_id": "tmpl_family_trip_flight-hotel-tours_none",
     "task_group_id": "grp_tmpl_family_trip_flight-hotel-tours_none",
     "origin": "Seoul",
-    "destination": "New York",
-    "departure_date": "2027-03-10",
-    "return_date": "2027-03-20",
+    "destination": "Rome",
+    "departure_date": "2027-05-11",
+    "return_date": "2027-05-14",
     "travelers": 4,
-    "budget_amount": 6781000.0,
+    "budget_amount": 1789000.0,
     "budget_currency": "KRW",
-    "target_currency": "USD",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -901,7 +901,7 @@
     ],
     "task_category": "family_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_newyork_extended_std",
+    "content_bundle_id": "bundle_rome",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -921,24 +921,24 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_family_trip_bangkok_02",
+    "task_instance_id": "formal_family_trip_tokyo_02",
     "template_id": "tmpl_family_trip_flight-hotel_none",
     "task_group_id": "grp_tmpl_family_trip_flight-hotel_none",
     "origin": "Busan",
-    "destination": "Bangkok",
-    "departure_date": "2027-06-09",
-    "return_date": "2027-06-12",
+    "destination": "Tokyo",
+    "departure_date": "2027-03-19",
+    "return_date": "2027-03-26",
     "travelers": 3,
-    "budget_amount": 31000.0,
+    "budget_amount": 27000.0,
     "budget_currency": "KRW",
-    "target_currency": "THB",
+    "target_currency": "JPY",
     "required_services": [
       "flight",
       "hotel"
     ],
     "task_category": "family_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_bangkok_short_std",
+    "content_bundle_id": "bundle_tokyo",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -958,17 +958,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_family_trip_paris_03",
+    "task_instance_id": "formal_family_trip_osaka_03",
     "template_id": "tmpl_family_trip_flight-hotel-currency_none",
     "task_group_id": "grp_tmpl_family_trip_flight-hotel-currency_none",
     "origin": "Tokyo",
-    "destination": "Paris",
-    "departure_date": "2027-07-08",
-    "return_date": "2027-07-15",
+    "destination": "Osaka",
+    "departure_date": "2027-04-13",
+    "return_date": "2027-04-18",
     "travelers": 4,
-    "budget_amount": 3942000.0,
+    "budget_amount": 19000.0,
     "budget_currency": "KRW",
-    "target_currency": "EUR",
+    "target_currency": "JPY",
     "required_services": [
       "flight",
       "hotel",
@@ -976,7 +976,7 @@
     ],
     "task_category": "family_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_paris_long_std",
+    "content_bundle_id": "bundle_osaka",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -996,15 +996,15 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_family_trip_barcelona_04",
+    "task_instance_id": "formal_family_trip_rome_04",
     "template_id": "tmpl_family_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_family_trip_flight-hotel-currency_budget_conflict",
     "origin": "Singapore",
-    "destination": "Barcelona",
-    "departure_date": "2027-06-07",
-    "return_date": "2027-06-14",
+    "destination": "Rome",
+    "departure_date": "2027-05-11",
+    "return_date": "2027-05-14",
     "travelers": 3,
-    "budget_amount": 4591000.0,
+    "budget_amount": 805000.0,
     "budget_currency": "KRW",
     "target_currency": "EUR",
     "required_services": [
@@ -1014,7 +1014,7 @@
     ],
     "task_category": "family_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_barcelona_long_budget_conflict",
+    "content_bundle_id": "bundle_rome",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1034,17 +1034,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_family_trip_tokyo_05",
+    "task_instance_id": "formal_family_trip_singapore_05",
     "template_id": "tmpl_family_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_family_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Seoul",
-    "destination": "Tokyo",
-    "departure_date": "2027-03-18",
-    "return_date": "2027-03-23",
+    "destination": "Singapore",
+    "departure_date": "2027-05-05",
+    "return_date": "2027-05-12",
     "travelers": 4,
-    "budget_amount": 29000.0,
+    "budget_amount": 2735000.0,
     "budget_currency": "KRW",
-    "target_currency": "JPY",
+    "target_currency": "SGD",
     "required_services": [
       "flight",
       "hotel",
@@ -1052,7 +1052,7 @@
     ],
     "task_category": "family_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_tokyo_medium_schedule_conflict",
+    "content_bundle_id": "bundle_singapore",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1072,17 +1072,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_family_trip_osaka_06",
+    "task_instance_id": "formal_family_trip_sydney_06",
     "template_id": "tmpl_family_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_family_trip_flight-hotel-currency_budget_conflict",
     "origin": "Busan",
-    "destination": "Osaka",
-    "departure_date": "2027-04-17",
-    "return_date": "2027-04-20",
+    "destination": "Sydney",
+    "departure_date": "2027-11-08",
+    "return_date": "2027-11-18",
     "travelers": 3,
-    "budget_amount": 7000.0,
+    "budget_amount": 1590000.0,
     "budget_currency": "KRW",
-    "target_currency": "JPY",
+    "target_currency": "AUD",
     "required_services": [
       "flight",
       "hotel",
@@ -1090,7 +1090,7 @@
     ],
     "task_category": "family_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_osaka_short_budget_conflict",
+    "content_bundle_id": "bundle_sydney",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1110,15 +1110,15 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_family_trip_rome_07",
+    "task_instance_id": "formal_family_trip_paris_07",
     "template_id": "tmpl_family_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "task_group_id": "grp_tmpl_family_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "origin": "Tokyo",
-    "destination": "Rome",
-    "departure_date": "2027-05-15",
-    "return_date": "2027-05-22",
+    "destination": "Paris",
+    "departure_date": "2027-07-18",
+    "return_date": "2027-07-23",
     "travelers": 4,
-    "budget_amount": 4330000.0,
+    "budget_amount": 1174000.0,
     "budget_currency": "KRW",
     "target_currency": "EUR",
     "required_services": [
@@ -1129,7 +1129,7 @@
     ],
     "task_category": "family_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_rome_long_budget_conflict_integration_conflict",
+    "content_bundle_id": "bundle_paris",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1151,24 +1151,24 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_activity_focused_trip_sydney_01",
+    "task_instance_id": "formal_activity_focused_trip_dubai_01",
     "template_id": "tmpl_activity_focused_trip_flight-hotel_none",
     "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel_none",
     "origin": "Singapore",
-    "destination": "Sydney",
-    "departure_date": "2027-11-10",
-    "return_date": "2027-11-13",
+    "destination": "Dubai",
+    "departure_date": "2027-10-09",
+    "return_date": "2027-10-19",
     "travelers": 3,
-    "budget_amount": 1233000.0,
+    "budget_amount": 945000.0,
     "budget_currency": "KRW",
-    "target_currency": "AUD",
+    "target_currency": "AED",
     "required_services": [
       "flight",
       "hotel"
     ],
     "task_category": "activity_focused_trip",
     "difficulty": "easy",
-    "content_bundle_id": "bundle_sydney_short_std",
+    "content_bundle_id": "bundle_dubai",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1188,53 +1188,15 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_activity_focused_trip_dubai_02",
+    "task_instance_id": "formal_activity_focused_trip_hongkong_02",
     "template_id": "tmpl_activity_focused_trip_flight-hotel-currency_none",
     "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel-currency_none",
     "origin": "Seoul",
-    "destination": "Dubai",
-    "departure_date": "2027-10-09",
-    "return_date": "2027-10-14",
-    "travelers": 4,
-    "budget_amount": 997000.0,
-    "budget_currency": "KRW",
-    "target_currency": "AED",
-    "required_services": [
-      "flight",
-      "hotel",
-      "currency"
-    ],
-    "task_category": "activity_focused_trip",
-    "difficulty": "easy",
-    "content_bundle_id": "bundle_dubai_medium_std",
-    "flight_preferences": {
-      "seat_class": "economy"
-    },
-    "hotel_preferences": {
-      "room_type": "standard"
-    },
-    "activity_preferences": {
-      "pace": "moderate"
-    },
-    "expected_normal_branches": [
-      "basic_flow_only"
-    ],
-    "split": null,
-    "hard_normal_tags": [],
-    "generation_seed": 42,
-    "generator_version": "formal_workload_generator_v1",
-    "schema_version": "travel_a2a_v2_formal_workload_v1"
-  },
-  {
-    "task_instance_id": "formal_activity_focused_trip_hongkong_03",
-    "template_id": "tmpl_activity_focused_trip_flight-hotel-currency_budget_conflict",
-    "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel-currency_budget_conflict",
-    "origin": "Busan",
     "destination": "Hong Kong",
-    "departure_date": "2027-10-07",
-    "return_date": "2027-10-14",
-    "travelers": 1,
-    "budget_amount": 317000.0,
+    "departure_date": "2027-10-11",
+    "return_date": "2027-10-16",
+    "travelers": 4,
+    "budget_amount": 291000.0,
     "budget_currency": "KRW",
     "target_currency": "HKD",
     "required_services": [
@@ -1243,8 +1205,46 @@
       "currency"
     ],
     "task_category": "activity_focused_trip",
+    "difficulty": "easy",
+    "content_bundle_id": "bundle_hongkong",
+    "flight_preferences": {
+      "seat_class": "economy"
+    },
+    "hotel_preferences": {
+      "room_type": "standard"
+    },
+    "activity_preferences": {
+      "pace": "moderate"
+    },
+    "expected_normal_branches": [
+      "basic_flow_only"
+    ],
+    "split": null,
+    "hard_normal_tags": [],
+    "generation_seed": 42,
+    "generator_version": "formal_workload_generator_v1",
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "task_instance_id": "formal_activity_focused_trip_taipei_03",
+    "template_id": "tmpl_activity_focused_trip_flight-hotel-currency_budget_conflict",
+    "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel-currency_budget_conflict",
+    "origin": "Busan",
+    "destination": "Taipei",
+    "departure_date": "2027-09-18",
+    "return_date": "2027-09-23",
+    "travelers": 1,
+    "budget_amount": 60000.0,
+    "budget_currency": "KRW",
+    "target_currency": "TWD",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "task_category": "activity_focused_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_hongkong_long_budget_conflict",
+    "content_bundle_id": "bundle_taipei",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1266,17 +1266,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_activity_focused_trip_taipei_04",
+    "task_instance_id": "formal_activity_focused_trip_newyork_04",
     "template_id": "tmpl_activity_focused_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Tokyo",
-    "destination": "Taipei",
-    "departure_date": "2027-09-19",
-    "return_date": "2027-09-22",
+    "destination": "New York",
+    "departure_date": "2027-03-09",
+    "return_date": "2027-03-16",
     "travelers": 2,
-    "budget_amount": 50000.0,
+    "budget_amount": 3947000.0,
     "budget_currency": "KRW",
-    "target_currency": "TWD",
+    "target_currency": "USD",
     "required_services": [
       "flight",
       "hotel",
@@ -1284,7 +1284,7 @@
     ],
     "task_category": "activity_focused_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_taipei_short_schedule_conflict",
+    "content_bundle_id": "bundle_newyork",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1309,10 +1309,10 @@
     "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel-currency_budget_conflict",
     "origin": "Singapore",
     "destination": "Berlin",
-    "departure_date": "2027-12-09",
+    "departure_date": "2027-12-07",
     "return_date": "2027-12-14",
     "travelers": 3,
-    "budget_amount": 3280000.0,
+    "budget_amount": 2635000.0,
     "budget_currency": "KRW",
     "target_currency": "EUR",
     "required_services": [
@@ -1322,7 +1322,7 @@
     ],
     "task_category": "activity_focused_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_berlin_medium_budget_conflict",
+    "content_bundle_id": "bundle_berlin",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1342,17 +1342,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_activity_focused_trip_vancouver_06",
+    "task_instance_id": "formal_activity_focused_trip_barcelona_06",
     "template_id": "tmpl_activity_focused_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "origin": "Seoul",
-    "destination": "Vancouver",
-    "departure_date": "2027-08-16",
-    "return_date": "2027-08-26",
+    "destination": "Barcelona",
+    "departure_date": "2027-06-18",
+    "return_date": "2027-06-25",
     "travelers": 4,
-    "budget_amount": 2445000.0,
+    "budget_amount": 2661000.0,
     "budget_currency": "KRW",
-    "target_currency": "CAD",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -1361,7 +1361,7 @@
     ],
     "task_category": "activity_focused_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_vancouver_extended_budget_conflict_integration_conflict",
+    "content_bundle_id": "bundle_barcelona",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1382,17 +1382,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_activity_focused_trip_london_07",
+    "task_instance_id": "formal_activity_focused_trip_sydney_07",
     "template_id": "tmpl_activity_focused_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "task_group_id": "grp_tmpl_activity_focused_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "origin": "Busan",
-    "destination": "London",
-    "departure_date": "2027-08-15",
-    "return_date": "2027-08-20",
+    "destination": "Sydney",
+    "departure_date": "2027-11-08",
+    "return_date": "2027-11-18",
     "travelers": 1,
-    "budget_amount": 3094000.0,
+    "budget_amount": 1590000.0,
     "budget_currency": "KRW",
-    "target_currency": "GBP",
+    "target_currency": "AUD",
     "required_services": [
       "flight",
       "hotel",
@@ -1401,7 +1401,7 @@
     ],
     "task_category": "activity_focused_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_london_medium_budget_conflict_schedule_conflict",
+    "content_bundle_id": "bundle_sydney",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1423,17 +1423,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_multi_constraint_trip_singapore_01",
+    "task_instance_id": "formal_multi_constraint_trip_dubai_01",
     "template_id": "tmpl_multi_constraint_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Tokyo",
-    "destination": "Singapore",
-    "departure_date": "2027-05-17",
-    "return_date": "2027-05-20",
+    "destination": "Dubai",
+    "departure_date": "2027-10-09",
+    "return_date": "2027-10-19",
     "travelers": 2,
-    "budget_amount": 1190000.0,
+    "budget_amount": 1351000.0,
     "budget_currency": "KRW",
-    "target_currency": "SGD",
+    "target_currency": "AED",
     "required_services": [
       "flight",
       "hotel",
@@ -1441,7 +1441,7 @@
     ],
     "task_category": "multi_constraint_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_singapore_short_schedule_conflict",
+    "content_bundle_id": "bundle_dubai",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1461,17 +1461,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_multi_constraint_trip_newyork_02",
+    "task_instance_id": "formal_multi_constraint_trip_vancouver_02",
     "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency_budget_conflict",
     "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency_budget_conflict",
     "origin": "Singapore",
-    "destination": "New York",
-    "departure_date": "2027-03-09",
-    "return_date": "2027-03-19",
+    "destination": "Vancouver",
+    "departure_date": "2027-08-07",
+    "return_date": "2027-08-14",
     "travelers": 3,
-    "budget_amount": 5211000.0,
+    "budget_amount": 1218000.0,
     "budget_currency": "KRW",
-    "target_currency": "USD",
+    "target_currency": "CAD",
     "required_services": [
       "flight",
       "hotel",
@@ -1479,7 +1479,7 @@
     ],
     "task_category": "multi_constraint_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_newyork_extended_budget_conflict",
+    "content_bundle_id": "bundle_vancouver",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1501,15 +1501,97 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_multi_constraint_trip_bangkok_03",
+    "task_instance_id": "formal_multi_constraint_trip_tokyo_03",
     "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "origin": "Seoul",
-    "destination": "Bangkok",
-    "departure_date": "2027-06-10",
-    "return_date": "2027-06-20",
+    "destination": "Tokyo",
+    "departure_date": "2027-03-19",
+    "return_date": "2027-03-26",
     "travelers": 4,
-    "budget_amount": 114000.0,
+    "budget_amount": 17000.0,
+    "budget_currency": "KRW",
+    "target_currency": "JPY",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "task_category": "multi_constraint_trip",
+    "difficulty": "hard",
+    "content_bundle_id": "bundle_tokyo",
+    "flight_preferences": {
+      "seat_class": "economy"
+    },
+    "hotel_preferences": {
+      "room_type": "standard"
+    },
+    "activity_preferences": {
+      "pace": "moderate"
+    },
+    "expected_normal_branches": [
+      "budget_revision",
+      "integration_revision",
+      "multi_branch"
+    ],
+    "split": null,
+    "hard_normal_tags": [],
+    "generation_seed": 42,
+    "generator_version": "formal_workload_generator_v1",
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "task_instance_id": "formal_multi_constraint_trip_hongkong_04",
+    "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
+    "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
+    "origin": "Busan",
+    "destination": "Hong Kong",
+    "departure_date": "2027-10-11",
+    "return_date": "2027-10-16",
+    "travelers": 1,
+    "budget_amount": 131000.0,
+    "budget_currency": "KRW",
+    "target_currency": "HKD",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "task_category": "multi_constraint_trip",
+    "difficulty": "hard",
+    "content_bundle_id": "bundle_hongkong",
+    "flight_preferences": {
+      "seat_class": "economy"
+    },
+    "hotel_preferences": {
+      "room_type": "standard"
+    },
+    "activity_preferences": {
+      "pace": "moderate"
+    },
+    "expected_normal_branches": [
+      "budget_revision",
+      "schedule_clarification",
+      "multi_branch"
+    ],
+    "split": null,
+    "hard_normal_tags": [],
+    "generation_seed": 42,
+    "generator_version": "formal_workload_generator_v1",
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "task_instance_id": "formal_multi_constraint_trip_bangkok_05",
+    "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
+    "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
+    "origin": "Tokyo",
+    "destination": "Bangkok",
+    "departure_date": "2027-06-08",
+    "return_date": "2027-06-13",
+    "travelers": 2,
+    "budget_amount": 53000.0,
     "budget_currency": "KRW",
     "target_currency": "THB",
     "required_services": [
@@ -1520,89 +1602,7 @@
     ],
     "task_category": "multi_constraint_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_bangkok_extended_budget_conflict_integration_conflict",
-    "flight_preferences": {
-      "seat_class": "economy"
-    },
-    "hotel_preferences": {
-      "room_type": "standard"
-    },
-    "activity_preferences": {
-      "pace": "moderate"
-    },
-    "expected_normal_branches": [
-      "budget_revision",
-      "integration_revision",
-      "multi_branch"
-    ],
-    "split": null,
-    "hard_normal_tags": [],
-    "generation_seed": 42,
-    "generator_version": "formal_workload_generator_v1",
-    "schema_version": "travel_a2a_v2_formal_workload_v1"
-  },
-  {
-    "task_instance_id": "formal_multi_constraint_trip_paris_04",
-    "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
-    "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
-    "origin": "Busan",
-    "destination": "Paris",
-    "departure_date": "2027-07-11",
-    "return_date": "2027-07-16",
-    "travelers": 1,
-    "budget_amount": 3093000.0,
-    "budget_currency": "KRW",
-    "target_currency": "EUR",
-    "required_services": [
-      "flight",
-      "hotel",
-      "currency",
-      "tours"
-    ],
-    "task_category": "multi_constraint_trip",
-    "difficulty": "hard",
-    "content_bundle_id": "bundle_paris_medium_budget_conflict_schedule_conflict",
-    "flight_preferences": {
-      "seat_class": "economy"
-    },
-    "hotel_preferences": {
-      "room_type": "standard"
-    },
-    "activity_preferences": {
-      "pace": "moderate"
-    },
-    "expected_normal_branches": [
-      "budget_revision",
-      "schedule_clarification",
-      "multi_branch"
-    ],
-    "split": null,
-    "hard_normal_tags": [],
-    "generation_seed": 42,
-    "generator_version": "formal_workload_generator_v1",
-    "schema_version": "travel_a2a_v2_formal_workload_v1"
-  },
-  {
-    "task_instance_id": "formal_multi_constraint_trip_barcelona_05",
-    "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
-    "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
-    "origin": "Tokyo",
-    "destination": "Barcelona",
-    "departure_date": "2027-06-08",
-    "return_date": "2027-06-15",
-    "travelers": 2,
-    "budget_amount": 3861000.0,
-    "budget_currency": "KRW",
-    "target_currency": "EUR",
-    "required_services": [
-      "flight",
-      "hotel",
-      "currency",
-      "tours"
-    ],
-    "task_category": "multi_constraint_trip",
-    "difficulty": "hard",
-    "content_bundle_id": "bundle_barcelona_long_budget_conflict_integration_conflict",
+    "content_bundle_id": "bundle_bangkok",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1623,17 +1623,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_multi_constraint_trip_tokyo_06",
+    "task_instance_id": "formal_multi_constraint_trip_taipei_06",
     "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "origin": "Singapore",
-    "destination": "Tokyo",
-    "departure_date": "2027-03-14",
-    "return_date": "2027-03-21",
+    "destination": "Taipei",
+    "departure_date": "2027-09-18",
+    "return_date": "2027-09-23",
     "travelers": 3,
-    "budget_amount": 25000.0,
+    "budget_amount": 60000.0,
     "budget_currency": "KRW",
-    "target_currency": "JPY",
+    "target_currency": "TWD",
     "required_services": [
       "flight",
       "hotel",
@@ -1642,7 +1642,7 @@
     ],
     "task_category": "multi_constraint_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_tokyo_long_budget_conflict_schedule_conflict",
+    "content_bundle_id": "bundle_taipei",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1664,17 +1664,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_multi_constraint_trip_osaka_07",
+    "task_instance_id": "formal_multi_constraint_trip_paris_07",
     "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "origin": "Seoul",
-    "destination": "Osaka",
-    "departure_date": "2027-04-11",
-    "return_date": "2027-04-21",
+    "destination": "Paris",
+    "departure_date": "2027-07-18",
+    "return_date": "2027-07-23",
     "travelers": 4,
-    "budget_amount": 40000.0,
+    "budget_amount": 1174000.0,
     "budget_currency": "KRW",
-    "target_currency": "JPY",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -1683,7 +1683,7 @@
     ],
     "task_category": "multi_constraint_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_osaka_extended_budget_conflict_integration_conflict",
+    "content_bundle_id": "bundle_paris",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1705,15 +1705,15 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_multi_constraint_trip_rome_08",
+    "task_instance_id": "formal_multi_constraint_trip_berlin_08",
     "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "task_group_id": "grp_tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "origin": "Busan",
-    "destination": "Rome",
-    "departure_date": "2027-05-15",
-    "return_date": "2027-05-20",
+    "destination": "Berlin",
+    "departure_date": "2027-12-07",
+    "return_date": "2027-12-14",
     "travelers": 1,
-    "budget_amount": 2143000.0,
+    "budget_amount": 2635000.0,
     "budget_currency": "KRW",
     "target_currency": "EUR",
     "required_services": [
@@ -1724,7 +1724,7 @@
     ],
     "task_category": "multi_constraint_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_rome_medium_budget_conflict_schedule_conflict",
+    "content_bundle_id": "bundle_berlin",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1745,17 +1745,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_hard_normal_trip_sydney_01",
+    "task_instance_id": "formal_hard_normal_trip_vancouver_01",
     "template_id": "tmpl_hard_normal_trip_flight-hotel-tours_schedule_conflict",
     "task_group_id": "grp_tmpl_hard_normal_trip_flight-hotel-tours_schedule_conflict",
     "origin": "Tokyo",
-    "destination": "Sydney",
-    "departure_date": "2027-11-09",
-    "return_date": "2027-11-16",
+    "destination": "Vancouver",
+    "departure_date": "2027-08-07",
+    "return_date": "2027-08-14",
     "travelers": 2,
-    "budget_amount": 2436000.0,
+    "budget_amount": 2706000.0,
     "budget_currency": "KRW",
-    "target_currency": "AUD",
+    "target_currency": "CAD",
     "required_services": [
       "flight",
       "hotel",
@@ -1763,7 +1763,7 @@
     ],
     "task_category": "activity_focused_trip",
     "difficulty": "medium",
-    "content_bundle_id": "bundle_sydney_long_schedule_conflict",
+    "content_bundle_id": "bundle_vancouver",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1785,17 +1785,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_hard_normal_trip_dubai_02",
+    "task_instance_id": "formal_hard_normal_trip_london_02",
     "template_id": "tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "task_group_id": "grp_tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "origin": "Singapore",
-    "destination": "Dubai",
-    "departure_date": "2027-10-15",
-    "return_date": "2027-10-22",
+    "destination": "London",
+    "departure_date": "2027-08-07",
+    "return_date": "2027-08-14",
     "travelers": 3,
-    "budget_amount": 648000.0,
+    "budget_amount": 3295000.0,
     "budget_currency": "KRW",
-    "target_currency": "AED",
+    "target_currency": "GBP",
     "required_services": [
       "flight",
       "hotel",
@@ -1804,7 +1804,7 @@
     ],
     "task_category": "multi_constraint_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_dubai_long_budget_conflict_schedule_conflict",
+    "content_bundle_id": "bundle_london",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1828,17 +1828,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_hard_normal_trip_hongkong_03",
+    "task_instance_id": "formal_hard_normal_trip_barcelona_03",
     "template_id": "tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "task_group_id": "grp_tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "origin": "Seoul",
-    "destination": "Hong Kong",
-    "departure_date": "2027-10-08",
-    "return_date": "2027-10-18",
+    "destination": "Barcelona",
+    "departure_date": "2027-06-18",
+    "return_date": "2027-06-25",
     "travelers": 4,
-    "budget_amount": 793000.0,
+    "budget_amount": 2661000.0,
     "budget_currency": "KRW",
-    "target_currency": "HKD",
+    "target_currency": "EUR",
     "required_services": [
       "flight",
       "hotel",
@@ -1847,7 +1847,7 @@
     ],
     "task_category": "family_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_hongkong_extended_budget_conflict_integration_conflict",
+    "content_bundle_id": "bundle_barcelona",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1871,17 +1871,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_hard_normal_trip_taipei_04",
+    "task_instance_id": "formal_hard_normal_trip_singapore_04",
     "template_id": "tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "task_group_id": "grp_tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
     "origin": "Busan",
-    "destination": "Taipei",
-    "departure_date": "2027-09-05",
-    "return_date": "2027-09-10",
+    "destination": "Singapore",
+    "departure_date": "2027-05-05",
+    "return_date": "2027-05-12",
     "travelers": 1,
-    "budget_amount": 60000.0,
+    "budget_amount": 1231000.0,
     "budget_currency": "KRW",
-    "target_currency": "TWD",
+    "target_currency": "SGD",
     "required_services": [
       "flight",
       "hotel",
@@ -1890,7 +1890,7 @@
     ],
     "task_category": "business_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_taipei_medium_budget_conflict_schedule_conflict",
+    "content_bundle_id": "bundle_singapore",
     "flight_preferences": {
       "seat_class": "economy"
     },
@@ -1914,17 +1914,17 @@
     "schema_version": "travel_a2a_v2_formal_workload_v1"
   },
   {
-    "task_instance_id": "formal_hard_normal_trip_berlin_05",
+    "task_instance_id": "formal_hard_normal_trip_tokyo_05",
     "template_id": "tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
     "task_group_id": "grp_tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
-    "origin": "Tokyo",
-    "destination": "Berlin",
-    "departure_date": "2027-12-10",
-    "return_date": "2027-12-17",
+    "origin": "Singapore",
+    "destination": "Tokyo",
+    "departure_date": "2027-03-19",
+    "return_date": "2027-03-26",
     "travelers": 2,
-    "budget_amount": 4043000.0,
+    "budget_amount": 17000.0,
     "budget_currency": "KRW",
-    "target_currency": "EUR",
+    "target_currency": "JPY",
     "required_services": [
       "flight",
       "hotel",
@@ -1933,7 +1933,7 @@
     ],
     "task_category": "basic_trip",
     "difficulty": "hard",
-    "content_bundle_id": "bundle_berlin_long_budget_conflict_integration_conflict",
+    "content_bundle_id": "bundle_tokyo",
     "flight_preferences": {
       "seat_class": "economy"
     },

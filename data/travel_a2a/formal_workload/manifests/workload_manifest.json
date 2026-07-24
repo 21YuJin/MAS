@@ -53,7 +53,7 @@
     "flight+hotel+tours": 14,
     "currency+flight+hotel+tours": 15
   },
-  "content_bundle_count": 48,
+  "content_bundle_count": 15,
   "spec_hashes": {
     "attack_applicability_plan.json": "7376602f09fd481a",
     "branch_distribution_target.json": "718dbd68f78ddd1f",
@@ -66,7 +66,7 @@
     "split_policy.json": "cafe59a903cc0e27",
     "task_family_spec.json": "5eb5b359a4d48512"
   },
-  "determinism_hash": "3b171a15960c6051be0f3ab3efbed4597c93c7f737fac5e4fbc6b5ef3cad4ec5",
-  "generated_at": "2026-07-24T05:06:28.968004+00:00",
-  "git_commit": "cbfdac3"
+  "determinism_hash": "23d337b9f5cc0f7833d33f6d1b338be14870303cf503085a6a02da23cbe49fa2",
+  "generated_at": "2026-07-24T06:39:27.491260+00:00",
+  "git_commit": "284809d"
 }

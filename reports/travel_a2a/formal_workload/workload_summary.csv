@@ -1,2 +1,2 @@
 task_count,template_count,task_group_count,split_unit_count,destination_count,content_bundle_count,instance_counts_by_split,overall_static_validation_pass
-50,35,35,33,15,48,"{'train': 30, 'validation': 10, 'test': 10}",True
+50,35,35,35,15,15,"{'train': 31, 'validation': 9, 'test': 10}",True

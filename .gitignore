@@ -54,3 +54,4 @@ logs/
 outputs/travel_a2a/attack_smoke/*/
 outputs/travel_a2a/mock_sessions/*/
 outputs/travel_a2a/step6_mini_validation/*/
+outputs/travel_a2a/formal_workload_mock/*/

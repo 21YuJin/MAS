@@ -1,0 +1,23 @@
+{
+  "phase": "6.5D_mock_full_run_and_behavioral_validation",
+  "session_count": 50,
+  "completed_count": 50,
+  "strict_validation_error_count": 0,
+  "branch_mismatch_count": 0,
+  "distinct_event_pattern_count": 11,
+  "distinct_graph_pattern_count": 7,
+  "difficulty_confounds_found": [
+    "DIFFICULTY_EVENT_COUNT_CONFOUND",
+    "DIFFICULTY_MESSAGE_COUNT_CONFOUND"
+  ],
+  "active_agent_below_minimum": {
+    "tours_agent": 29
+  },
+  "split_behavior_warnings": [
+    "branch 'budget_revision' rate differs by >30 percentage points across splits: {'train': 0.452, 'test': 0.4, 'validation': 0.778}",
+    "branch 'multi_branch' rate differs by >30 percentage points across splits: {'train': 0.29, 'test': 0.4, 'validation': 0.667}",
+    "branch 'basic_flow_only' rate differs by >30 percentage points across splits: {'train': 0.29, 'test': 0.5, 'validation': 0.111}"
+  ],
+  "hard_budget_confound_recommend_redesign": true,
+  "overall_pass": true
+}

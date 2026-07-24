@@ -51,18 +51,15 @@ class TestPrimarySplit(unittest.TestCase):
         leaked = {gid: splits for gid, splits in group_splits.items() if len(splits) > 1}
         self.assertEqual(leaked, {})
 
-    def test_04_content_bundle_never_split_across_primary_splits(self):
-        by_id = {t.task_instance_id: t for t in self.task_instances}
-        id_to_split = {}
-        for s in ("train", "validation", "test"):
-            for tid in self.primary[f"{s}_task_ids"]:
-                id_to_split[tid] = s
-        bundle_splits = {}
-        for tid, s in id_to_split.items():
-            bid = by_id[tid].content_bundle_id
-            bundle_splits.setdefault(bid, set()).add(s)
-        leaked = {bid: splits for bid, splits in bundle_splits.items() if len(splits) > 1}
-        self.assertEqual(leaked, {}, "content_bundle_id must never span more than one primary split")
+    def test_04_task_group_id_is_the_split_unit_not_content_bundle_id(self):
+        """[Phase 6.5D] content_bundle_id is destination-scoped and shared by
+        many unrelated templates -- forcing every content-bundle-sharing
+        template into one split would collapse the 35 template groups into a
+        handful of giant blocks (verified during Phase 6.5D to badly damage
+        difficulty/family balance). Only task_group_id is the hard
+        leakage-prevention unit (test_03); content_bundle_id sharing across
+        splits is expected and separately reported (test_12)."""
+        self.assertEqual(self.primary["split_unit"], "task_group_id")
 
     def test_05_instance_counts_close_to_30_10_10(self):
         counts = self.primary["instance_counts"]
@@ -130,10 +127,14 @@ class TestShortcutRisks(unittest.TestCase):
         critical = [i for i in self.issues if i.severity == "critical"]
         self.assertEqual(critical, [], f"critical shortcut issues found: {[i.issue_code for i in critical]}")
 
-    def test_12_content_bundle_reuse_leakage_not_flagged(self):
-        codes = {i.issue_code for i in self.issues}
-        self.assertNotIn("CONTENT_BUNDLE_REUSE_LEAKAGE", codes,
-                          "should be structurally prevented by the content-bundle-merge in build_primary_split")
+    def test_12_content_bundle_reuse_leakage_reported_as_low_severity(self):
+        """[Phase 6.5D] Expected to fire given destination-scoped content
+        bundles shared across many templates -- accepted trade-off (see
+        build_primary_split's docstring), so severity must stay 'low', never
+        'critical'/'medium'."""
+        matches = [i for i in self.issues if i.issue_code == "CONTENT_BUNDLE_REUSE_LEAKAGE"]
+        if matches:
+            self.assertEqual(matches[0].severity, "low")
 
     def test_13_option_position_bias_not_flagged(self):
         codes = {i.issue_code for i in self.issues}

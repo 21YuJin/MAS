@@ -1,0 +1,53 @@
+feature_name,availability_status,blocking_reason
+event_count,available_now_mock,
+message_count,available_now_mock,
+unique_directed_pair_count,available_now_mock,
+repeated_pair_count,available_now_mock,
+status_transition_count,available_now_mock,
+artifact_count,available_now_mock,
+artifact_version_count,available_now_mock,
+artifact_size_bytes_total,available_now_mock,
+record_count_total,available_now_mock,
+revision_count,available_now_mock,
+clarification_count,available_now_mock,
+active_agent_count,available_now_mock,
+prompt_eval_count_mean,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+eval_count_mean,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+prompt_eval_duration_mean,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+eval_duration_mean,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+total_duration_mean,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+load_duration_mean,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+wall_clock_latency_ms_mean,available_now_mock,
+total_call_count,available_now_mock,
+llm_call_count,available_now_mock,
+token_features.input_token_count,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+token_features.output_token_count,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+token_features.total_token_count,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+token_features.expansion_ratio,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+token_features.token_difference,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+token_features.predecessor_output_ratio,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+token_features.ctx_delta,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+timing_features.wall_clock_latency_ms,available_now_mock,
+timing_features.generation_time_ms,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+timing_features.prompt_eval_time_ms,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+timing_features.tokens_per_second,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+timing_features.generation_ratio,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+timing_features.non_generation_overhead_ms,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+graph_features.fan_in_out_by_agent,available_now_mock,
+graph_features.edge_density,available_now_mock,
+graph_features.parallel_edge_count,available_now_mock,
+graph_features.reply_chain_depth,available_now_mock,
+graph_features.artifact_lineage_depth,available_now_mock,
+session_features.latency_cv,available_now_mock,
+session_features.output_token_cv,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+session_features.message_cv,available_now_mock,
+session_features.artifact_cv,available_now_mock,
+session_features.max_output_ratio,requires_ollama_runtime,requires an ollama_runtime session -- Ollama telemetry is never populated under deterministic_mock (mock_runner.py never sets llm_called=True).
+session_features.call_count,available_now_mock,
+normalization_features.agent_zscore,requires_normal_statistics,requires a train-split-only fit of normal_statistics (Step 8+); this module never fits it itself.
+timing_source,available_now_mock,
+model_name,available_now_mock,
+llm_backend,available_now_mock,
+prompt_config_version,available_now_mock,
+agent_config_version,available_now_mock,
+schema_version,available_now_mock,

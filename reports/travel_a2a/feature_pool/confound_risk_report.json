@@ -1,0 +1,77 @@
+{
+  "confirmed": [
+    {
+      "feature_name": "event_count",
+      "known_confound": [
+        "difficulty"
+      ],
+      "evidence_source": "reports/travel_a2a/formal_workload_dataset_card.md (Phase 6.5D mock full-run)",
+      "severity": "confirmed",
+      "recommended_control": "stratify by difficulty; do not adopt as a sole/core detection feature without controlling for it"
+    },
+    {
+      "feature_name": "message_count",
+      "known_confound": [
+        "difficulty"
+      ],
+      "evidence_source": "reports/travel_a2a/formal_workload_dataset_card.md (Phase 6.5D mock full-run)",
+      "severity": "confirmed",
+      "recommended_control": "stratify by difficulty; do not adopt as a sole/core detection feature without controlling for it"
+    },
+    {
+      "feature_name": "revision_count",
+      "known_confound": [
+        "difficulty",
+        "budget_revision_branch"
+      ],
+      "evidence_source": "reports/travel_a2a/formal_workload_dataset_card.md (Phase 6.5D mock full-run)",
+      "severity": "confirmed",
+      "recommended_control": "stratify by difficulty; do not adopt as a sole/core detection feature without controlling for it"
+    }
+  ],
+  "additional_watch": [
+    {
+      "feature_name": "session_features.call_count",
+      "known_confound": null,
+      "evidence_source": "heuristic -- structurally related to event_count/message_count (Phase 6.5D), not independently confirmed",
+      "severity": "warning_only",
+      "recommended_control": "empirically re-check for difficulty-tier separation once real ollama_runtime normal sessions exist, before Step 8 screening -- do not set candidate_only automatically"
+    },
+    {
+      "feature_name": "total_call_count",
+      "known_confound": null,
+      "evidence_source": "heuristic -- structurally related to event_count/message_count (Phase 6.5D), not independently confirmed",
+      "severity": "warning_only",
+      "recommended_control": "empirically re-check for difficulty-tier separation once real ollama_runtime normal sessions exist, before Step 8 screening -- do not set candidate_only automatically"
+    },
+    {
+      "feature_name": "artifact_count",
+      "known_confound": null,
+      "evidence_source": "heuristic -- structurally related to event_count/message_count (Phase 6.5D), not independently confirmed",
+      "severity": "warning_only",
+      "recommended_control": "empirically re-check for difficulty-tier separation once real ollama_runtime normal sessions exist, before Step 8 screening -- do not set candidate_only automatically"
+    },
+    {
+      "feature_name": "clarification_count",
+      "known_confound": null,
+      "evidence_source": "heuristic -- structurally related to event_count/message_count (Phase 6.5D), not independently confirmed",
+      "severity": "warning_only",
+      "recommended_control": "empirically re-check for difficulty-tier separation once real ollama_runtime normal sessions exist, before Step 8 screening -- do not set candidate_only automatically"
+    },
+    {
+      "feature_name": "unique_directed_pair_count",
+      "known_confound": null,
+      "evidence_source": "heuristic -- structurally related to event_count/message_count (Phase 6.5D), not independently confirmed",
+      "severity": "warning_only",
+      "recommended_control": "empirically re-check for difficulty-tier separation once real ollama_runtime normal sessions exist, before Step 8 screening -- do not set candidate_only automatically"
+    },
+    {
+      "feature_name": "graph_features.parallel_edge_count",
+      "known_confound": null,
+      "evidence_source": "heuristic -- structurally related to event_count/message_count (Phase 6.5D), not independently confirmed",
+      "severity": "warning_only",
+      "recommended_control": "empirically re-check for difficulty-tier separation once real ollama_runtime normal sessions exist, before Step 8 screening -- do not set candidate_only automatically"
+    }
+  ],
+  "note": "additional_watch entries are warnings only -- this validator never changes candidate_only on a registry entry automatically; that remains a human decision."
+}

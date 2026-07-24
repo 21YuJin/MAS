@@ -1,0 +1,123 @@
+{
+  "groups": [
+    {
+      "redundancy_group_id": "rg_001",
+      "members": [
+        "event_count",
+        "message_count"
+      ],
+      "relationship_type": [
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "event_count",
+      "auto_remove": false
+    },
+    {
+      "redundancy_group_id": "rg_002",
+      "members": [
+        "active_agent_count",
+        "graph_features.edge_density",
+        "graph_features.fan_in_out_by_agent",
+        "unique_directed_pair_count"
+      ],
+      "relationship_type": [
+        "mathematically_dependent_on",
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "active_agent_count",
+      "auto_remove": false
+    },
+    {
+      "redundancy_group_id": "rg_003",
+      "members": [
+        "graph_features.parallel_edge_count",
+        "repeated_pair_count"
+      ],
+      "relationship_type": [
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "graph_features.parallel_edge_count",
+      "auto_remove": false
+    },
+    {
+      "redundancy_group_id": "rg_004",
+      "members": [
+        "artifact_version_count",
+        "revision_count"
+      ],
+      "relationship_type": [
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "artifact_version_count",
+      "auto_remove": false
+    },
+    {
+      "redundancy_group_id": "rg_005",
+      "members": [
+        "artifact_size_bytes_total",
+        "session_features.artifact_cv"
+      ],
+      "relationship_type": [
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "artifact_size_bytes_total",
+      "auto_remove": false
+    },
+    {
+      "redundancy_group_id": "rg_006",
+      "members": [
+        "eval_count_mean",
+        "eval_duration_mean",
+        "load_duration_mean",
+        "prompt_eval_count_mean",
+        "prompt_eval_duration_mean",
+        "session_features.max_output_ratio",
+        "session_features.output_token_cv",
+        "timing_features.generation_ratio",
+        "timing_features.generation_time_ms",
+        "timing_features.non_generation_overhead_ms",
+        "timing_features.prompt_eval_time_ms",
+        "timing_features.tokens_per_second",
+        "token_features.ctx_delta",
+        "token_features.expansion_ratio",
+        "token_features.input_token_count",
+        "token_features.output_token_count",
+        "token_features.predecessor_output_ratio",
+        "token_features.token_difference",
+        "token_features.total_token_count"
+      ],
+      "relationship_type": [
+        "mathematically_dependent_on",
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "eval_count_mean",
+      "auto_remove": false
+    },
+    {
+      "redundancy_group_id": "rg_007",
+      "members": [
+        "session_features.latency_cv",
+        "timing_features.wall_clock_latency_ms",
+        "wall_clock_latency_ms_mean"
+      ],
+      "relationship_type": [
+        "mathematically_dependent_on",
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "timing_features.wall_clock_latency_ms",
+      "auto_remove": false
+    },
+    {
+      "redundancy_group_id": "rg_008",
+      "members": [
+        "session_features.call_count",
+        "total_call_count"
+      ],
+      "relationship_type": [
+        "potentially_redundant_with"
+      ],
+      "recommended_representative": "session_features.call_count",
+      "auto_remove": false
+    }
+  ]
+}

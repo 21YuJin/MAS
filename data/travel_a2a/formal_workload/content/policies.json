@@ -1,0 +1,338 @@
+[
+  {
+    "destination": "Sydney",
+    "content_bundle_id": "bundle_sydney_medium_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Dubai",
+    "content_bundle_id": "bundle_dubai_extended_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Hong Kong",
+    "content_bundle_id": "bundle_hongkong_long_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Taipei",
+    "content_bundle_id": "bundle_taipei_short_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Berlin",
+    "content_bundle_id": "bundle_berlin_medium_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Vancouver",
+    "content_bundle_id": "bundle_vancouver_extended_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "London",
+    "content_bundle_id": "bundle_london_long_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Singapore",
+    "content_bundle_id": "bundle_singapore_long_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "New York",
+    "content_bundle_id": "bundle_newyork_medium_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Bangkok",
+    "content_bundle_id": "bundle_bangkok_medium_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Paris",
+    "content_bundle_id": "bundle_paris_long_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Barcelona",
+    "content_bundle_id": "bundle_barcelona_short_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Tokyo",
+    "content_bundle_id": "bundle_tokyo_short_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Osaka",
+    "content_bundle_id": "bundle_osaka_extended_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Rome",
+    "content_bundle_id": "bundle_rome_short_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Sydney",
+    "content_bundle_id": "bundle_sydney_extended_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Dubai",
+    "content_bundle_id": "bundle_dubai_long_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Taipei",
+    "content_bundle_id": "bundle_taipei_long_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Berlin",
+    "content_bundle_id": "bundle_berlin_short_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Vancouver",
+    "content_bundle_id": "bundle_vancouver_extended_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "London",
+    "content_bundle_id": "bundle_london_short_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Singapore",
+    "content_bundle_id": "bundle_singapore_long_budget_conflict_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "New York",
+    "content_bundle_id": "bundle_newyork_extended_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Bangkok",
+    "content_bundle_id": "bundle_bangkok_short_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Barcelona",
+    "content_bundle_id": "bundle_barcelona_long_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Tokyo",
+    "content_bundle_id": "bundle_tokyo_medium_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Osaka",
+    "content_bundle_id": "bundle_osaka_short_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Rome",
+    "content_bundle_id": "bundle_rome_long_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Sydney",
+    "content_bundle_id": "bundle_sydney_short_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Dubai",
+    "content_bundle_id": "bundle_dubai_medium_std",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Hong Kong",
+    "content_bundle_id": "bundle_hongkong_long_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Taipei",
+    "content_bundle_id": "bundle_taipei_short_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Berlin",
+    "content_bundle_id": "bundle_berlin_medium_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Vancouver",
+    "content_bundle_id": "bundle_vancouver_extended_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "London",
+    "content_bundle_id": "bundle_london_medium_budget_conflict_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Singapore",
+    "content_bundle_id": "bundle_singapore_short_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "New York",
+    "content_bundle_id": "bundle_newyork_extended_budget_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Bangkok",
+    "content_bundle_id": "bundle_bangkok_extended_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Paris",
+    "content_bundle_id": "bundle_paris_medium_budget_conflict_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Barcelona",
+    "content_bundle_id": "bundle_barcelona_long_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Tokyo",
+    "content_bundle_id": "bundle_tokyo_long_budget_conflict_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Osaka",
+    "content_bundle_id": "bundle_osaka_extended_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Rome",
+    "content_bundle_id": "bundle_rome_medium_budget_conflict_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Sydney",
+    "content_bundle_id": "bundle_sydney_long_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Dubai",
+    "content_bundle_id": "bundle_dubai_long_budget_conflict_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Hong Kong",
+    "content_bundle_id": "bundle_hongkong_extended_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Taipei",
+    "content_bundle_id": "bundle_taipei_medium_budget_conflict_schedule_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  },
+  {
+    "destination": "Berlin",
+    "content_bundle_id": "bundle_berlin_long_budget_conflict_integration_conflict",
+    "policy_note": "All rates/availability in this bundle are synthetic fixture data for the travel_a2a_v2 formal workload -- not real prices or real booking availability.",
+    "source_id": "generated_fixture",
+    "content_version": "formal_workload_v1"
+  }
+]

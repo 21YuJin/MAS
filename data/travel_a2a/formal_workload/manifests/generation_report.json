@@ -1,0 +1,27 @@
+{
+  "warnings": [],
+  "rejected_candidates": 0,
+  "regeneration_count": 0,
+  "constraint_repairs": [],
+  "distribution_checks": {
+    "family_total_expected": 50,
+    "family_total_actual": 50,
+    "difficulty_totals_expected": {
+      "easy": 15,
+      "medium": 20,
+      "hard": 15
+    },
+    "difficulty_totals_actual": {
+      "easy": 15,
+      "medium": 20,
+      "hard": 15
+    }
+  },
+  "determinism_hash": "8c5bebaae1e27a53f5e423ca560ece8190f4dd3e927ce95050f34e5ef69c9376",
+  "known_simplifications": [
+    "budget_currency is always KRW regardless of origin (destination-scoped content bundles, not destination x origin)",
+    "each duration_bucket maps to exactly one canonical trip length in days",
+    "schedule_conflict and integration_conflict are never combined in one task's constraint_types (mutually exclusive content requirements) -- hard-tier condition_count is capped at 2, not 3",
+    "budget/schedule/integration conflict triggers are exact-arithmetic guaranteed here (compute_budget_amount, tour date construction); empirical confirmation against the real workflow_policy.py execution happens in Phase 6.5D's mock full run"
+  ]
+}

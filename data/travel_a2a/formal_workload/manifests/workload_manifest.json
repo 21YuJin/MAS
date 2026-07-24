@@ -1,0 +1,72 @@
+{
+  "workload_version": "travel_a2a_v2_formal_workload_v1",
+  "schema_version": "travel_a2a_v2_formal_workload_v1",
+  "generator_version": "formal_workload_generator_v1",
+  "generation_seed": 42,
+  "task_count": 50,
+  "template_count": 35,
+  "task_group_count": 35,
+  "destination_count": 15,
+  "destinations": [
+    "Bangkok",
+    "Barcelona",
+    "Berlin",
+    "Dubai",
+    "Hong Kong",
+    "London",
+    "New York",
+    "Osaka",
+    "Paris",
+    "Rome",
+    "Singapore",
+    "Sydney",
+    "Taipei",
+    "Tokyo",
+    "Vancouver"
+  ],
+  "family_distribution": {
+    "basic_trip": 8,
+    "budget_trip": 8,
+    "business_trip": 7,
+    "family_trip": 7,
+    "activity_focused_trip": 7,
+    "multi_constraint_trip": 8,
+    "hard_normal_trip": 5
+  },
+  "difficulty_distribution": {
+    "easy": 15,
+    "medium": 20,
+    "hard": 15
+  },
+  "branch_distribution": {
+    "basic_flow_only": 15,
+    "schedule_clarification": 17,
+    "budget_revision": 25,
+    "client_clarification": 7,
+    "multi_branch": 19,
+    "integration_revision": 8
+  },
+  "hard_normal_coverage": 10,
+  "service_combination_distribution": {
+    "flight+hotel": 5,
+    "currency+flight+hotel": 16,
+    "flight+hotel+tours": 14,
+    "currency+flight+hotel+tours": 15
+  },
+  "content_bundle_count": 48,
+  "spec_hashes": {
+    "attack_applicability_plan.json": "7376602f09fd481a",
+    "branch_distribution_target.json": "718dbd68f78ddd1f",
+    "content_bundle_spec.json": "6e50f040781ad4f5",
+    "dataset_policy.json": "1e5bacdbe20629cd",
+    "destination_catalog.json": "326e896b60c082ab",
+    "difficulty_criteria.json": "96b72c86c58e456b",
+    "formal_collection_plan.json": "01c179f7fafdf267",
+    "hard_normal_tag_taxonomy.json": "3941fa795a1f32da",
+    "split_policy.json": "cafe59a903cc0e27",
+    "task_family_spec.json": "5eb5b359a4d48512"
+  },
+  "determinism_hash": "8c5bebaae1e27a53f5e423ca560ece8190f4dd3e927ce95050f34e5ef69c9376",
+  "generated_at": "2026-07-24T04:56:28.048643+00:00",
+  "git_commit": "eab4783d4e8c1e6abea2f7ed6a64454cf0d0a48b"
+}

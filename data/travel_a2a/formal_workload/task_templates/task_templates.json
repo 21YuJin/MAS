@@ -1,0 +1,750 @@
+[
+  {
+    "template_id": "tmpl_basic_trip_flight-hotel_none",
+    "template_family": "basic_trip",
+    "description": "basic_trip with services ['flight', 'hotel'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_basic_trip_flight-hotel-currency_none",
+    "template_family": "basic_trip",
+    "description": "basic_trip with services ['flight', 'hotel', 'currency'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_basic_trip_flight-hotel-tours_none",
+    "template_family": "basic_trip",
+    "description": "basic_trip with services ['flight', 'hotel', 'tours'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_basic_trip_flight-hotel-tours_schedule_conflict",
+    "template_family": "basic_trip",
+    "description": "basic_trip with services ['flight', 'hotel', 'tours'] and constraints ['schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "schedule_clarification"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_basic_trip_flight-hotel-currency_budget_conflict",
+    "template_family": "basic_trip",
+    "description": "basic_trip with services ['flight', 'hotel', 'currency'] and constraints ['budget_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_budget_trip_flight-hotel-tours_none",
+    "template_family": "budget_trip",
+    "description": "budget_trip with services ['flight', 'hotel', 'tours'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_budget_trip_flight-hotel_none",
+    "template_family": "budget_trip",
+    "description": "budget_trip with services ['flight', 'hotel'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_budget_trip_flight-hotel-currency_none",
+    "template_family": "budget_trip",
+    "description": "budget_trip with services ['flight', 'hotel', 'currency'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_budget_trip_flight-hotel-tours_schedule_conflict",
+    "template_family": "budget_trip",
+    "description": "budget_trip with services ['flight', 'hotel', 'tours'] and constraints ['schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "schedule_clarification"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_budget_trip_flight-hotel-currency_budget_conflict",
+    "template_family": "budget_trip",
+    "description": "budget_trip with services ['flight', 'hotel', 'currency'] and constraints ['budget_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "client_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_budget_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
+    "template_family": "budget_trip",
+    "description": "budget_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'integration_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "integration_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "integration_revision",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_business_trip_flight-hotel-currency_none",
+    "template_family": "business_trip",
+    "description": "business_trip with services ['flight', 'hotel', 'currency'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_business_trip_flight-hotel-tours_none",
+    "template_family": "business_trip",
+    "description": "business_trip with services ['flight', 'hotel', 'tours'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_business_trip_flight-hotel-currency_budget_conflict",
+    "template_family": "business_trip",
+    "description": "business_trip with services ['flight', 'hotel', 'currency'] and constraints ['budget_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_business_trip_flight-hotel-tours_schedule_conflict",
+    "template_family": "business_trip",
+    "description": "business_trip with services ['flight', 'hotel', 'tours'] and constraints ['schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "schedule_clarification"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_business_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
+    "template_family": "business_trip",
+    "description": "business_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "schedule_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_family_trip_flight-hotel-tours_none",
+    "template_family": "family_trip",
+    "description": "family_trip with services ['flight', 'hotel', 'tours'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_family_trip_flight-hotel_none",
+    "template_family": "family_trip",
+    "description": "family_trip with services ['flight', 'hotel'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_family_trip_flight-hotel-currency_none",
+    "template_family": "family_trip",
+    "description": "family_trip with services ['flight', 'hotel', 'currency'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_family_trip_flight-hotel-currency_budget_conflict",
+    "template_family": "family_trip",
+    "description": "family_trip with services ['flight', 'hotel', 'currency'] and constraints ['budget_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "client_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_family_trip_flight-hotel-tours_schedule_conflict",
+    "template_family": "family_trip",
+    "description": "family_trip with services ['flight', 'hotel', 'tours'] and constraints ['schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "schedule_clarification"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_family_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
+    "template_family": "family_trip",
+    "description": "family_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'integration_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "integration_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "integration_revision",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_activity_focused_trip_flight-hotel_none",
+    "template_family": "activity_focused_trip",
+    "description": "activity_focused_trip with services ['flight', 'hotel'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_activity_focused_trip_flight-hotel-currency_none",
+    "template_family": "activity_focused_trip",
+    "description": "activity_focused_trip with services ['flight', 'hotel', 'currency'] and constraints ['none']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [],
+    "allowed_branches": [
+      "basic_flow_only"
+    ],
+    "minimum_difficulty": "easy",
+    "maximum_difficulty": "easy",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_activity_focused_trip_flight-hotel-currency_budget_conflict",
+    "template_family": "activity_focused_trip",
+    "description": "activity_focused_trip with services ['flight', 'hotel', 'currency'] and constraints ['budget_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_activity_focused_trip_flight-hotel-tours_schedule_conflict",
+    "template_family": "activity_focused_trip",
+    "description": "activity_focused_trip with services ['flight', 'hotel', 'tours'] and constraints ['schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "schedule_clarification"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_activity_focused_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
+    "template_family": "activity_focused_trip",
+    "description": "activity_focused_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'integration_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "integration_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "integration_revision",
+      "client_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_activity_focused_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
+    "template_family": "activity_focused_trip",
+    "description": "activity_focused_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "schedule_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_multi_constraint_trip_flight-hotel-tours_schedule_conflict",
+    "template_family": "multi_constraint_trip",
+    "description": "multi_constraint_trip with services ['flight', 'hotel', 'tours'] and constraints ['schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "schedule_clarification"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency_budget_conflict",
+    "template_family": "multi_constraint_trip",
+    "description": "multi_constraint_trip with services ['flight', 'hotel', 'currency'] and constraints ['budget_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
+    "template_family": "multi_constraint_trip",
+    "description": "multi_constraint_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'integration_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "integration_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "integration_revision",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_multi_constraint_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
+    "template_family": "multi_constraint_trip",
+    "description": "multi_constraint_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "schedule_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_hard_normal_trip_flight-hotel-tours_schedule_conflict",
+    "template_family": "hard_normal_trip",
+    "description": "hard_normal_trip with services ['flight', 'hotel', 'tours'] and constraints ['schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "schedule_clarification",
+      "client_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "medium",
+    "maximum_difficulty": "medium",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-schedule_conflict",
+    "template_family": "hard_normal_trip",
+    "description": "hard_normal_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'schedule_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "schedule_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "schedule_clarification",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  },
+  {
+    "template_id": "tmpl_hard_normal_trip_flight-hotel-currency-tours_budget_conflict-integration_conflict",
+    "template_family": "hard_normal_trip",
+    "description": "hard_normal_trip with services ['flight', 'hotel', 'currency', 'tours'] and constraints ['budget_conflict', 'integration_conflict']",
+    "required_services": [
+      "flight",
+      "hotel",
+      "currency",
+      "tours"
+    ],
+    "required_preferences": [],
+    "constraint_types": [
+      "budget_conflict",
+      "integration_conflict"
+    ],
+    "allowed_branches": [
+      "budget_revision",
+      "integration_revision",
+      "multi_branch"
+    ],
+    "minimum_difficulty": "hard",
+    "maximum_difficulty": "hard",
+    "generation_rules": {},
+    "schema_version": "travel_a2a_v2_formal_workload_v1"
+  }
+]

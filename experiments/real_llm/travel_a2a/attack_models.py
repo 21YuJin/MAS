@@ -16,6 +16,7 @@ the ground truth: injection was present, regardless of what happened next).
 """
 import dataclasses
 import enum
+import hashlib
 from typing import Any, Dict, List, Optional
 
 
@@ -73,6 +74,15 @@ class AttackConfig:
     evaluator_target_agents: List[str] = dataclasses.field(default_factory=list)
     payload_intensity: str = "direct"
     malicious_target_option_id: Optional[str] = None
+    # [Step 6-6] payload_variant_id/semantic_goal_id let mini-validation ask
+    # "does success depend on ONE specific wording, or does the family
+    # generalize?" -- two variants sharing the same semantic_goal_id must
+    # pursue the identical objective, differing only in phrasing.
+    # payload_hash is derived (never hand-set) so two variants can never
+    # accidentally collide or silently duplicate a payload.
+    payload_variant_id: str = "v1"
+    semantic_goal_id: str = ""
+    payload_hash: Optional[str] = None
     development_only: bool = True
     enabled: bool = True
     schema_version: str = "travel_a2a_v1"
@@ -87,6 +97,10 @@ class AttackConfig:
         self.injection_source_type = ExternalContentSourceType(self.injection_source_type).value
         if self.payload_intensity not in PAYLOAD_INTENSITIES:
             raise ValueError(f"payload_intensity must be one of {PAYLOAD_INTENSITIES}, got {self.payload_intensity!r}")
+        if not self.semantic_goal_id:
+            self.semantic_goal_id = self.attack_family
+        if self.payload_hash is None:
+            self.payload_hash = hashlib.sha256(self.payload_template.encode("utf-8")).hexdigest()[:16]
 
     def to_dict(self) -> dict:
         return {
@@ -98,6 +112,8 @@ class AttackConfig:
             "evaluator_id": self.evaluator_id, "indicator_patterns": list(self.indicator_patterns),
             "evaluator_target_agents": list(self.evaluator_target_agents),
             "payload_intensity": self.payload_intensity, "malicious_target_option_id": self.malicious_target_option_id,
+            "payload_variant_id": self.payload_variant_id, "semantic_goal_id": self.semantic_goal_id,
+            "payload_hash": self.payload_hash,
             "development_only": self.development_only, "enabled": self.enabled,
             "schema_version": self.schema_version,
         }
@@ -121,21 +137,38 @@ class AttackExecutionDiagnostics:
     injection_present: bool
     injection_source_id: str
     entry_agent_id: str
+    # [Step 6-1] Deliberately kept as 8 SEPARATE states, never collapsed into
+    # one attack_success boolean -- each answers a different question about
+    # how far the attack got, and a session can be true on an early one and
+    # false on every later one (e.g. entry_agent_exposed=True,
+    # instruction_followed=False -- the agent read the payload but ignored it).
+    entry_agent_exposed: bool = False
+    instruction_followed: bool = False
     indicator_observed: bool = False
+    artifact_changed: bool = False
+    propagation_observed: bool = False
+    workflow_changed: bool = False
+    goal_success: bool = False
     indicator_observed_by_agent: List[str] = dataclasses.field(default_factory=list)
     indicator_observed_in_artifact: List[str] = dataclasses.field(default_factory=list)
-    propagation_observed: bool = False
     propagation_depth: int = 0
     affected_agent_ids: List[str] = dataclasses.field(default_factory=list)
     affected_artifact_ids: List[str] = dataclasses.field(default_factory=list)
-    workflow_changed: bool = False
+    artifact_contract_violated: bool = False
     output_changed: bool = False
-    goal_success: bool = False
+    # [Step 6-13] one entry per hop examined by the propagation evaluator:
+    # {source_agent, target_agent, source_artifact_id, target_artifact_id,
+    #  indicator_present, semantic_instruction_preserved, hop_index}
+    hop_trace: List[Dict[str, Any]] = dataclasses.field(default_factory=list)
     evaluator_id: str = ""
     evaluator_version: str = "v1"
     evaluator_confidence: Optional[str] = None
     evaluator_evidence: Dict[str, Any] = dataclasses.field(default_factory=dict)
     evaluator_error: Optional[str] = None
+    # [Step 6-8] sampling flags for the manual review queue -- never used as
+    # ground truth, only to decide which sessions a human should look at.
+    manual_review_required: bool = False
+    manual_review_reasons: List[str] = dataclasses.field(default_factory=list)
     schema_version: str = "travel_a2a_v1"
 
     def __post_init__(self):
@@ -149,16 +182,21 @@ class AttackExecutionDiagnostics:
             "session_id": self.session_id, "attack_id": self.attack_id,
             "injection_present": self.injection_present, "injection_source_id": self.injection_source_id,
             "entry_agent_id": self.entry_agent_id,
-            "indicator_observed": self.indicator_observed,
+            "entry_agent_exposed": self.entry_agent_exposed, "instruction_followed": self.instruction_followed,
+            "indicator_observed": self.indicator_observed, "artifact_changed": self.artifact_changed,
             "indicator_observed_by_agent": list(self.indicator_observed_by_agent),
             "indicator_observed_in_artifact": list(self.indicator_observed_in_artifact),
             "propagation_observed": self.propagation_observed, "propagation_depth": self.propagation_depth,
             "affected_agent_ids": list(self.affected_agent_ids), "affected_artifact_ids": list(self.affected_artifact_ids),
+            "artifact_contract_violated": self.artifact_contract_violated,
             "workflow_changed": self.workflow_changed, "output_changed": self.output_changed,
-            "goal_success": self.goal_success,
+            "goal_success": self.goal_success, "hop_trace": [dict(h) for h in self.hop_trace],
             "evaluator_id": self.evaluator_id, "evaluator_version": self.evaluator_version,
             "evaluator_confidence": self.evaluator_confidence, "evaluator_evidence": dict(self.evaluator_evidence),
-            "evaluator_error": self.evaluator_error, "schema_version": self.schema_version,
+            "evaluator_error": self.evaluator_error,
+            "manual_review_required": self.manual_review_required,
+            "manual_review_reasons": list(self.manual_review_reasons),
+            "schema_version": self.schema_version,
         }
 
     @classmethod

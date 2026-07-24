@@ -1,0 +1,26 @@
+[
+  {
+    "phase": "6A",
+    "session_count": 6,
+    "pair_count": 3,
+    "evaluator_error_count": 0,
+    "request_hash_mismatch_count": 0,
+    "base_content_hash_mismatch_count": 0
+  },
+  {
+    "phase": "6B",
+    "session_count": 24,
+    "pair_count": 12,
+    "evaluator_error_count": 0,
+    "request_hash_mismatch_count": 0,
+    "base_content_hash_mismatch_count": 0
+  },
+  {
+    "phase": "6C",
+    "session_count": 18,
+    "pair_count": 9,
+    "evaluator_error_count": 0,
+    "request_hash_mismatch_count": 0,
+    "base_content_hash_mismatch_count": 0
+  }
+]

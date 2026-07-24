@@ -14,6 +14,8 @@ import dataclasses
 import hashlib
 import json
 import os
+import random
+import subprocess
 from typing import Optional
 
 from .attack_evaluators import ArtifactEvaluator, PairwiseOutcomeEvaluator, StructuralEvaluator, evaluate_attack
@@ -24,6 +26,15 @@ from .ids import DeterministicIdFactory
 from .injection_builder import build_external_content
 from .ollama_runner import run_ollama_workflow
 from .session_store import save_session
+
+
+def _get_git_commit() -> Optional[str]:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=os.path.dirname(os.path.abspath(__file__)),
+            text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return None
 
 DEFAULT_ATTACK_SMOKE_ROOT = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "outputs", "travel_a2a", "attack_smoke"))
@@ -51,6 +62,23 @@ class MatchedPairResult:
     normal_diagnostics: dict
     attack_diagnostics: dict
     pairwise_differences: dict
+    # [Step 6-4] execution order is randomized (seed-based, reproducible) --
+    # NOT hardcoded normal-then-attack -- to rule out warm-up/GPU-state bias
+    # from always running one condition first.
+    execution_order: str = "normal_first"
+    order_seed: Optional[int] = None
+    pair_repeat_index: int = 0
+    # [Step 6-15] reproducibility provenance -- recorded once per pair rather
+    # than duplicated onto every AgentCallRecord (which already separately
+    # carries model_name/temperature/top_p/seed/prompt_config_version).
+    attack_config_version: str = ""
+    payload_variant_id: str = ""
+    task_fixture_version: str = "travel_a2a_v1"
+    git_commit: Optional[str] = None
+    hardware_backend: Optional[str] = None
+    run_index_global: Optional[int] = None
+    run_index_for_task: Optional[int] = None
+    run_index_for_attack: Optional[int] = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -60,15 +88,22 @@ class MatchedPairRunner:
     def __init__(self, content_repository: ContentRepository):
         self.content_repository = content_repository
 
-    def run(self, fixture_dict: dict, attack_config: AttackConfig):
+    def run(self, fixture_dict: dict, attack_config: AttackConfig, repeat_index: int = 0,
+            order_seed: Optional[int] = None, run_index_global: Optional[int] = None,
+            run_index_for_task: Optional[int] = None, run_index_for_attack: Optional[int] = None,
+            hardware_backend: Optional[str] = None):
         """Returns (MatchedPairResult, normal_result, attack_result) -- the
         latter two are MockWorkflowResult instances (from ollama_runner.py),
-        needed by the caller to actually save full session data (Step 5-12)."""
+        needed by the caller to actually save full session data (Step 5-12).
+
+        order_seed (if given) deterministically picks normal-first or
+        attack-first for THIS specific repeat -- reproducible (same seed ->
+        same order) but not fixed across repeats, per Step 6-4."""
         fixture_id = fixture_dict["task_fixture_id"]
         # attack_family (not the full attack_id, which already repeats the
         # family name) keeps this short -- see save_matched_pair()'s
         # MAX_PATH note for why path length matters here.
-        pair_id = f"pair_{fixture_id}_{attack_config.attack_family}"
+        pair_id = f"pair_{fixture_id}_{attack_config.attack_family}_{attack_config.payload_variant_id}_rep{repeat_index}"
 
         normal_task = build_travel_task(fixture_dict, task_id=f"task_{fixture_id}_normal",
                                          context_id=f"ctx_{fixture_id}_normal")
@@ -92,11 +127,26 @@ class MatchedPairRunner:
 
         normal_session_id = f"{pair_id}_normal"
         attack_session_id = f"{pair_id}_attack"
-        normal_result = run_ollama_workflow(normal_task, self.content_repository,
-                                             id_factory=DeterministicIdFactory(), session_id=normal_session_id)
-        attack_result = run_ollama_workflow(attack_task, self.content_repository,
-                                             id_factory=DeterministicIdFactory(), session_id=attack_session_id,
-                                             attack_config=attack_config)
+
+        execution_order = "normal_first"
+        if order_seed is not None:
+            execution_order = random.Random(f"{order_seed}:{pair_id}").choice(["normal_first", "attack_first"])
+
+        def _run_normal():
+            return run_ollama_workflow(normal_task, self.content_repository,
+                                        id_factory=DeterministicIdFactory(), session_id=normal_session_id)
+
+        def _run_attack():
+            return run_ollama_workflow(attack_task, self.content_repository,
+                                        id_factory=DeterministicIdFactory(), session_id=attack_session_id,
+                                        attack_config=attack_config)
+
+        if execution_order == "attack_first":
+            attack_result = _run_attack()
+            normal_result = _run_normal()
+        else:
+            normal_result = _run_normal()
+            attack_result = _run_attack()
 
         diagnostics = evaluate_attack(attack_config, normal_result, attack_result, session_id=attack_session_id)
 
@@ -114,6 +164,12 @@ class MatchedPairRunner:
             normal_diagnostics={"selected_options": a_normal["selected_option_id"], "status": s_normal["final_status"]},
             attack_diagnostics=diagnostics.to_dict(),
             pairwise_differences=pairwise,
+            execution_order=execution_order, order_seed=order_seed, pair_repeat_index=repeat_index,
+            attack_config_version=attack_config.payload_template_version,
+            payload_variant_id=attack_config.payload_variant_id,
+            git_commit=_get_git_commit(), hardware_backend=hardware_backend,
+            run_index_global=run_index_global, run_index_for_task=run_index_for_task,
+            run_index_for_attack=run_index_for_attack,
         )
         return pair_result, normal_result, attack_result
 

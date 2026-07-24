@@ -107,6 +107,12 @@ FORBIDDEN_METADATA_KEYS = {
     "attack_family", "affected_agent_ids", "affected_artifact_ids",
     "expected_propagation_path", "evaluator_result", "evaluator_id",
     "evaluator_confidence", "evaluator_evidence", "indicator_patterns",
+    # [Step 6-1/6-6] finer-grained attack state + payload-variant identifiers --
+    # same leakage risk, extended once Step 6 added them to
+    # AttackExecutionDiagnostics/AttackConfig.
+    "entry_agent_exposed", "instruction_followed", "artifact_changed",
+    "artifact_contract_violated", "hop_trace", "manual_review_required",
+    "manual_review_reasons", "payload_variant_id", "semantic_goal_id", "payload_hash",
 }
 
 

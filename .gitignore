@@ -53,3 +53,4 @@ logs/
 # content-free, committed summary of what a given run found.
 outputs/travel_a2a/attack_smoke/*/
 outputs/travel_a2a/mock_sessions/*/
+outputs/travel_a2a/step6_mini_validation/*/

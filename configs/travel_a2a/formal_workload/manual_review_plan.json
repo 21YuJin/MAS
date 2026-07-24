@@ -1,0 +1,46 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "status": "PLANNED_NOT_EXECUTED",
+  "note": "[Step 6.5-22] Sampling plan for a future manual review queue over the FORMAL attack collection (once formal_collection_plan.json's status moves off PLANNED_NOT_EXECUTED and real attack sessions exist). Generalizes Step 6's per-pair manual_review_queue.csv logic (mini_validation_runner.py's write_manual_review_queue) to the 50-task formal workload scale. Nothing here is executed yet -- there are no formal attack sessions to sample from.",
+  "sampling_rules": [
+    {
+      "rule": "all_evaluator_disagreement",
+      "description": "Every session where evaluator_confidence == 'low' or evaluator_error is set.",
+      "rationale": "Same as Step 6-8 -- ambiguous evaluator output is exactly what a human should read, never silently trusted as ground truth."
+    },
+    {
+      "rule": "all_goal_success_true",
+      "description": "Every attack session with goal_success == True, regardless of attack_family.",
+      "rationale": "A claimed successful attack is the highest-stakes diagnostic value in the dataset -- confirm it's a real effect, not a coincidental match (Step 5-8's false-positive concern)."
+    },
+    {
+      "rule": "all_propagation_or_forwarding_cases",
+      "description": "Every session with propagation_observed == True, and (once validated) every unauthorized_artifact_forwarding session with forwarding_observed == True.",
+      "rationale": "Cross-agent effects are the hardest to verify automatically and the most consequential if wrong."
+    },
+    {
+      "rule": "partial_effect_cases",
+      "description": "Sessions in the 'entry_effect_only' or 'propagated_effect' outcome_group (metadata_delta.py's classify_outcome_group) -- i.e. SOME effect observed but goal_success == False.",
+      "rationale": "The ambiguous middle ground between 'nothing happened' and 'fully succeeded' is where evaluator rule gaps are most likely to hide."
+    },
+    {
+      "rule": "random_failure_sample_per_attack_family",
+      "description": "For each validated attack_family in the formal roster, randomly sample at least 10% of its goal_success == False sessions (minimum 1 session if the family has fewer than 10).",
+      "rationale": "A reviewer must also see 'nothing happened' cases, not only flagged ones -- otherwise the queue looks artificially alarming (Step 6-8's same principle, generalized to the larger formal scale)."
+    },
+    {
+      "rule": "hard_normal_high_metadata_deviation",
+      "description": "Among hard_normal_tags-carrying task instances' NORMAL (injection_present=False) sessions, sample those with the largest metadata_delta-style deviation from their template's typical normal-session profile (e.g. event_count/message_count/token_count in the top quartile for that template_family/difficulty).",
+      "rationale": "Confirms hard-normal tasks are actually producing the intended attack-free-but-metadata-heavy signal, and surfaces any normal session that looks anomalous for reasons OTHER than injection -- a potential confound for a metadata-based detector."
+    }
+  ],
+  "separation_policy": {
+    "rule": "Manual review sampling/labels are stored separately from any feature-screening or model-input pipeline artifact.",
+    "rationale": "A human reviewer's label is a QA signal on the evaluator's own correctness, never a replacement for ground_truth_label (int(injection_present)) and never itself fed into training as a feature (Steps 5/6's same discipline, carried forward)."
+  },
+  "output_file_when_executed": "reports/travel_a2a/formal_workload/manual_review_queue.csv",
+  "columns_when_executed": [
+    "review_id", "session_id", "task_instance_id", "attack_family", "split",
+    "evaluator_result", "evidence_summary", "reviewer_label", "reviewer_notes"
+  ]
+}

@@ -27,3 +27,7 @@ generator must satisfy, checked again after generation by
 | `attack_applicability_plan.json` | family-level provisional attack-candidate status (Step 6.5-13/6.5-14) |
 | `dataset_policy.json` | label/matched-pair/attack-failure/split-unit/leakage-prevention policy (Step 6.5-18) |
 | `formal_collection_plan.json` | not-yet-executed collection plan manifest (Step 6.5-19) |
+| `manual_review_plan.json` | not-yet-executed manual-review sampling plan for the future formal attack collection (Step 6.5-22) |
+
+See also `reports/travel_a2a/formal_workload_dataset_card.md` (Step 6.5-20)
+and `reports/travel_a2a/benchmark_taxonomy_mapping.md` (Step 6.5-21).

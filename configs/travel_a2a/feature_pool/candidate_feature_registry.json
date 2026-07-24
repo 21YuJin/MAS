@@ -1,0 +1,602 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "environment_type": "a2a_inspired_travel",
+  "graph_source": "interaction_events",
+  "llm_backend": "ollama",
+  "model_name": "llama3.2",
+  "schema_version": "candidate_feature_registry_v1",
+  "step": "Step 7C",
+
+  "scope_note": "This registry does NOT screen, score, or select features -- it only records what each candidate IS, where it comes from, and what constraints apply, so Phase 7D's validators and any future screening step have a single source of truth. Categorical/identifier fields that define the interaction graph itself (sender_id, receiver_id, interaction_type, status_before/status_after, agent_id, call_id, message_id, part_ids, artifact_ids) are deliberately NOT registered here as candidate features -- they define the adjacency/topology `graph_source: interaction_events` refers to, not a value attached to a node/edge/session. This registry covers derived scalar/dict VALUES computed on top of that topology.",
+
+  "vocabularies": {
+    "feature_level": ["node", "session", "runtime"],
+    "granularity": ["per_call", "per_agent_per_session", "per_session"],
+    "missing_value_policy": ["not_applicable", "not_collected", "runtime_missing", "division_guarded", "requires_normal_statistics"],
+    "mock_availability": ["available_in_mock", "requires_ollama_runtime", "available_after_normal_statistics"],
+    "feature_role": ["candidate_input", "collection_context", "diagnostic_only"],
+    "leakage_risk_level": ["none", "low", "medium", "high"]
+  },
+
+  "excluded_from_registry": {
+    "ground_truth_fields": {"reference": "models.FORBIDDEN_METADATA_KEYS", "reason": "attack/difficulty-adjacent ground truth, never eligible raw material -- see raw_metadata_schema.json's excluded_ground_truth_fields."},
+    "dataset_provenance_fields": {
+      "fields": ["task_instance_id", "template_id", "task_group_id", "content_bundle_id", "expected_normal_branches",
+                 "split", "hard_normal_tags", "generation_seed", "generator_version", "workload_version"],
+      "reason": "describe how a task was generated, not what happened during execution -- see raw_metadata_schema.json's out_of_scope_dataset_provenance_fields."
+    },
+    "graph_topology_fields": {
+      "fields": ["sender_id", "receiver_id", "interaction_type", "status_before", "status_after", "agent_id",
+                 "call_id", "message_id", "part_ids", "artifact_ids", "active_agents", "active_agent_mask", "adjacency_signature"],
+      "reason": "define the graph's structure/identifiers/diagnostic masks, not a scalar or vector feature value attached to it. active_agent_mask/adjacency_signature specifically remain the Step 6.5D LightGAE-input-READINESS diagnostic, not a trainable feature."
+    },
+    "non_numeric_status_fields": {
+      "fields": ["task_status", "final_travel_plan_present"],
+      "reason": "categorical session outcome fields already used by Step 6.5D's behavioral validation (branch_exact_match etc.) -- diagnostic, not proposed here as a LightGAE input candidate."
+    }
+  },
+
+  "features": [
+    {
+      "feature_name": "event_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["InteractionEvent (count)"], "formula": "len(session_events)",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": true, "known_confound": ["difficulty"],
+      "leakage_risk": {"level": "none", "note": "no ground-truth field involved; risk here is the confound, not leakage."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "event_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["message_count"]
+    },
+    {
+      "feature_name": "message_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["Message (count)"], "formula": "len(session_messages)",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": true, "known_confound": ["difficulty"],
+      "leakage_risk": {"level": "none", "note": "confound, not leakage."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "event_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["event_count"]
+    },
+    {
+      "feature_name": "unique_directed_pair_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["InteractionEvent.sender_id", "InteractionEvent.receiver_id"],
+      "formula": "count of distinct (sender_id, receiver_id) pairs in the session", "unit": "count", "dtype": "int",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "event_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["graph_features.edge_density"]
+    },
+    {
+      "feature_name": "repeated_pair_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["InteractionEvent.sender_id", "InteractionEvent.receiver_id"],
+      "formula": "count of distinct (sender_id, receiver_id) pairs seen more than once in the session",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "event_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["graph_features.parallel_edge_count"],
+      "notes": "IDENTICAL formula to graph_features.parallel_edge_count -- computed independently by formal_workload_mock_run.py (Step 6.5D) and feature_generators/graph_features.py (Step 7B). Kept as two registry entries because they come from two independently-tested code paths, but Phase 7D/screening should treat these as ONE feature, not two."
+    },
+    {
+      "feature_name": "status_transition_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["InteractionEvent.status_before", "InteractionEvent.status_after"],
+      "formula": "count of events where status_before != status_after", "unit": "count", "dtype": "int",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "event_aggregate_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "artifact_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["Artifact (count)"], "formula": "len(session_artifacts)",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "artifact_aggregate_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "artifact_version_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["Artifact.version"], "formula": "sum(a.version for a in session_artifacts)",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "low", "note": "revision-volume proxy at the artifact level -- correlated with revision_count by construction, not by attack signal."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "artifact_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["revision_count"]
+    },
+    {
+      "feature_name": "artifact_size_bytes_total", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["Part.size_bytes"], "formula": "sum(p.size_bytes for p in session_parts)",
+      "unit": "bytes", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": "size only, never Part.content itself."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "artifact_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["session_features.artifact_cv"]
+    },
+    {
+      "feature_name": "record_count_total", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["Artifact.record_count"], "formula": "sum(a.record_count for a in session_artifacts)",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "artifact_aggregate_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "revision_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["Message.interaction_type == revision_request (count)"],
+      "formula": "count of revision_request-type messages in the session", "unit": "count", "dtype": "int",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": true,
+      "known_confound": ["difficulty", "budget_revision_branch"],
+      "leakage_risk": {"level": "none", "note": "confound, not leakage -- see Dataset Card 'hard-tier/budget_revision confound'."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "event_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["artifact_version_count"]
+    },
+    {
+      "feature_name": "clarification_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["Message.interaction_type == clarification_request (count)"],
+      "formula": "count of clarification_request-type messages in the session", "unit": "count", "dtype": "int",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "event_aggregate_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "active_agent_count", "feature_level": "session", "feature_family": "raw_session_aggregate",
+      "granularity": "per_session", "source_fields": ["active_agents (Phase 6.5D diagnostic list)"],
+      "formula": "len(active_agents)", "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable",
+      "normalization_policy": "none", "requires_normal_statistics": false, "deployment_available": true,
+      "provider_specific": false, "content_free": true, "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": null}, "mock_availability": "available_in_mock", "ollama_required": false,
+      "feature_role": "candidate_input", "enabled": true, "derived_from_same_raw_group": "event_aggregate_group",
+      "mathematically_dependent_on": [], "potentially_redundant_with": ["graph_features.edge_density"]
+    },
+
+    {
+      "feature_name": "prompt_eval_count_mean", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.prompt_eval_count"], "formula": "mean(prompt_eval_count over llm_called calls)",
+      "unit": "tokens", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": null}, "mock_availability": "requires_ollama_runtime", "ollama_required": true,
+      "feature_role": "candidate_input", "enabled": true, "derived_from_same_raw_group": "agent_call_aggregate_group",
+      "mathematically_dependent_on": [], "potentially_redundant_with": ["token_features.input_token_count"]
+    },
+    {
+      "feature_name": "eval_count_mean", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.eval_count"], "formula": "mean(eval_count over llm_called calls)",
+      "unit": "tokens", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["token_features.output_token_count"]
+    },
+    {
+      "feature_name": "prompt_eval_duration_mean", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.prompt_eval_duration"], "formula": "mean(prompt_eval_duration over llm_called calls)",
+      "unit": "ns", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["timing_features.prompt_eval_time_ms"]
+    },
+    {
+      "feature_name": "eval_duration_mean", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.eval_duration"], "formula": "mean(eval_duration over llm_called calls)",
+      "unit": "ns", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["timing_features.generation_time_ms"]
+    },
+    {
+      "feature_name": "total_duration_mean", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.total_duration"], "formula": "mean(total_duration over llm_called calls)",
+      "unit": "ns", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "load_duration_mean", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.load_duration"], "formula": "mean(load_duration over llm_called calls)",
+      "unit": "ns", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "low", "note": "near-zero once the Ollama model is warm -- may carry little signal beyond the first call of a run, worth screening for near-constant variance later."},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "wall_clock_latency_ms_mean", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.wall_clock_latency_ms"], "formula": "mean(wall_clock_latency_ms over llm_called calls)",
+      "unit": "ms", "dtype": "float|null", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "mock value is a synthetic-but-real DeterministicClock diff, not a real elapsed-time measurement -- must be partitioned by timing_source before any cross-session comparison, never mixed with ollama_runtime values."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["session_features.latency_cv"]
+    },
+    {
+      "feature_name": "total_call_count", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord (count)"], "formula": "len(session_agent_call_records)",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["session_features.call_count"],
+      "notes": "IDENTICAL formula to session_features.call_count -- same duplication situation as repeated_pair_count/parallel_edge_count."
+    },
+    {
+      "feature_name": "llm_call_count", "feature_level": "session", "feature_family": "agent_call_aggregate",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.llm_called"], "formula": "count of calls where llm_called is True",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "always 0 under deterministic_mock (mock_runner.py never sets llm_called=True) -- a degenerate constant, not a missing value, until an ollama_runtime session exists."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "agent_call_aggregate_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+
+    {
+      "feature_name": "token_features.input_token_count", "feature_level": "node", "feature_family": "token_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.prompt_eval_count"], "formula": "prompt_eval_count (renamed)",
+      "unit": "tokens", "dtype": "int|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "token_features_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["prompt_eval_count_mean"]
+    },
+    {
+      "feature_name": "token_features.output_token_count", "feature_level": "node", "feature_family": "token_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.eval_count"], "formula": "eval_count (renamed)",
+      "unit": "tokens", "dtype": "int|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "token_features_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["eval_count_mean"]
+    },
+    {
+      "feature_name": "token_features.total_token_count", "feature_level": "node", "feature_family": "token_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.prompt_eval_count", "AgentCallRecord.eval_count"],
+      "formula": "input_token_count + output_token_count", "unit": "tokens", "dtype": "int|null",
+      "missing_value_policy": "runtime_missing", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": true, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null}, "mock_availability": "requires_ollama_runtime",
+      "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "token_features_group",
+      "mathematically_dependent_on": ["token_features.input_token_count", "token_features.output_token_count"],
+      "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "token_features.expansion_ratio", "feature_level": "node", "feature_family": "token_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.prompt_eval_count", "AgentCallRecord.eval_count"],
+      "formula": "output_token_count / input_token_count (None if input_token_count is 0 or None)", "unit": "ratio",
+      "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "token_features_group",
+      "mathematically_dependent_on": ["token_features.input_token_count", "token_features.output_token_count"],
+      "potentially_redundant_with": ["token_features.token_difference"]
+    },
+    {
+      "feature_name": "token_features.token_difference", "feature_level": "node", "feature_family": "token_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.prompt_eval_count", "AgentCallRecord.eval_count"],
+      "formula": "output_token_count - input_token_count", "unit": "tokens", "dtype": "int|null",
+      "missing_value_policy": "runtime_missing", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": true, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null}, "mock_availability": "requires_ollama_runtime",
+      "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "token_features_group",
+      "mathematically_dependent_on": ["token_features.input_token_count", "token_features.output_token_count"],
+      "potentially_redundant_with": ["token_features.expansion_ratio"]
+    },
+    {
+      "feature_name": "token_features.predecessor_output_ratio", "feature_level": "node", "feature_family": "token_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.prompt_eval_count", "predecessor AgentCallRecord.eval_count",
+                                                     "AgentCallRecord.input_part_ids", "AgentCallRecord.output_part_ids"],
+      "formula": "predecessor_output_token_count / input_token_count (None if no resolvable predecessor or input_token_count is 0/None)",
+      "unit": "ratio", "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "low", "note": "predecessor resolution breaks fan-in ties by latest call_end_timestamp then call_id -- deterministic, but an ambiguous multi-producer case picks only one predecessor; worth re-checking once real multi-agent fan-in sessions exist."},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "token_features_group", "mathematically_dependent_on": ["token_features.input_token_count"],
+      "potentially_redundant_with": ["token_features.ctx_delta"]
+    },
+    {
+      "feature_name": "token_features.ctx_delta", "feature_level": "node", "feature_family": "token_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.prompt_eval_count", "predecessor AgentCallRecord.eval_count"],
+      "formula": "input_token_count - predecessor_output_token_count", "unit": "tokens", "dtype": "int|null",
+      "missing_value_policy": "division_guarded", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": true, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "low", "note": "same predecessor-resolution caveat as predecessor_output_ratio."},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "token_features_group", "mathematically_dependent_on": ["token_features.input_token_count"],
+      "potentially_redundant_with": ["token_features.predecessor_output_ratio"]
+    },
+
+    {
+      "feature_name": "timing_features.wall_clock_latency_ms", "feature_level": "node", "feature_family": "timing_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.wall_clock_latency_ms"], "formula": "passthrough of the raw node field",
+      "unit": "ms", "dtype": "float|null", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "identical value to the Phase 7A raw node field -- carried through for convenient co-access with the other timing_features, not an independent measurement."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "timing_features_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["wall_clock_latency_ms_mean"]
+    },
+    {
+      "feature_name": "timing_features.generation_time_ms", "feature_level": "node", "feature_family": "timing_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.eval_duration"], "formula": "eval_duration / 1e6",
+      "unit": "ms", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "timing_features_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["eval_duration_mean"]
+    },
+    {
+      "feature_name": "timing_features.prompt_eval_time_ms", "feature_level": "node", "feature_family": "timing_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.prompt_eval_duration"], "formula": "prompt_eval_duration / 1e6",
+      "unit": "ms", "dtype": "float|null", "missing_value_policy": "runtime_missing", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "timing_features_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["prompt_eval_duration_mean"]
+    },
+    {
+      "feature_name": "timing_features.tokens_per_second", "feature_level": "node", "feature_family": "timing_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.eval_count", "AgentCallRecord.eval_duration"],
+      "formula": "eval_count / (eval_duration / 1e9) (None if eval_duration is 0/None or eval_count is None)",
+      "unit": "tokens/sec", "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "timing_features_group",
+      "mathematically_dependent_on": ["token_features.output_token_count", "timing_features.generation_time_ms"],
+      "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "timing_features.generation_ratio", "feature_level": "node", "feature_family": "timing_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.eval_duration", "AgentCallRecord.total_duration"],
+      "formula": "eval_duration / total_duration (None if total_duration is 0/None)", "unit": "ratio", "dtype": "float|null",
+      "missing_value_policy": "division_guarded", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": true, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null}, "mock_availability": "requires_ollama_runtime",
+      "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "timing_features_group",
+      "mathematically_dependent_on": ["timing_features.generation_time_ms"], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "timing_features.non_generation_overhead_ms", "feature_level": "node", "feature_family": "timing_features",
+      "granularity": "per_call", "source_fields": ["AgentCallRecord.total_duration", "AgentCallRecord.eval_duration", "AgentCallRecord.prompt_eval_duration"],
+      "formula": "(total_duration - eval_duration - prompt_eval_duration) / 1e6", "unit": "ms", "dtype": "float|null",
+      "missing_value_policy": "runtime_missing", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": true, "content_free": true, "candidate_only": false,
+      "known_confound": null,
+      "leakage_risk": {"level": "low", "note": "captures load_duration plus unattributed overhead -- interpretability is weaker than the other timing fields, worth revisiting once real ollama_runtime values exist."},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "timing_features_group",
+      "mathematically_dependent_on": ["timing_features.generation_time_ms", "timing_features.prompt_eval_time_ms"],
+      "potentially_redundant_with": ["load_duration_mean"]
+    },
+
+    {
+      "feature_name": "graph_features.fan_in_out_by_agent", "feature_level": "session", "feature_family": "graph_features",
+      "granularity": "per_agent_per_session", "source_fields": ["InteractionEvent.sender_id", "InteractionEvent.receiver_id"],
+      "formula": "per-agent {fan_in, fan_out} counts", "unit": "count", "dtype": "dict[str, dict[str,int]]",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": false,
+      "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "not a scalar -- a per-agent map. A future flattening step (one column per agent x {fan_in,fan_out}) is a screening-stage decision, not made here."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "graph_features_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["unique_directed_pair_count"]
+    },
+    {
+      "feature_name": "graph_features.edge_density", "feature_level": "session", "feature_family": "graph_features",
+      "granularity": "per_session", "source_fields": ["InteractionEvent (unique directed pairs)", "active_agent_count"],
+      "formula": "unique_directed_pair_count / (n * (n-1)) where n = distinct active agents; 0.0 if n < 2",
+      "unit": "ratio", "dtype": "float", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "graph_features_group",
+      "mathematically_dependent_on": ["unique_directed_pair_count", "active_agent_count"], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "graph_features.parallel_edge_count", "feature_level": "session", "feature_family": "graph_features",
+      "granularity": "per_session", "source_fields": ["InteractionEvent.sender_id", "InteractionEvent.receiver_id"],
+      "formula": "count of distinct (sender_id, receiver_id) pairs seen more than once", "unit": "count", "dtype": "int",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null}, "mock_availability": "available_in_mock",
+      "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "graph_features_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["repeated_pair_count"],
+      "notes": "IDENTICAL formula to repeated_pair_count -- see that entry's notes."
+    },
+    {
+      "feature_name": "graph_features.reply_chain_depth", "feature_level": "session", "feature_family": "graph_features",
+      "granularity": "per_session", "source_fields": ["Message.request_message_id"],
+      "formula": "longest request_message_id reply chain in the session", "unit": "count", "dtype": "int",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": false,
+      "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "closest available analogue to the spec's 'path_depth' -- this Message model has no separate DAG-depth field."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "graph_features_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "graph_features.artifact_lineage_depth", "feature_level": "session", "feature_family": "graph_features",
+      "granularity": "per_session", "source_fields": ["Artifact.parent_artifact_ids"],
+      "formula": "longest parent_artifact_ids chain in the session", "unit": "count", "dtype": "int",
+      "missing_value_policy": "not_applicable", "normalization_policy": "none", "requires_normal_statistics": false,
+      "deployment_available": true, "provider_specific": false, "content_free": true, "candidate_only": false,
+      "known_confound": null, "leakage_risk": {"level": "none", "note": null}, "mock_availability": "available_in_mock",
+      "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "graph_features_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+
+    {
+      "feature_name": "session_features.latency_cv", "feature_level": "session", "feature_family": "session_dispersion",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.wall_clock_latency_ms"],
+      "formula": "population stdev / mean of wall_clock_latency_ms across the session's calls (None if < 2 values or mean == 0)",
+      "unit": "ratio", "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "session_dispersion_group",
+      "mathematically_dependent_on": ["timing_features.wall_clock_latency_ms"], "potentially_redundant_with": ["wall_clock_latency_ms_mean"]
+    },
+    {
+      "feature_name": "session_features.output_token_cv", "feature_level": "session", "feature_family": "session_dispersion",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.eval_count"],
+      "formula": "population stdev / mean of eval_count across the session's calls (None if < 2 values or mean == 0)",
+      "unit": "ratio", "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "session_dispersion_group",
+      "mathematically_dependent_on": ["token_features.output_token_count"], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "session_features.message_cv", "feature_level": "session", "feature_family": "session_dispersion",
+      "granularity": "per_session", "source_fields": ["Message.part_ids"],
+      "formula": "population stdev / mean of per-message part_ids count across the session (None if < 2 values or mean == 0)",
+      "unit": "ratio", "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "session_dispersion_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "session_features.artifact_cv", "feature_level": "session", "feature_family": "session_dispersion",
+      "granularity": "per_session", "source_fields": ["Part.size_bytes", "Artifact.part_ids"],
+      "formula": "population stdev / mean of per-artifact total size_bytes across the session (None if < 2 values or mean == 0)",
+      "unit": "ratio", "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": "size only, never Part.content."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "session_dispersion_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["artifact_size_bytes_total"]
+    },
+    {
+      "feature_name": "session_features.max_output_ratio", "feature_level": "session", "feature_family": "session_dispersion",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.eval_count"],
+      "formula": "max(eval_count) / mean(eval_count) across the session's calls (None if no values or mean == 0)",
+      "unit": "ratio", "dtype": "float|null", "missing_value_policy": "division_guarded", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "requires_ollama_runtime", "ollama_required": true, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "session_dispersion_group",
+      "mathematically_dependent_on": ["token_features.output_token_count"], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "session_features.call_count", "feature_level": "session", "feature_family": "session_dispersion",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord (count)"], "formula": "len(session_agent_call_records)",
+      "unit": "count", "dtype": "int", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "candidate_input", "enabled": true,
+      "derived_from_same_raw_group": "session_dispersion_group", "mathematically_dependent_on": [],
+      "potentially_redundant_with": ["total_call_count"],
+      "notes": "IDENTICAL formula to total_call_count -- see that entry's notes."
+    },
+
+    {
+      "feature_name": "normalization_features.agent_zscore", "feature_level": "node", "feature_family": "normalization_features",
+      "granularity": "per_call", "source_fields": ["any node-level numeric metric (e.g. wall_clock_latency_ms, eval_count)", "externally-fit normal_statistics"],
+      "formula": "(value - normal_statistics[(agent_id, metric_name)].mean) / normal_statistics[(agent_id, metric_name)].stdev",
+      "unit": "stdev", "dtype": "float|null", "missing_value_policy": "requires_normal_statistics", "normalization_policy": "per_agent_zscore",
+      "requires_normal_statistics": true, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": true, "known_confound": null,
+      "leakage_risk": {"level": "medium", "note": "normal_statistics MUST be fit on the train split's NORMAL sessions only (dataset_policy.json's split-unit discipline) -- fitting on validation/test or on attack sessions would leak split/label information into every zscore feature."},
+      "mock_availability": "available_after_normal_statistics", "ollama_required": true, "feature_role": "candidate_input", "enabled": false,
+      "derived_from_same_raw_group": "normalization_group", "mathematically_dependent_on": [], "potentially_redundant_with": [],
+      "notes": "Formula-only entry -- normalization_features.py never fits normal_statistics itself (Step 7B). enabled=false until a train-split-only fit exists (Step 8+)."
+    },
+
+    {
+      "feature_name": "timing_source", "feature_level": "runtime", "feature_family": "runtime_context",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.timing_source", "InteractionEvent.timing_source"],
+      "formula": "passthrough", "unit": "categorical", "dtype": "enum", "missing_value_policy": "not_applicable",
+      "normalization_policy": "none", "requires_normal_statistics": false, "deployment_available": true,
+      "provider_specific": false, "content_free": true, "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "REQUIRED for stratified analysis (mock vs. ollama_runtime) -- must never be silently mixed into a model input alongside timing-derived features, only used to partition them."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "collection_context", "enabled": false,
+      "derived_from_same_raw_group": "runtime_context_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "model_name", "feature_level": "runtime", "feature_family": "runtime_context",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.model_name"], "formula": "passthrough",
+      "unit": "categorical", "dtype": "str", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "constant (llama3.2) across this entire workload -- see Dataset Card 'one local model' limitation; would only become discriminative once a second model is ever run."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "collection_context", "enabled": false,
+      "derived_from_same_raw_group": "runtime_context_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "llm_backend", "feature_level": "runtime", "feature_family": "runtime_context",
+      "granularity": "per_session", "source_fields": ["fixed project constant"], "formula": "constant \"ollama\"",
+      "unit": "categorical", "dtype": "str", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": true, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": "fixed for this project -- no variance to key on."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "collection_context", "enabled": false,
+      "derived_from_same_raw_group": "runtime_context_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "prompt_config_version", "feature_level": "runtime", "feature_family": "runtime_context",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.prompt_config_version"], "formula": "passthrough",
+      "unit": "categorical", "dtype": "str|null", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null,
+      "leakage_risk": {"level": "none", "note": "useful for cross-prompt-version stratified analysis, never as a direct model input."},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "collection_context", "enabled": false,
+      "derived_from_same_raw_group": "runtime_context_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "agent_config_version", "feature_level": "runtime", "feature_family": "runtime_context",
+      "granularity": "per_session", "source_fields": ["AgentCallRecord.agent_config_version"], "formula": "passthrough",
+      "unit": "categorical", "dtype": "str|null", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "collection_context", "enabled": false,
+      "derived_from_same_raw_group": "runtime_context_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    },
+    {
+      "feature_name": "schema_version", "feature_level": "runtime", "feature_family": "runtime_context",
+      "granularity": "per_session", "source_fields": ["models.py dataclass schema_version field"], "formula": "passthrough",
+      "unit": "categorical", "dtype": "str", "missing_value_policy": "not_applicable", "normalization_policy": "none",
+      "requires_normal_statistics": false, "deployment_available": true, "provider_specific": false, "content_free": true,
+      "candidate_only": false, "known_confound": null, "leakage_risk": {"level": "none", "note": null},
+      "mock_availability": "available_in_mock", "ollama_required": false, "feature_role": "collection_context", "enabled": false,
+      "derived_from_same_raw_group": "runtime_context_group", "mathematically_dependent_on": [], "potentially_redundant_with": []
+    }
+  ]
+}

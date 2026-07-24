@@ -1,0 +1,34 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "minimum_destination_count": 12,
+  "destinations": [
+    "Tokyo", "Osaka", "Singapore", "Bangkok", "Paris", "London",
+    "Taipei", "Hong Kong", "Sydney", "New York", "Rome", "Barcelona",
+    "Vancouver", "Dubai", "Berlin"
+  ],
+  "note": "6 of these (Tokyo/Osaka/Singapore/Bangkok/Paris/London) overlap with data/travel_a2a/development/'s destinations by name only -- formal_workload/content/ bundles for them are separately generated and richer (3-5+ options vs. development's 2), never shared or read from development/content/.",
+  "origins": ["Seoul", "Busan", "Tokyo", "Singapore"],
+  "origin_note": "Kept to 4 values (per Step 6.5-6's '2~4 수준으로 제한') to avoid content-bundle explosion; Tokyo/Singapore double as both an origin (for cross-Asia business_trip instances) and a destination (for other instances) without conflict, since origin/destination are resolved per task_instance, not globally reserved.",
+  "diversification_axes": {
+    "trip_duration_days": {
+      "short": [2, 3],
+      "medium": [4, 5],
+      "long": [6, 8],
+      "extended": [9, null]
+    },
+    "travelers": {
+      "solo": 1,
+      "couple": 2,
+      "small_group": [3, 4],
+      "family_group": [3, 5]
+    },
+    "budget_level": ["tight", "moderate", "flexible"],
+    "required_service_combinations": [
+      ["flight", "hotel"],
+      ["flight", "hotel", "currency"],
+      ["flight", "hotel", "tours"],
+      ["flight", "hotel", "currency", "tours"]
+    ]
+  },
+  "diversity_requirement": "Each of the 50 task instances must differ from every other instance on at least 3 of: destination, trip_duration bucket, traveler bucket, budget_level, required_services combination, preference type, workflow branch, template_family, constraint_types combination, expected artifact requirements (Step 6.5-2). Checked by near_duplicate_report in Phase 6.5C, not enforced here."
+}

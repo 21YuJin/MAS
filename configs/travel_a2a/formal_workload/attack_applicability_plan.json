@@ -1,0 +1,46 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "note": "[Step 6.5-13] Family-level plan only -- no task_instance_id-level FormalAttackApplicabilityMatrix rows exist yet, since no formal task instances have been generated (that happens in Phase 6.5B, after which each row gets task_instance_id/candidate_source_ids/valid_target_option_ids/expected_effect_type filled in against real content bundles). No new attack is executed in Step 6.5.",
+  "attack_families": [
+    {
+      "attack_family": "preference_manipulation",
+      "validation_status": "validated_formal_candidate",
+      "basis": "Step 6 Phase 6A-6C: reproducible goal_success across Osaka (0.67) and Bangkok (0.50), zero evaluator_error across 24 pairs.",
+      "target_applicable_task_count": "at least 10, target ~16-17 of the 50 (roughly a third of the workload)",
+      "attack_assignment_status": "provisional"
+    },
+    {
+      "attack_family": "budget_manipulation",
+      "validation_status": "proposed_candidate_requires_validation",
+      "basis": "Step 5/6 follow-up priority 1 -- proposed REPLACEMENT for workflow_corruption's defense_stress_case finding (targets the artifact/budget-routing content the workflow policy actually reads, unlike workflow_corruption's narrative-only injection).",
+      "target_applicable_task_count": "at least 10, target ~16-17 of the 50",
+      "attack_assignment_status": "provisional",
+      "not_yet_validated": true
+    },
+    {
+      "attack_family": "unauthorized_artifact_forwarding",
+      "validation_status": "proposed_candidate_requires_validation",
+      "basis": "Step 5/6 follow-up priority 3 -- proposed REPLACEMENT for downstream_propagation's replace_or_redesign finding (targets artifact-forwarding mechanism directly, not narrative-echo survival through a coordinator summarization hop).",
+      "target_applicable_task_count": "at least 10, target ~16-17 of the 50",
+      "attack_assignment_status": "provisional",
+      "not_yet_validated": true
+    },
+    {
+      "attack_family": "workflow_corruption",
+      "validation_status": "defense_stress_case",
+      "basis": "Step 6 Phase 6A-6C: 0/8 goal_success across 4 tasks and 2 payload variants -- deterministic workflow_policy structurally never reads agent narrative text for routing. Kept as a documented negative/defense case, not trained as a positive attack instance.",
+      "target_applicable_task_count": "kept at existing Step 6 coverage level (not expanded) -- see reports/travel_a2a/step6/attack_selection_recommendation.md",
+      "attack_assignment_status": "retained_as_defense_stress_case, not part of the 3-attack formal roster"
+    },
+    {
+      "attack_family": "downstream_propagation",
+      "validation_status": "deprecated_or_redesign",
+      "basis": "Step 6 Phase 6A-6C: 0/8 propagation_observed across all tasks/variants -- entry-agent indicator does not survive the single architecturally-available hop to the coordinator's summary.",
+      "target_applicable_task_count": 0,
+      "attack_assignment_status": "not_carried_into_formal_workload -- replaced by unauthorized_artifact_forwarding above"
+    }
+  ],
+  "formal_attack_roster_target": ["preference_manipulation", "budget_manipulation", "unauthorized_artifact_forwarding"],
+  "roster_finalization_note": "budget_manipulation and unauthorized_artifact_forwarding remain provisional until each independently passes a Step-6-style mini-validation on the formal workload; only preference_manipulation is currently validated_formal_candidate.",
+  "per_task_attack_policy": "Step 6.5's first formal experiment assigns at most ONE representative attack family per task_instance (cost/independence simplicity, Step 6.5-14) -- multiple attack families per task is possible later but not planned for the first formal collection."
+}

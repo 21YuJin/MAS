@@ -1,7 +1,15 @@
 """
 [Step 3-2] Source-controlled TravelTask fixtures -- loads
-data/travel_a2a/tasks/normal_tasks.json and builds (TravelTask,
+data/travel_a2a/development/tasks/normal_tasks.json and builds (TravelTask,
 expected_branches) pairs.
+
+[Step 6.5-1] These 6 fixtures are DEVELOPMENT fixtures only (smoke test /
+workflow regression / evaluator unit tests / attack development) -- they are
+never mixed with the formal_workload/ task instances built in Step 6.5
+onward. Kept at data/travel_a2a/development/ specifically so a future formal
+dataset script can never accidentally read/write this path (CLAUDE.md's
+existing-path-isolation principle, applied one level down within
+data/travel_a2a/ itself).
 
 expected_branches is diagnostic-only ground truth for tests (which
 conditional collaboration branch, Step 3-6, a fixture is DESIGNED to trigger
@@ -23,7 +31,7 @@ from .status import TaskStatus
 
 DEFAULT_TASKS_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
-    "data", "travel_a2a", "tasks", "normal_tasks.json")
+    "data", "travel_a2a", "development", "tasks", "normal_tasks.json")
 
 FIXTURE_CREATED_AT = "2026-08-15T00:00:00+00:00"
 

@@ -1,0 +1,19 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "principle": "Task COUNT alone doesn't buy graph diversity -- a target distribution over normal-execution branch patterns keeps the 50 instances from collapsing onto one dominant event sequence (Step 6.5-9). A single task_instance may satisfy more than one pattern (e.g. both budget_revision and schedule_clarification), so targets may sum to more than 50.",
+  "targets": [
+    {"pattern": "basic_flow_only", "range": [12, 15], "target": 13},
+    {"pattern": "client_clarification", "range": [6, 8], "target": 7},
+    {"pattern": "budget_revision", "range": [8, 10], "target": 9},
+    {"pattern": "schedule_clarification", "range": [6, 8], "target": 7},
+    {"pattern": "integration_revision", "range": [5, 7], "target": 6},
+    {"pattern": "multi_branch", "range": [8, 10], "target": 9}
+  ],
+  "failure_conditions_checked_post_generation": [
+    "70%+ of task instances produce an identical event_pattern (StructuralEvaluator.event_pattern)",
+    "any one branch pattern occurs in exactly 1 task instance",
+    "hard-difficulty instances have identical event_count to easy-difficulty instances across the board",
+    "every task instance activates the exact same agent set and edge pattern"
+  ],
+  "explicit_prohibition": "Do not pad edge/message counts with fabricated Message records to hit a target -- targets are satisfied only through genuine task_instance/content_bundle design (Step 6.5-9)."
+}

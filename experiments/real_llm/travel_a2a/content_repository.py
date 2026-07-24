@@ -1,9 +1,13 @@
 """
 [Step 3-3] External content repository -- loads the source-controlled travel
-content fixtures (data/travel_a2a/content/{flights,hotels,currency,tours}.json)
+content fixtures (data/travel_a2a/development/content/{flights,hotels,currency,tours}.json)
 and provides lookup helpers. No real API/internet calls -- every record here
 is a hand-authored fixture, internally consistent within itself (destination/
 date/price arithmetic) but not claiming real-world accuracy.
+
+[Step 6.5-1] This DEFAULT_CONTENT_DIR is the DEVELOPMENT content bundle only
+-- formal_workload/ content (Step 6.5 onward) lives under a separate path and
+is loaded through its own loader, never through this module's default.
 
 Every record is convertible to a Part via content_record_to_part() below,
 always with injection_present=False / attack_id=None -- this repository has
@@ -18,7 +22,8 @@ from typing import List, Optional
 from .models import Part, PartType, SourceType
 
 DEFAULT_CONTENT_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data", "travel_a2a", "content")
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
+    "data", "travel_a2a", "development", "content")
 
 
 class ContentRepository:

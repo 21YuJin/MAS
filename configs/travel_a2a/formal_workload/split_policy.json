@@ -1,0 +1,31 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "split_unit": "task_group_id",
+  "principle": "Split is performed at task_group_id granularity, never at session or task_instance_id granularity, to prevent leakage from near-identical parameter variants of the same template landing in different splits (Step 6.5-10).",
+  "invariants": [
+    "every repeat of the same task_instance_id stays in the same split",
+    "a task_instance's normal session and its matched attack session stay in the same split",
+    "every task_instance belonging to the same task_group_id stays in the same split",
+    "near-duplicate task_instances sharing a content_bundle_id stay in the same split where possible"
+  ],
+  "primary_split": {
+    "name": "primary_group_split",
+    "type": "group-aware stratified, IID-like",
+    "target_counts": {"train": 30, "validation": 10, "test": 10},
+    "stratification_targets": ["template_family", "difficulty", "expected_normal_branches", "required_services_combination"],
+    "output_files": [
+      "data/travel_a2a/formal_workload/splits/primary_group_split.json",
+      "data/travel_a2a/formal_workload/splits/split_balance_report.json"
+    ],
+    "seed_field": "split_seed"
+  },
+  "secondary_split": {
+    "name": "unseen_template_split",
+    "type": "constraint-combination holdout, NOT a whole-family holdout",
+    "purpose": "generalization check -- must never be summed with primary_split results (Step 6.5-12)",
+    "holdout_policy": "test holds out task_groups whose constraint_types combination is NOT present in any primary train/validation task_group (e.g. simultaneous schedule_conflict + integration_conflict), rather than assigning entire families (e.g. all of multi_constraint_trip or hard_normal_trip) to test -- an all-hard-family holdout would create an unrealistic distribution shift and inflate normal FPR (Step 6.5-12's explicit warning).",
+    "output_file": "data/travel_a2a/formal_workload/splits/unseen_template_split.json",
+    "finalized_in": "Phase 6.5B, once actual task_instance constraint_types exist to select a genuine holdout combination"
+  },
+  "never_do": "Never random-split at the session or task_instance level; never combine primary and secondary split results into one headline number."
+}

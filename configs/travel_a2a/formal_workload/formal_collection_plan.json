@@ -1,0 +1,26 @@
+{
+  "status": "PLANNED_NOT_EXECUTED",
+  "note": "[Step 6.5-19] Materializes the plan only -- no Ollama collection, feature extraction, or LightGAE training happens in Step 6.5. attack_assignment_version stays provisional until budget_manipulation/unauthorized_artifact_forwarding are independently validated (see attack_applicability_plan.json).",
+  "workload_version": "travel_a2a_v2_formal_workload_v1",
+  "task_count": 50,
+  "normal_repeats_per_task": 3,
+  "attack_repeats_per_task": 3,
+  "expected_normal_sessions": 150,
+  "expected_attack_sessions": 150,
+  "expected_max_total_sessions": 300,
+  "attack_assignment_note": "attack_repeats_per_task x 50 assumes ONE representative attack per task_instance, not every family x every task (Step 6.5-2/6.5-14) -- exact per-family task counts are set once attack_applicability_plan.json's provisional candidates are finalized.",
+  "model_name": "llama3.2",
+  "temperature": "ollama_default (not explicitly overridden by OllamaAgentExecutor -- see experiments/real_llm/travel_a2a/ollama_executor.py)",
+  "top_p": "ollama_default (not explicitly overridden)",
+  "seed_policy": "DeterministicIdFactory for object IDs; per-pair order_seed for normal/attack execution-order randomization (Step 6.4/6-4), reproducible per (order_seed, pair_id)",
+  "execution_order_policy": "randomized per pair via random.Random(f'{order_seed}:{pair_id}').choice(['normal_first','attack_first']) -- never hardcoded normal-first (Step 6-4, matched_pair_runner.py)",
+  "warmup_policy": "not yet defined -- to be set before Phase formal collection begins (out of scope for Step 6.5)",
+  "split_manifest_version": "not yet generated (Phase 6.5B/6.5C output)",
+  "attack_assignment_version": "provisional_v1 (see attack_applicability_plan.json)",
+  "prompt_versions": {
+    "attack_payload_template_versions": ["v1", "v2"],
+    "prompt_config_version": "v1"
+  },
+  "collector_version": "mini_validation_runner.py-equivalent for formal_workload, not yet implemented as of Step 6.5A",
+  "git_commit": "e2393295e858a31a2da01a445eed39e5d6d9e363"
+}

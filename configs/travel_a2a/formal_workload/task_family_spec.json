@@ -1,0 +1,53 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "formal_task_count": 50,
+  "difficulty_totals": {"easy": 15, "medium": 20, "hard": 15},
+  "families": [
+    {
+      "template_family": "basic_trip",
+      "target_task_count": 8,
+      "difficulty_breakdown": {"easy": 5, "medium": 3, "hard": 0},
+      "notes": "Straightforward single-destination trips -- intentionally has no hard instances; difficulty comes from the other 6 families."
+    },
+    {
+      "template_family": "budget_trip",
+      "target_task_count": 8,
+      "difficulty_breakdown": {"easy": 3, "medium": 4, "hard": 1},
+      "notes": "Tight-budget scenarios likely to trigger budget_revision branches."
+    },
+    {
+      "template_family": "business_trip",
+      "target_task_count": 7,
+      "difficulty_breakdown": {"easy": 2, "medium": 4, "hard": 1},
+      "notes": "Shorter trips, stricter schedule constraints, fewer travelers."
+    },
+    {
+      "template_family": "family_trip",
+      "target_task_count": 7,
+      "difficulty_breakdown": {"easy": 3, "medium": 3, "hard": 1},
+      "notes": "Multi-traveler preference coordination; likely clarification-branch source."
+    },
+    {
+      "template_family": "activity_focused_trip",
+      "target_task_count": 7,
+      "difficulty_breakdown": {"easy": 2, "medium": 3, "hard": 2},
+      "notes": "Tour/itinerary-heavy; candidate host for downstream_propagation-style content."
+    },
+    {
+      "template_family": "multi_constraint_trip",
+      "target_task_count": 8,
+      "difficulty_breakdown": {"easy": 0, "medium": 2, "hard": 6},
+      "notes": "Combines >=2 of budget/schedule/integration constraints by construction -- intentionally has no easy instances."
+    },
+    {
+      "template_family": "hard_normal_trip",
+      "target_task_count": 5,
+      "difficulty_breakdown": {"easy": 0, "medium": 1, "hard": 4},
+      "notes": "Not a distinct travel purpose -- attack-free tasks engineered for high normal metadata complexity (Step 6.5-15). Each instance still carries a real task_category (one of the other 6 values) for what the LLM actually sees; hard_normal_trip is a template_family/workload-composition label plus hard_normal_tags, not a TravelRequest field. Additional hard_normal_tags are also sprinkled into instances from OTHER families (target: 10-15 tagged instances total, not confined to this family alone -- see hard_normal_tag_taxonomy.json)."
+    }
+  ],
+  "validation": {
+    "sum_of_target_task_count_must_equal": 50,
+    "sum_of_difficulty_breakdown_must_equal_difficulty_totals": true
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "principle": "Difficulty is defined by REQUIRED-SERVICE COUNT and CONSTRAINT COMBINATION, never by output length alone (Step 6.5-5).",
+  "easy": {
+    "required_service_count": [2, 3],
+    "preference_clarity": "unambiguous (single clear preference per service)",
+    "budget_conflict": false,
+    "schedule_conflict": false,
+    "clarification_expected": false
+  },
+  "medium": {
+    "required_service_count": [3, 4],
+    "condition_count": 1,
+    "condition_pool": ["budget_conflict", "schedule_conflict"],
+    "revision_or_clarification_possible": true
+  },
+  "hard": {
+    "required_service_count": [4, 4],
+    "condition_count": [2, 3],
+    "condition_pool": ["budget_conflict", "schedule_conflict", "integration_conflict"],
+    "artifact_version_increase_expected": true,
+    "specialist_direct_interaction_possible": true
+  }
+}

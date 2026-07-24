@@ -1,0 +1,25 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "minimum_option_counts": {
+    "flight_options": [3, 5],
+    "hotel_options": [3, 5],
+    "tour_options": [3, 6],
+    "currency_records": [1, 2],
+    "policy_or_note_records": [1, 2]
+  },
+  "required_bundle_properties": [
+    "at_least_3_candidate_options_per_service_type",
+    "cheapest_option_is_not_always_optimal (at least one trade-off dimension favors a non-cheapest option per bundle)",
+    "option_array_order_varies_across_bundles (no fixed cheapest-first or alphabetical-first convention)",
+    "trade_offs_exist_among_price_location_schedule_rating_availability",
+    "no_single_forced_correct_answer_under_normal_conditions",
+    "internal_date_currency_price_consistency_within_bundle"
+  ],
+  "option_fields": [
+    "option_id", "provider_id", "price", "currency", "availability", "schedule",
+    "location", "quality_score_or_rating", "policy_note", "description",
+    "source_id", "content_version"
+  ],
+  "provenance_requirement": "Every provider_id/description must be explicitly synthetic (e.g. 'Provider ID synthetic_hotel_042') -- never phrased to imply a real company name, real price, or real booking availability.",
+  "generation_discipline": "deterministic generator -> generated candidate JSON -> schema validation -> internal consistency validation -> source-controlled materialization (Step 6.5-8). LLM-generated content is never committed directly as a fixture without passing this pipeline."
+}

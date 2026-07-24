@@ -1,0 +1,42 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "schema_version": "travel_a2a_v2_formal_workload_v1",
+  "label_definition": {
+    "normal": {"injection_present": false, "ground_truth_label": 0},
+    "attack_attempted": {"injection_present": true, "ground_truth_label": 1},
+    "attack_success": "goal_success is a DIAGNOSTIC field only -- it never feeds ground_truth_label, and an unsuccessful attack is never removed from the attack pool or relabeled as normal (unchanged from Steps 5-6's core labeling principle)."
+  },
+  "matched_pair_policy": {
+    "unit": "one normal session and one attack session share a byte-identical TravelRequest and byte-identical base external content except the one targeted injection field",
+    "verification": "request_hash_equal / base_content_hash_equal computed independently every run, never trusted from pipeline behavior",
+    "execution_order": "randomized per (order_seed, pair_id), reproducible but not fixed normal-first"
+  },
+  "attack_failure_policy": {
+    "rule": "an attack session that fails to achieve goal_success remains ground_truth_label = 1 (attack_attempted) and stays in every aggregate -- never filtered, removed, or relabeled",
+    "rationale": "matches the LightGAE threat model: the detector must recognize an injection ATTEMPT from communication metadata, independent of whether the attempt succeeded"
+  },
+  "split_unit": {
+    "unit": "task_group_id",
+    "invariants": [
+      "all repeats of a task_instance_id share one split",
+      "a task_instance's normal/attack matched pair shares one split",
+      "all task_instances in a task_group_id share one split"
+    ]
+  },
+  "threshold_data_policy": {
+    "rule": "no threshold, scaler, or feature-selection fitting happens on formal_workload data in Step 6.5 or Step 6 -- that begins in a later step (Step 7+), and even then must fit only on the primary_group_split's train partition",
+    "test_and_secondary_split_isolation": "validation/test/unseen_template_split data must never be used to fit any threshold or scaler"
+  },
+  "content_exclusion_policy": {
+    "rule": "raw prompt/response text, raw Ollama telemetry payloads, session UUIDs, absolute file paths, and hardware info are excluded from any content-free summary/report",
+    "reference": "same FORBIDDEN_METADATA_KEYS discipline as Steps 2/5/6 (experiments/real_llm/travel_a2a/models.py)"
+  },
+  "leakage_prevention_policy": {
+    "checks": [
+      "DESTINATION_SPLIT_LEAKAGE", "TEMPLATE_SPLIT_LEAKAGE", "OPTION_POSITION_BIAS",
+      "PRICE_RANK_BIAS", "CONTENT_LENGTH_BIAS", "ATTACK_BRANCH_CONFOUND",
+      "CONTENT_BUNDLE_REUSE_LEAKAGE", "NORMAL_ATTACK_CONFIG_MISMATCH"
+    ],
+    "implemented_in": "validate_shortcut_risks() (Phase 6.5C) -- not yet implemented as of Phase 6.5A"
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "experiment_version": "travel_a2a_v2",
+  "environment_type": "a2a_inspired_travel",
+  "graph_source": "interaction_events",
+  "llm_backend": "ollama",
+  "model_name": "llama3.2",
+  "schema_version": "raw_metadata_schema_v1",
+  "step": "Step 7A",
+
+  "scope_note": "This schema covers RUNTIME communication/telemetry metadata only -- i.e. what a live agent session (mock or Ollama-backed) produces while executing a task. It deliberately excludes dataset-generation provenance (generation_seed, generator_version, workload_version, task_group_id, split, hard_normal_tags) -- those already live in formal_workload_models.TaskInstance / dataset_policy.json and are governed by Step 6.5's diagnostic-vs-LLM-input boundary, not by this schema. It also excludes every FORBIDDEN_METADATA_KEYS entry (models.py) -- ground-truth/attack-diagnostic fields are never eligible raw material for a candidate feature, full stop; see excluded_ground_truth_fields below.",
+
+  "layers": {
+    "node": {
+      "description": "One agent's own internal execution of one WorkflowAction (an LLM call, or a purely-internal action with no communication). Exactly one record per agent action.",
+      "raw_source_class": "models.AgentCallRecord",
+      "produced_by": "ollama_executor.OllamaAgentExecutor.execute() (ollama_runtime) / mock_agents.py (deterministic_mock)",
+      "unit_of_observation": "agent_call_record",
+      "fields": [
+        {"name": "agent_id", "dtype": "str", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Which of the 5 agents (travel_coordinator/flight_agent/hotel_agent/currency_agent/tours_agent) executed this call.", "known_confound": null},
+        {"name": "action_type", "dtype": "str", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Workflow action kind (e.g. search_flights, integrate_itinerary) -- see workflow_policy.py.", "known_confound": null},
+        {"name": "llm_called", "dtype": "bool", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Whether this action actually invoked the LLM (some actions are purely internal, e.g. artifact_integration).", "known_confound": null},
+        {"name": "wall_clock_latency_ms", "dtype": "float|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "call_end_timestamp - call_start_timestamp in ms. Real elapsed time under ollama_runtime; a fixed synthetic increment under deterministic_mock (see timing_source).", "known_confound": null},
+        {"name": "model_name", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama model identifier (e.g. llama3.2). Constant across this workload's single-model runs -- see Dataset Card 'one local model' limitation.", "known_confound": null},
+        {"name": "model_digest", "dtype": "str|null", "status": "field_exists_not_populated", "candidate_only": false, "deployment_available": false,
+         "description": "Reserved for a model build/checksum identifier; ollama_executor.py always passes None today.", "known_confound": null},
+        {"name": "prompt_eval_count", "dtype": "int|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama-reported input (prompt) token count for this call.", "known_confound": null},
+        {"name": "eval_count", "dtype": "int|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama-reported output (generation) token count for this call.", "known_confound": null},
+        {"name": "prompt_eval_duration", "dtype": "int|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama-reported prompt-evaluation duration (ns).", "known_confound": null},
+        {"name": "eval_duration", "dtype": "int|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama-reported generation duration (ns).", "known_confound": null},
+        {"name": "total_duration", "dtype": "int|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama-reported total call duration (ns), includes load_duration.", "known_confound": null},
+        {"name": "load_duration", "dtype": "int|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama-reported model-load duration (ns); near-zero once the model is warm.", "known_confound": null},
+        {"name": "done_reason", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Ollama-reported generation stop reason (e.g. stop, length).", "known_confound": null},
+        {"name": "retry_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Passthrough from ask_ollama; ask_ollama itself has no retry loop yet (see ollama_executor.py docstring), so always 0 today.", "known_confound": null},
+        {"name": "error_flag", "dtype": "bool", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Whether the Ollama call itself errored.", "known_confound": null},
+        {"name": "error_type", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Fixed to 'ollama_request_error' when error_flag is set, else null -- not yet a differentiated taxonomy.", "known_confound": null},
+        {"name": "temperature", "dtype": "float|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Sampling temperature used for this call.", "known_confound": null},
+        {"name": "top_p", "dtype": "float|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Sampling top_p used for this call.", "known_confound": null},
+        {"name": "seed", "dtype": "int|null", "status": "collected", "candidate_only": false, "deployment_available": false,
+         "description": "Sampling seed passed to ask_ollama -- a reproducibility control for THIS harness, not a signal a deployed detector would see identically across runs.", "known_confound": null},
+        {"name": "input_part_ids", "dtype": "list[str]", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Foreign keys; count (input_part_count) is the actual candidate quantity, not the ID list itself.", "known_confound": null},
+        {"name": "input_artifact_ids", "dtype": "list[str]", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Foreign keys; count (input_artifact_count) is the actual candidate quantity.", "known_confound": null},
+        {"name": "output_part_ids", "dtype": "list[str]", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Foreign keys; count (output_part_count) is the actual candidate quantity.", "known_confound": null},
+        {"name": "output_artifact_ids", "dtype": "list[str]", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Foreign keys; count (output_artifact_count) is the actual candidate quantity.", "known_confound": null}
+      ]
+    },
+
+    "edge": {
+      "description": "One directed inter-agent communication (a graph edge). Produced only for actions that actually communicate -- purely-internal actions (see workflow_policy.INTERNAL_ACTION_TYPES) get a node-level AgentCallRecord but no edge.",
+      "raw_source_class": "models.InteractionEvent",
+      "unit_of_observation": "interaction_event",
+      "fields": [
+        {"name": "sender_id", "dtype": "str", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Edge source agent.", "known_confound": null},
+        {"name": "receiver_id", "dtype": "str", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Edge target agent.", "known_confound": null},
+        {"name": "interaction_type", "dtype": "enum", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "task_submission | task_delegation | artifact_delivery | clarification_request | clarification_response | revision_request | status_update | task_completion.", "known_confound": null},
+        {"name": "status_before", "dtype": "enum|null", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "TaskStatus before this event.", "known_confound": null},
+        {"name": "status_after", "dtype": "enum|null", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "TaskStatus after this event.", "known_confound": null},
+        {"name": "status_transition_valid", "dtype": "bool|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Whether status_before -> status_after is a structurally valid transition (dispatch.py, diagnostic mode -- never raises).", "known_confound": null},
+        {"name": "wall_clock_latency_ms", "dtype": "float|null (computed property)", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "end_timestamp - start_timestamp. The spec's 'edge_latency' is this field, not a separately-stored one.", "known_confound": null},
+        {"name": "time_since_previous_event_ms", "dtype": "float|null (computed property)", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "start_timestamp - previous_event_timestamp -- inter-arrival gap on this event's session timeline.", "known_confound": null},
+        {"name": "llm_called", "dtype": "bool", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Whether an LLM call underlies this communication.", "known_confound": null},
+        {"name": "model_name", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Same as node-level model_name, denormalized onto the edge.", "known_confound": null},
+        {"name": "retry_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Passthrough, see node-level retry_count.", "known_confound": null},
+        {"name": "error_flag", "dtype": "bool", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Whether this communication's underlying call errored.", "known_confound": null},
+        {"name": "done_reason", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Same as node-level done_reason.", "known_confound": null},
+        {"name": "part_ids", "dtype": "list[str]", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Foreign keys; part_count (len(part_ids)) is the actual candidate quantity -- the spec's 'part_count'.", "known_confound": null},
+        {"name": "artifact_ids", "dtype": "list[str]", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Foreign keys; artifact_count (len(artifact_ids)) is the actual candidate quantity.", "known_confound": null},
+        {"name": "payload_size_bytes", "dtype": "int", "status": "planned_not_collected", "candidate_only": false, "deployment_available": true,
+         "description": "Not stored directly on InteractionEvent today; derivable by summing Part.size_bytes for this event's part_ids (a join, not a stored field). Listed because the Step 7 spec calls for it explicitly; Phase 7B's edge feature generator computes it as a derived candidate rather than a raw field.", "known_confound": null},
+        {"name": "message_id", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Foreign key to the underlying Message.", "known_confound": null}
+      ]
+    },
+
+    "session": {
+      "description": "Aggregates computed once per completed task session (over that session's full set of events/messages/artifacts/agent_call_records). Currently produced by two independent aggregators for two different purposes -- metadata_delta.py (matched normal/attack pair deltas, Step 6) and formal_workload_mock_run.py (per-task diagnostic outcome, Step 6.5D) -- both listed since Step 7's candidate pool must draw from whichever is the actual source of truth for a given field.",
+      "raw_source_functions": ["metadata_delta._agent_call_aggregate", "metadata_delta._event_aggregate", "metadata_delta._artifact_aggregate", "formal_workload_mock_run.TaskMockRunOutcome"],
+      "unit_of_observation": "session (one task_id / one TaskMockRunOutcome)",
+      "fields": [
+        {"name": "event_count", "dtype": "int", "status": "collected", "candidate_only": true, "deployment_available": true,
+         "description": "Total InteractionEvent count for the session.", "known_confound": "difficulty -- Phase 6.5D found event_count ranges completely non-overlapping across easy/medium/hard tiers (see difficulty_behavior_report.json, DIFFICULTY_EVENT_COUNT_CONFOUND). Must not be adopted as a core feature without controlling for difficulty."},
+        {"name": "message_count", "dtype": "int", "status": "collected", "candidate_only": true, "deployment_available": true,
+         "description": "Total Message count for the session.", "known_confound": "difficulty -- same non-overlapping-range finding as event_count (DIFFICULTY_MESSAGE_COUNT_CONFOUND)."},
+        {"name": "unique_directed_pair_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Distinct (sender, receiver) pairs observed -- the spec's 'unique_edge_count'.", "known_confound": null},
+        {"name": "repeated_pair_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Count of directed pairs seen more than once in the session -- the closest existing analogue to the spec's 'parallel_edge_count' (this graph is temporal/sequential, not concurrent, so 'parallel' here means repeated-over-time, not simultaneous).", "known_confound": null},
+        {"name": "status_transition_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Count of events where status_before != status_after.", "known_confound": null},
+        {"name": "artifact_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Total Artifact count for the session.", "known_confound": null},
+        {"name": "artifact_version_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Sum of Artifact.version across the session -- a revision-volume proxy at the artifact level.", "known_confound": null},
+        {"name": "artifact_size_bytes_total", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Sum of Part.size_bytes across the session (metadata_delta._artifact_aggregate).", "known_confound": null},
+        {"name": "record_count_total", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Sum of Artifact.record_count across the session.", "known_confound": null},
+        {"name": "revision_count", "dtype": "int", "status": "collected", "candidate_only": true, "deployment_available": true,
+         "description": "Count of revision_request-type messages (metadata_delta calls this revision_request_count).", "known_confound": "difficulty/branch -- 15/15 (100%) hard-difficulty tasks exhibit budget_revision (hard_budget_confound_report.json, recommend_redesign=true). See Dataset Card 'Known limitations'."},
+        {"name": "clarification_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Count of clarification_request-type messages (metadata_delta calls this clarification_request_count).", "known_confound": null},
+        {"name": "active_agents", "dtype": "list[str]", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Sorted distinct sender/receiver agent_ids; active_agent_count (len) is the actual candidate quantity.", "known_confound": null},
+        {"name": "active_agent_mask", "dtype": "dict[str,bool]", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Per-agent boolean activation (the LightGAE-input-readiness diagnostic from Step 6.5D).", "known_confound": null},
+        {"name": "prompt_eval_count_mean / eval_count_mean / prompt_eval_duration_mean / eval_duration_mean / total_duration_mean / load_duration_mean / wall_clock_latency_ms_mean", "dtype": "float|null", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "Session-level mean of each node-level Ollama timing/token field across that session's LLM-called AgentCallRecords (metadata_delta._agent_call_aggregate) -- one derived field per underlying node-level field.", "known_confound": null},
+        {"name": "call_count_by_agent", "dtype": "dict[str,int]", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Per-agent AgentCallRecord count for the session.", "known_confound": null},
+        {"name": "total_call_count / llm_call_count", "dtype": "int", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Session-total AgentCallRecord count / subset with llm_called=True.", "known_confound": null},
+        {"name": "task_status", "dtype": "enum", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Final TaskStatus of the session.", "known_confound": null},
+        {"name": "final_travel_plan_present", "dtype": "bool", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Whether a FINAL_TRAVEL_PLAN artifact was produced.", "known_confound": null},
+        {"name": "adjacency_signature", "dtype": "list[[str,str]]", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "MODEL_AGENT_ORDER-restricted unique directed pairs -- the diagnostic LightGAE-input-readiness view from Step 6.5D, not a scalar feature.", "known_confound": null},
+        {"name": "workflow_duration", "dtype": "float (ms)", "status": "planned_not_collected", "candidate_only": true, "deployment_available": true,
+         "description": "Not currently aggregated anywhere as a session-total wall-clock span. Derivable from the first event's start_timestamp and the last event's end_timestamp once real ollama_runtime timestamps exist; meaningless as an actual duration under deterministic_mock (DeterministicClock uses fixed synthetic increments, not real elapsed time) -- would ALSO need a difficulty-confound check before use, since it necessarily correlates with event_count.", "known_confound": "difficulty (inherits event_count's confound once implemented)"}
+      ]
+    },
+
+    "runtime": {
+      "description": "Descriptors of what produced the data (backend/config/provenance), constant within a call or session -- as opposed to node/edge/session layers, which describe what HAPPENED. Kept as its own layer so a future cross-backend or cross-model comparison has an explicit place to look, and so schema consumers never mistake a config identifier for a behavioral signal.",
+      "raw_source_class": "models.AgentCallRecord / models.InteractionEvent (denormalized fields)",
+      "unit_of_observation": "call or session (field is constant across the unit)",
+      "fields": [
+        {"name": "timing_source", "dtype": "enum", "status": "collected", "candidate_only": false, "deployment_available": true,
+         "description": "'deterministic_mock' | 'ollama_runtime' -- required provenance tag so mock timing can never be silently mixed into real telemetry (models.py Step 3-7 comment). MUST be used to partition any timing-based feature's training/eval data, never itself fed in as a feature value.", "known_confound": null},
+        {"name": "prompt_config_version", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Which prompt template set produced this call (prompt_builders.py).", "known_confound": null},
+        {"name": "agent_config_version", "dtype": "str|null", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Which agent behavioral config produced this call.", "known_confound": null},
+        {"name": "model_name", "dtype": "str", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "llama3.2 for every session in this workload -- see Dataset Card 'one local model' limitation; a constant, not a discriminative signal, until a second model is ever run.", "known_confound": null},
+        {"name": "llm_backend", "dtype": "str", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "'ollama' -- fixed for this project.", "known_confound": null},
+        {"name": "schema_version", "dtype": "str", "status": "collected", "candidate_only": false, "deployment_available": true, "description": "Object schema version tag present on every models.py dataclass instance.", "known_confound": null}
+      ]
+    }
+  },
+
+  "excluded_ground_truth_fields": {
+    "rule": "Every key in models.FORBIDDEN_METADATA_KEYS is permanently out of scope for this schema and for every downstream candidate-feature layer (7B/7C/7D) -- these are ground-truth/attack-diagnostic values, verified empty-intersection against every *_to_metadata_dict() output by unit test in every one of Steps 2/5/6/6.5's test suites, and this schema must never reverse that guarantee by listing one of them as raw material.",
+    "reference": "models.FORBIDDEN_METADATA_KEYS"
+  },
+
+  "out_of_scope_dataset_provenance_fields": {
+    "rule": "task_instance_id, template_id, task_group_id, content_bundle_id, expected_normal_branches, split, hard_normal_tags, generation_seed, generator_version, workload_version -- these describe HOW A TASK WAS GENERATED (Step 6.5's formal_workload_models.TaskInstance), not what happened during its execution. They are excluded from TaskInstance.to_travel_request_kwargs() (the LLM-input boundary) for the same reason they are excluded here: a detector must key on communication behavior, never on which dataset bucket a task came from.",
+    "reference": "formal_workload_models.TaskInstance.to_travel_request_kwargs()"
+  }
+}
